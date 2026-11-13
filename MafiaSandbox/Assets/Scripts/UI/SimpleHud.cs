@@ -2,6 +2,8 @@ using UnityEngine;
 using MafiaSandbox.Core;
 using MafiaSandbox.Combat;
 using MafiaSandbox.Vehicles;
+using MafiaSandbox.Economy;
+using MafiaSandbox.Player;
 
 namespace MafiaSandbox.UI
 {
@@ -32,15 +34,27 @@ namespace MafiaSandbox.UI
             // top-left: fps + help
             GUI.Box(new Rect(12, 12, 400, 26), $"FPS {fps:0}   {(Cursor.lockState == CursorLockMode.Locked ? "Esc: free cursor" : "Click to look around")}   H: help", box);
             if (showHelp)
-                GUI.Box(new Rect(12, 42, 400, 70), "WASD move · Shift sprint · C crouch · Space jump · V first person · R home\n1–6 weapons · RMB aim · LMB fire / swing · E enter/exit car\nCar: W/S gas, A/D steer, Space handbrake", box);
+                GUI.Box(new Rect(12, 42, 430, 88), "WASD move · Shift sprint · C crouch · Space jump · V first person · R home\n1–6 weapons · RMB aim · LMB fire / swing · E enter/exit car\nF take / buy / trade / search body · G steal · Tab backpack · M map\nCar: W/S gas, A/D steer, Space handbrake", box);
 
-            // bottom-left: health + weapon
-            float hp = body ? Mathf.Clamp01(body.hp / (float)body.maxHp) : 1f;
-            GUI.color = new Color(0, 0, 0, 0.55f); GUI.DrawTexture(new Rect(12, H - 74, 240, 62), white);
-            GUI.color = new Color(0.2f, 0.2f, 0.2f); GUI.DrawTexture(new Rect(22, H - 64, 220, 12), white);
-            GUI.color = Color.Lerp(new Color(0.9f, 0.2f, 0.2f), new Color(0.3f, 0.85f, 0.4f), hp); GUI.DrawTexture(new Rect(22, H - 64, 220 * hp, 12), white);
+            // bottom-left: vitals (health / stamina / food) + weapon + cash
+            float hp = body ? Mathf.Clamp01(body.hp / (float)body.maxHp) : 1f; var vit = Vitals.I; var eco = EconomyManager.I;
+            float panelX = 212f;   // right of the minimap
+            GUI.color = new Color(0, 0, 0, 0.55f); GUI.DrawTexture(new Rect(panelX, H - 96, 270, 84), white);
+            void Bar(float y, string name, float v, Color c)
+            {
+                GUI.color = Color.white; GUI.Label(new Rect(panelX + 10, y - 3, 70, 18), name, logStyle);
+                GUI.color = new Color(0.2f, 0.2f, 0.2f); GUI.DrawTexture(new Rect(panelX + 78, y, 180, 10), white);
+                GUI.color = c; GUI.DrawTexture(new Rect(panelX + 78, y, 180 * Mathf.Clamp01(v), 10), white);
+            }
+            Bar(H - 88, "HEALTH", hp, Color.Lerp(new Color(0.9f, 0.2f, 0.2f), new Color(0.3f, 0.85f, 0.4f), hp));
+            Bar(H - 72, "STAMINA", vit ? vit.stamina / 100f : 1f, vit && vit.Exhausted ? new Color(0.9f, 0.4f, 0.2f) : new Color(0.36f, 0.62f, 0.95f));
+            Bar(H - 56, "FOOD", vit ? vit.hunger / 100f : 1f, vit && vit.hunger < 30f ? new Color(0.9f, 0.35f, 0.35f) : new Color(0.91f, 0.6f, 0.29f));
             GUI.color = Color.white;
-            GUI.Label(new Rect(22, H - 48, 230, 24), combat ? $"{combat.Weapon.name}   ·   kills {gm.Kills}" : "", logStyle);
+            GUI.Label(new Rect(panelX + 10, H - 36, 260, 22), combat ? $"{combat.Weapon.name}   ·   kills {gm.Kills}" : "", logStyle);
+            if (eco) { var cs = new GUIStyle(big) { fontSize = 20, alignment = TextAnchor.MiddleRight }; cs.normal.textColor = new Color(0.56f, 0.9f, 0.6f); GUI.Box(new Rect(W - 150, 12, 138, 36), $"${eco.cash}", cs); }
+            // interaction prompt
+            var inter = gm.player.GetComponent<PlayerInteraction>();
+            if (inter && !string.IsNullOrEmpty(inter.Prompt) && !(vi && vi.Current) && !UI.GameUI.Blocking) GUI.Box(new Rect(W / 2f - 190, H - 100, 380, 28), inter.Prompt, box);
             // wanted stars (top centre)
             var ws = WantedSystem.I; int lvl = ws ? ws.Level : 0;
             if (lvl > 0)

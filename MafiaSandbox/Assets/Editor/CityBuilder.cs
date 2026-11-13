@@ -161,6 +161,9 @@ namespace MafiaSandbox.EditorTools
                 // building-local points → world: local x along building's X, z along its Z (meta coordinates), rotated by rotY
                 Vector3 Local(float lx, float ly, float lz) => go.transform.TransformPoint(Coords.ToUnity(lx, ly, lz));
                 bi.keeperPos = Local(b.keeper.x, 0f, b.keeper.z); bi.keeperYaw = go.transform.eulerAngles.y + Coords.YawToUnity(b.keeper.rot);
+                if (b.keeper2 != null && (b.keeper2.x != 0f || b.keeper2.z != 0f)) { bi.hasKeeper2 = true; bi.keeper2Pos = Local(b.keeper2.x, 0f, b.keeper2.z); bi.keeper2Yaw = go.transform.eulerAngles.y + Coords.YawToUnity(b.keeper2.rot); }
+                if (b.ownerSpot != null && (b.ownerSpot.x != 0f || b.ownerSpot.z != 0f)) { bi.hasOwner = true; bi.ownerPos = Local(b.ownerSpot.x, 0f, b.ownerSpot.z); bi.ownerYaw = go.transform.eulerAngles.y + Coords.YawToUnity(b.ownerSpot.rot); }
+                if (b.safe != null && (b.safe.x != 0f || b.safe.z != 0f)) { bi.hasSafe = true; bi.safePos = Local(b.safe.x, 0f, b.safe.z); }
                 var shelves = new List<Vector3>(); foreach (var s in b.shelves) shelves.Add(Local(s.x, s.y, s.z)); bi.shelves = shelves.ToArray();
                 var seats = new List<Vector3>(); foreach (var s in b.seats) seats.Add(Local(s.x, 0f, s.z)); bi.seats = seats.ToArray();
                 var lo = Coords.ToUnityXZ(b.min[0], b.min[1]); var hi = Coords.ToUnityXZ(b.max[0], b.max[1]);
@@ -214,6 +217,7 @@ namespace MafiaSandbox.EditorTools
                 player.AddComponent<VehicleInteraction>();
                 var pbody = player.AddComponent<MafiaSandbox.Combat.CharacterBody>(); pbody.isPlayer = true; pbody.maxHp = 10; pbody.hp = 10;
                 var combat = player.AddComponent<MafiaSandbox.Combat.PlayerCombat>();
+                player.AddComponent<Vitals>(); player.AddComponent<MafiaSandbox.Economy.PlayerInteraction>();
                 int chLayer = LayerMask.NameToLayer("Characters"); if (chLayer >= 0) player.layer = chLayer;
                 combat.shootMask = chLayer >= 0 ? ~(1 << chLayer) : ~0;
                 if (!model.GetComponentInChildren<Animation>()) Debug.LogWarning("[MafiaSandbox] Player model has no Legacy Animation component — run MafiaSandbox ▸ 1. Setup first (then rebuild the scene).");
@@ -261,7 +265,12 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); gm.gameObject.AddComponent<Minimap>();
+            // economy: item prefabs (Esya_*) for shelves, loot and drops
+            var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();
+            var itemPrefabs = new List<GameObject>();
+            foreach (var guid in AssetDatabase.FindAssets("Esya_", new[] { PropsDir })) { var path = AssetDatabase.GUIDToAssetPath(guid); if (!path.EndsWith(".glb")) continue; var pf = AssetDatabase.LoadAssetAtPath<GameObject>(path); if (pf) itemPrefabs.Add(pf); }
+            eco.itemPrefabs = itemPrefabs.ToArray();
 
             // --- save
             Directory.CreateDirectory("Assets/Scenes");

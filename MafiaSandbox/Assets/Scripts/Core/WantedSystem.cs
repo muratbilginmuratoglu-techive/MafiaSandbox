@@ -24,6 +24,9 @@ namespace MafiaSandbox.Core
             if (Level > before) GameManager.I?.Say($"Wanted {new string('★', Level)} — {why}");
         }
 
+        /// <summary>Raise to at least `level` stars.</summary>
+        public void Raise(int level, string why) { if (Level < level) Add(level - Level, why); else SinceSeen = 0f; }
+
         public void Seen(Vector3 playerPos) { SinceSeen = 0f; LastKnownPlayerPos = playerPos; }
 
         public void Clear() { Level = 0; PoliceHostile = false; SinceSeen = 999f; }

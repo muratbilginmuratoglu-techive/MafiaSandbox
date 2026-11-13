@@ -31,7 +31,8 @@ namespace MafiaSandbox.Player
         public float? FaceYaw { get; set; }
         /// <summary>Optional locomotion clip override (aiming / melee stances): gets (moving, running) → clip name or null.</summary>
         public System.Func<bool, bool, string> LocomotionOverride { get; set; }
-        public float SpeedScale { get; set; } = 1f;     // injuries, exhaustion (step 5)
+        public float SpeedScale { get; set; } = 1f;     // injuries, hunger
+        public bool SprintAllowed { get; set; } = true;  // set by Vitals (exhaustion)
 
         CharacterController cc;
         Vector3 velocity;
@@ -53,7 +54,7 @@ namespace MafiaSandbox.Player
 
             Vector2 input = InputLocked ? Vector2.zero : new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
             if (!InputLocked && Input.GetKeyDown(KeyCode.C)) SetCrouch(!IsCrouching);
-            IsRunning = !InputLocked && Input.GetKey(KeyCode.LeftShift) && !IsCrouching && input.sqrMagnitude > 0.01f;
+            IsRunning = !InputLocked && SprintAllowed && Input.GetKey(KeyCode.LeftShift) && !IsCrouching && input.sqrMagnitude > 0.01f;
 
             // camera-relative move direction
             Vector3 fwd = cameraTransform ? cameraTransform.forward : Vector3.forward; fwd.y = 0f; fwd.Normalize();

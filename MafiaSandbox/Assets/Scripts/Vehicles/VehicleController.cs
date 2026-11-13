@@ -27,7 +27,7 @@ namespace MafiaSandbox.Vehicles
 
         Rigidbody rb; bool lifted; int groundMask; float fallV;
         float speed, throttle, steer; bool handbrake;
-        Transform[] wheels;                      // optional: nodes named Wheel_* spin for show
+        Transform[] wheels; Vector3[] wheelAxes;  // optional: nodes named Wheel_* spin for show (axle axis per wheel)
 
         void Awake()
         {
@@ -47,9 +47,18 @@ namespace MafiaSandbox.Vehicles
             var box = GetComponent<BoxCollider>(); if (box && !lifted) { box.center += Vector3.up * 0.3f; lifted = true; }
             rb.useGravity = false; rb.maxDepenetrationVelocity = 2f;
             groundMask = 1 << 0;   // Default: roads, terrain, ramps
-            var list = new System.Collections.Generic.List<Transform>();
-            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Wheel_")) list.Add(t);
-            wheels = list.ToArray();
+            var list = new System.Collections.Generic.List<Transform>(); var axes = new System.Collections.Generic.List<Vector3>();
+            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Wheel_"))
+            {
+                list.Add(t);
+                // the wheel's axle is whichever of its local axes lines up with the car's right vector (the glTF import
+                // mirrors X and the model sits rotated under the root, so this is found rather than assumed)
+                Vector3 best = Vector3.right; float bd = -1f;
+                foreach (var ax in new[] { Vector3.right, Vector3.up, Vector3.forward })
+                { float d = Vector3.Dot(t.TransformDirection(ax), transform.right); if (Mathf.Abs(d) > Mathf.Abs(bd)) { bd = d; best = ax; } }
+                axes.Add(best * Mathf.Sign(bd));
+            }
+            wheels = list.ToArray(); wheelAxes = axes.ToArray();
         }
 
         public void SetControlled(bool on) { Controlled = on; if (!on) { throttle = 0f; steer = 0f; handbrake = true; } }
@@ -67,7 +76,7 @@ namespace MafiaSandbox.Vehicles
             if (wheels != null && Mathf.Abs(speed) > 0.05f)
             {
                 float deg = speed / 0.34f * Mathf.Rad2Deg * Time.deltaTime;
-                foreach (var w in wheels) w.Rotate(Vector3.right, deg, Space.Self);
+                for (int i = 0; i < wheels.Length; i++) wheels[i].Rotate(wheelAxes[i], deg, Space.Self);
             }
         }
 

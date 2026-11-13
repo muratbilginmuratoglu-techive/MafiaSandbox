@@ -5,6 +5,7 @@ namespace MafiaSandbox.World
     /// <summary>Sun + ambient over a 24 h cycle. Like the prototype: 1 real minute = 1 game hour. Put it on the Directional Light.</summary>
     public class DayNightCycle : MonoBehaviour
     {
+        public static DayNightCycle I { get; private set; }
         [Range(0f, 24f)] public float timeOfDay = 13f;
         public float hoursPerRealSecond = 1f / 60f;
         public bool paused;
@@ -16,7 +17,7 @@ namespace MafiaSandbox.World
         void Reset() { BuildDefaults(); }
         void Awake()
         {
-            sun = GetComponent<Light>();
+            I = this; sun = GetComponent<Light>();
             if (sunColor == null || sunColor.colorKeys.Length == 0) BuildDefaults();
         }
 

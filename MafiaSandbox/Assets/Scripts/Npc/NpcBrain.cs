@@ -32,6 +32,8 @@ namespace MafiaSandbox.Npc
         protected static PlayerController Player => GameManager.I ? GameManager.I.player : null;
         protected static CharacterBody PlayerBody => GameManager.I && GameManager.I.player ? GameManager.I.player.GetComponent<CharacterBody>() : null;
         protected static WantedSystem Wanted => WantedSystem.I;
+        public bool Dead => body && body.Dead;
+        public CharacterBody Body => body;
         protected Vector3 Eye => transform.position + Vector3.up * 1.6f;
         protected float DistToPlayer => Player ? Vector3.Distance(transform.position, Player.transform.position) : 999f;
         protected bool PlayerInVehicle { get { if (!Player) return false; var vi = Player.GetComponent<Vehicles.VehicleInteraction>(); return vi != null && vi.Current != null; } }
@@ -166,6 +168,7 @@ namespace MafiaSandbox.Npc
         }
 
         // ------------------------------------------------------------ perception helpers
+        public bool SeesPlayer(float range, float fov = 120f) => CanSeePlayer(range, fov);
         protected bool CanSeePlayer(float range, float fov = 120f) => PlayerBody && !PlayerBody.Dead && Perception.CanSee(Eye, transform.forward, PlayerBody, range, fov);
         protected bool CanSee(CharacterBody b, float range, float fov = 120f) => b && Perception.CanSee(Eye, transform.forward, b, range, fov);
 

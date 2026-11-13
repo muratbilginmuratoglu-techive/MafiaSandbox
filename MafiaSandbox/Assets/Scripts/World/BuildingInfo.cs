@@ -12,6 +12,9 @@ namespace MafiaSandbox.World
         public Vector3 counter;
         public Vector3 keeperPos;
         public float keeperYaw;
+        public bool hasKeeper2; public Vector3 keeper2Pos; public float keeper2Yaw;   // bank: second teller
+        public bool hasOwner; public Vector3 ownerPos; public float ownerYaw;         // houses: the resident
+        public bool hasSafe; public Vector3 safePos;                                  // pawn / jeweler / bank vault
         public Vector3[] shelves;    // item spawn points
         public Vector3[] seats;
         public Bounds footprint;

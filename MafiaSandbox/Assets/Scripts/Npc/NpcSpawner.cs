@@ -59,8 +59,10 @@ namespace MafiaSandbox.Npc
             // shopkeepers
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None))
             {
-                if (bi.kind == "house" || bi.kind == "home" || bi.kind == "police") continue;
+                if (bi.kind == "home" || bi.kind == "police") continue;
+                if (bi.kind == "house") { if (bi.hasOwner && Random.value < 0.6f) { var o = Spawn<KeeperBrain>(Pick("Vatandas"), bi.ownerPos, bi.ownerYaw); o.building = bi; o.role = "owner"; o.displayName = string.IsNullOrEmpty(bi.ownerName) ? "Resident" : bi.ownerName; } continue; }
                 var k = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeperPos, bi.keeperYaw); k.building = bi; k.displayName = bi.label + " keeper";
+                if (bi.hasKeeper2) { var k2 = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeper2Pos, bi.keeper2Yaw); k2.building = bi; k2.displayName = bi.label + " teller"; }
             }
         }
 

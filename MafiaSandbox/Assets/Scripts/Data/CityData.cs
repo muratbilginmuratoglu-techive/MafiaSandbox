@@ -35,7 +35,7 @@ namespace MafiaSandbox.Data
     {
         public string name, kind, label, owner;
         public float[] pos; public float rotY; public float[] min, max, door, counter, size;
-        public SolidData[] solids; public ShelfData[] shelves; public SeatData[] seats; public KeeperData keeper;
+        public SolidData[] solids; public ShelfData[] shelves; public SeatData[] seats; public KeeperData keeper; public KeeperData keeper2; public KeeperData ownerSpot; public SeatData safe; public SeatData register;
     }
 
     [Serializable] public class SolidData { public float x, z, w, d, h; }

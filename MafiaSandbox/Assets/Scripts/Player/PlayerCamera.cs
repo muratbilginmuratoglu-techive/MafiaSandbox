@@ -30,9 +30,10 @@ namespace MafiaSandbox.Player
 
         public bool FirstPerson { get; private set; }
         public float Yaw => yaw;
+        public void SetYaw(float y, float p = 10f) { yaw = y; pitch = p; }
         public float Pitch => pitch;
 
-        float yaw, pitch = 12f, kick, kickYaw, curDist, curShoulder;
+        float yaw, pitch = 12f, kick, kickYaw, curDist, curShoulder; bool wasSqueezed;
         Camera cam;
         Renderer[] targetRenderers;
 
@@ -56,8 +57,8 @@ namespace MafiaSandbox.Player
 
         void Update()
         {
-            if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
-            if (Input.GetKeyDown(KeyCode.Escape)) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && !MafiaSandbox.UI.GameUI.Blocking) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
+            if (Input.GetKeyDown(KeyCode.Escape) && !MafiaSandbox.UI.GameUI.Blocking) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
             if (Input.GetKeyDown(KeyCode.V) && !vehicleTarget) SetFirstPerson(!FirstPerson);
 
             if (Cursor.lockState == CursorLockMode.Locked)
@@ -90,8 +91,13 @@ namespace MafiaSandbox.Player
 
             Vector3 desired = pivot + rot * new Vector3(curShoulder, 0f, -curDist);
             Vector3 dir = desired - pivot; float len = dir.magnitude;
+            bool squeezed = false;
             if (Physics.SphereCast(pivot, 0.22f, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
-                desired = pivot + dir / len * Mathf.Max(0.35f, hit.distance - 0.08f);
+            {
+                if (hit.distance < 0.6f) { squeezed = true; desired = pivot + rot * new Vector3(0f, 0.05f, 0.15f); }   // back to a wall (shop interiors): go first-person for the moment
+                else desired = pivot + dir / len * Mathf.Max(0.35f, hit.distance - 0.08f);
+            }
+            if (squeezed != wasSqueezed) { wasSqueezed = squeezed; if (targetRenderers != null) foreach (var r in targetRenderers) r.shadowCastingMode = squeezed ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On; }
             transform.SetPositionAndRotation(desired, rot);
         }
 

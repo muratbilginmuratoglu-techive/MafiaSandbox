@@ -78,7 +78,7 @@ namespace MafiaSandbox.Core
             else if (by == "vehicle") Say($"{NameOf(b)} was run over");
         }
 
-        bool topDown;
+        bool topDown; int shopCycle = -1;
 
         void Update()
         {
@@ -86,7 +86,7 @@ namespace MafiaSandbox.Core
             if (BannerT > 0f) BannerT -= dt;
             for (int i = Log.Count - 1; i >= 0; i--) { var e = Log[i]; e.t -= dt; if (e.t <= 0f) Log.RemoveAt(i); else Log[i] = e; }
             // slow health regen when not hurt for 8 s
-            if (playerBody && !playerBody.Dead && playerBody.hp < playerBody.maxHp && Time.time - lastHurtT > 8f) { regenT += dt; if (regenT > 5f) { regenT = 0f; playerBody.hp++; } }
+            if (playerBody && !playerBody.Dead && playerBody.hp < playerBody.maxHp && Time.time - lastHurtT > 8f && (!MafiaSandbox.Player.Vitals.I || MafiaSandbox.Player.Vitals.I.hunger > 50f)) { regenT += dt; if (regenT > 5f) { regenT = 0f; playerBody.hp++; } }
             if (Input.GetKeyDown(KeyCode.R) && player && !player.InputLocked && !(playerBody && playerBody.Dead)) Respawn();
             if (Input.GetKeyDown(KeyCode.F11) && playerBody && !playerBody.Dead) playerBody.Hit("torso", playerBody.ChestPos, player.transform.forward, 99, true, 1f, "test");   // F11: test death
             if (Input.GetKeyDown(KeyCode.F10) && player && playerCamera)   // F10: look at the nearest living pedestrian (debug)
@@ -108,6 +108,21 @@ namespace MafiaSandbox.Core
             }
             if (topDown && playerCamera && player) { playerCamera.transform.position = player.transform.position + Vector3.up * 80f; playerCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f); }
             if (Input.GetKeyDown(KeyCode.F4)) { var dn = FindAnyObjectByType<MafiaSandbox.World.DayNightCycle>(); if (dn) { dn.timeOfDay = 13f; dn.paused = !dn.paused; Say(dn.paused ? "Debug: noon, clock paused" : "Debug: clock running"); } }   // F4: noon / pause clock
+            if (Input.GetKeyDown(KeyCode.F1) && MafiaSandbox.Economy.EconomyManager.I) { MafiaSandbox.Economy.EconomyManager.I.cash += 500; Say("Debug: +$500"); }   // F1: cash (debug)
+            if (Input.GetKeyDown(KeyCode.F2) && player && !player.InputLocked)   // F2: teleport into the next shop (debug)
+            {
+                var eco = MafiaSandbox.Economy.EconomyManager.I;
+                if (eco && eco.shops.Count > 0)
+                {
+                    var sh = eco.shops[(++shopCycle) % eco.shops.Count]; var bi = sh.info;
+                    bool hasCounter = bi.kind != "house" && bi.kind != "home" && bi.counter != Vector3.zero;
+                    Vector3 anchor = hasCounter ? bi.counter : bi.footprint.center;
+                    Vector3 toDoor = bi.door - anchor; toDoor.y = 0f; toDoor.Normalize();
+                    Vector3 p = hasCounter ? anchor + toDoor * 1.4f : bi.door - toDoor * 1.5f; p.y = bi.footprint.min.y + 0.1f;
+                    float yaw = Mathf.Atan2(-toDoor.x, -toDoor.z) * Mathf.Rad2Deg;
+                    player.Teleport(p, yaw); if (playerCamera) playerCamera.SetYaw(yaw); Say($"Debug: {bi.label}");
+                }
+            }
             if (Input.GetKeyDown(KeyCode.F3)) { var sb = new System.Text.StringBuilder("[Traffic]\n"); if (player) sb.Append("PLAYER @").Append(player.transform.position.ToString("F2")).Append(" home=").Append(homePosition.ToString("F2")).Append(" station=").Append(policeStationPos.ToString("F1")).Append('\n'); foreach (var d in FindObjectsByType<MafiaSandbox.Vehicles.TrafficDriver>(FindObjectsSortMode.None)) sb.Append(d.name).Append(" @").Append(d.transform.position.ToString("F1")).Append(" yaw").Append(d.transform.eulerAngles.y.ToString("F0")).Append("  ").Append(d.State).Append("  rbv").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().RbVelocity.magnitude.ToString("F1")).Append(" contact(").Append((Time.time - d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContactT).ToString("F0")).Append("s ago) ").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContact).Append('\n'); foreach (var pv in FindObjectsByType<MafiaSandbox.Vehicles.VehicleController>(FindObjectsSortMode.None)) if (pv.isPlayerCar) sb.Append("PLAYER CAR ").Append(pv.name).Append(" @").Append(pv.transform.position.ToString("F2")).Append(" yaw").Append(pv.transform.eulerAngles.y.ToString("F0")).Append(" speed").Append(pv.Speed.ToString("F1")).Append(" rbv").Append(pv.RbVelocity.ToString("F2")).Append(" controlled=").Append(pv.Controlled).Append(" contact(").Append((Time.time - pv.LastContactT).ToString("F0")).Append("s ago) ").Append(pv.LastContact).Append(" ground=").Append(pv.DebugGround).Append('\n');
                 System.IO.File.WriteAllText(System.IO.Path.Combine(Application.dataPath, "..", "traffic_dump.txt"), sb.ToString()); Debug.Log(sb.ToString()); }   // F3: dump traffic state to the console
             if (Input.GetKeyDown(KeyCode.F6)) MafiaSandbox.Vehicles.TrafficDriver.ShowDebug = !MafiaSandbox.Vehicles.TrafficDriver.ShowDebug;   // F6: traffic debug labels
@@ -135,7 +150,7 @@ namespace MafiaSandbox.Core
         {
             if (playerBody && playerBody.Dead) playerBody.Respawn(homePosition, homeYaw);
             else player.Teleport(homePosition, homeYaw);
-            player.InputLocked = false; Arrested = false;
+            player.InputLocked = false; Arrested = false; MafiaSandbox.Player.Vitals.I?.Reset();
             Say("You wake up back home.");
         }
 
@@ -148,6 +163,7 @@ namespace MafiaSandbox.Core
             Say($"{cop.displayName}: Hands behind your back! You're under arrest.");
             player.InputLocked = true;
             var vi = player.GetComponent<VehicleInteraction>(); if (vi && vi.Current) vi.Exit();
+            MafiaSandbox.Economy.EconomyManager.I?.OnArrested();
             StartCoroutine(ReleaseAfter(3.5f));
         }
 
@@ -162,6 +178,6 @@ namespace MafiaSandbox.Core
             Say("Released from the police station.");
         }
 
-        public void OnKeeperHeldUp(KeeperBrain k) { /* economy (step 5): hand over the register, silent alarm */ }
+        public void OnKeeperHeldUp(KeeperBrain k) { }
     }
 }

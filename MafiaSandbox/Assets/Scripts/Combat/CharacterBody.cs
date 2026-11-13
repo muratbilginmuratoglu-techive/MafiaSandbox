@@ -204,6 +204,7 @@ namespace MafiaSandbox.Combat
         /// <summary>Restore the animated character at a position.</summary>
         public void Respawn(Vector3 pos, float yaw)
         {
+            Looted = false;
             foreach (var rb in rbs) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
             transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
             for (int i = 0; i < boneList.Count; i++) { boneList[i].localPosition = bindPose[i].p; boneList[i].localRotation = bindPose[i].r; }
@@ -214,7 +215,8 @@ namespace MafiaSandbox.Combat
         }
 
         /// <summary>Medic treatment: clears injuries and restores a hit point.</summary>
-        public void Treat() { InjuryLeg = 0; InjuryArm = 0; hp = Mathf.Min(maxHp, hp + 1); }
+        public void Treat(int amount = 1) { InjuryLeg = 0; InjuryArm = 0; hp = Mathf.Min(maxHp, hp + amount); }
+        public bool Looted { get; set; }   // economy: body already searched
 
         /// <summary>Closest zone to a world point (melee hits, car impacts).</summary>
         public string ZoneNear(Vector3 p)
