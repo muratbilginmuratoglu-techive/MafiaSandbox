@@ -204,7 +204,7 @@ namespace MafiaSandbox.EditorTools
             cam = mainCam.gameObject.GetComponent<PlayerCamera>(); if (!cam) cam = mainCam.gameObject.AddComponent<PlayerCamera>();
             if (pc) { cam.target = pc.transform; pc.cameraTransform = mainCam.transform; pc.GetComponent<VehicleInteraction>().playerCamera = cam; }
 
-            var sun = Object.FindFirstObjectByType<Light>();
+            var sun = Object.FindAnyObjectByType<Light>();
             if (!sun) sun = new GameObject("Directional Light", typeof(Light)).GetComponent<Light>();
             sun.type = LightType.Directional; sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.8f;
             if (!sun.GetComponent<DayNightCycle>()) sun.gameObject.AddComponent<DayNightCycle>();

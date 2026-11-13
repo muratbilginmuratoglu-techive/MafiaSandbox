@@ -19,7 +19,7 @@ namespace MafiaSandbox.Vehicles
         {
             pc = GetComponent<PlayerController>(); cc = GetComponent<CharacterController>();
             renderers = GetComponentsInChildren<Renderer>(); ownColliders = GetComponentsInChildren<Collider>();
-            if (!playerCamera) playerCamera = FindFirstObjectByType<PlayerCamera>();
+            if (!playerCamera) playerCamera = FindAnyObjectByType<PlayerCamera>();
         }
 
         void Update()

@@ -41,6 +41,7 @@ namespace MafiaSandbox.Player
 
         void Update()
         {
+            if (!cc.enabled) return;   // riding in a vehicle (VehicleInteraction disables the controller)
             if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
             float dt = Time.deltaTime;
 

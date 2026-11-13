@@ -18,8 +18,8 @@ namespace MafiaSandbox.Core
         {
             I = this;
             Application.targetFrameRate = -1;
-            if (!player) player = FindFirstObjectByType<PlayerController>();
-            if (!playerCamera) playerCamera = FindFirstObjectByType<PlayerCamera>();
+            if (!player) player = FindAnyObjectByType<PlayerController>();
+            if (!playerCamera) playerCamera = FindAnyObjectByType<PlayerCamera>();
         }
 
         void Update()
