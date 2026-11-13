@@ -213,6 +213,9 @@ namespace MafiaSandbox.Combat
             OnRespawn?.Invoke(this);
         }
 
+        /// <summary>Medic treatment: clears injuries and restores a hit point.</summary>
+        public void Treat() { InjuryLeg = 0; InjuryArm = 0; hp = Mathf.Min(maxHp, hp + 1); }
+
         /// <summary>Closest zone to a world point (melee hits, car impacts).</summary>
         public string ZoneNear(Vector3 p)
         {

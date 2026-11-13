@@ -9,7 +9,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 |---|---|---|
 | 1 | Proje iskeleti, glTFast import, şehir yerleşimi (level builder), oyuncu / kamera / araç sürüş | ✅ bu commit |
 | 2 | Silahlar (6 prosedürel model), nişan / ateş / yakın dövüş, vuruş bölgeleri, ragdoll, yaralanma, yaya placeholder'ı, araç çarpması, prosedürel ses | ✅ |
-| 3 | NavMesh + NPC yapay zekâsı (sivil / polis / çete / dükkâncı), aranma seviyesi | ⏳ |
+| 3 | NavMesh + NPC yapay zekâsı (sivil kaç/saklan/merak, sağlıkçı, polis devriye-kovalama-tutuklama-ateş-arama, çete, dükkâncı eller yukarı), aranma seviyesi ★ | ✅ |
 | 4 | Trafik (yol grafiği + kavşak izinleri) | ⏳ |
 | 5 | Ekonomi: envanter, dükkânlar, fiyat modeli, hırsızlık, soygun + HUD / minimap | ⏳ |
 | 6 | Ev / araba, kamp, şantiye, hayvanlar, gün döngüsü, hava | ⏳ |
@@ -22,7 +22,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
    gerekiyorsa *Active Input Handling = Both* yapar (bu durumda editörü bir kez yeniden başlat).
 3. Menü **MafiaSandbox ▸ 2. Build City Scene** — `Assets/Data/city.json` + GLB'lerden `Assets/Scenes/City.unity`
    sahnesini kurar: zemin/yol/köprü mesh'leri (MeshCollider), 783 prop, 849 çarpışma kutusu, 15 bina işaretçisi,
-   park halindeki araçlar, oyuncu, kamera, gün döngüsü.
+   park halindeki araçlar, oyuncu, kamera, gün döngüsü; NavMesh'i fizik collider'larından pişirir (`City_NavMesh.asset`).
 4. ▶ Play. Oyuncu kuzeybatı platodaki harabe evin verandasında başlar; Midnight Regent önde park halinde.
 
 ### Kontroller
@@ -30,7 +30,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 `WASD` hareket · `Shift` koşu · `C` çömel · `Space` zıpla · `V` birinci şahıs · fare ile bak (tıkla = imleç kilidi, `Esc` serbest)
 `1–6` silah (tabanca, tüfek, pompalı, bıçak, sopa, revolver) · sağ tık nişan · sol tık ateş / vuruş
 `E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan · `H` yardım
-Debug: `F9` önüne hareketsiz yaya koyar, `F10` en yakın yayaya bakar, `F11` oyuncuyu öldürür (ragdoll + yeniden doğma testi)
+Debug: `F7` karakolun önüne ışınlan · `F8` +1 ★ · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
 
 ## Proje yapısı
 
@@ -45,13 +45,14 @@ MafiaSandbox/
       Player/    PlayerController, PlayerCamera (TPS/FPS/nişan), CharacterAnimator (Legacy, üst gövde katmanı)
       Combat/    WeaponDefs, WeaponModels (prosedürel), PlayerCombat (hitscan/saçma/yakın dövüş), CharacterBody
                  (can, vuruş kapsülleri, ragdoll, yaralanma), CombatFx (iz, namlu alevi, kan/kıvılcım)
-      Npc/       NpcSpawner, NpcCharacter (adım-2 yer tutucu beyin: yaya grafiğinde gezinir, silah sesinden kaçar)
+      Npc/       NpcBrain (NavMeshAgent + algı + silah), CivilianBrain, PoliceBrain, GangBrain, KeeperBrain, NpcSpawner, Perception
+      Core/      WantedSystem (★ 0–3, polis düşmanlığı, 25 sn'de sönme)
       Vehicles/  VehicleController (arcade rigidbody, yaya çarpması), VehicleInteraction (E bin/in)
       World/     BuildingInfo, CityCollider, RoadGraph, DayNightCycle
       Core/      GameManager (ölüm/yeniden doğma, log), Sfx (prosedürel ses)   UI/ SimpleHud (geçici IMGUI HUD)
     Editor/      CityBuilder.cs — Setup + Build City Scene menüleri
     Tools/       Blender üretim script'leri, HTML prototipten dışa aktarım script'i, referans HTML oyun
-  Packages/manifest.json   (glTFast 6.15)
+  Packages/manifest.json   (glTFast 6.15, AI Navigation 2.0)
 ```
 
 ### Koordinatlar

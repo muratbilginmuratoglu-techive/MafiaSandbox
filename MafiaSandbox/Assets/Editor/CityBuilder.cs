@@ -10,6 +10,8 @@ using MafiaSandbox.Player;
 using MafiaSandbox.Vehicles;
 using MafiaSandbox.Core;
 using MafiaSandbox.UI;
+using Unity.AI.Navigation;
+using UnityEngine.AI;
 
 namespace MafiaSandbox.EditorTools
 {
@@ -71,7 +73,7 @@ namespace MafiaSandbox.EditorTools
             if (assets == null || assets.Length == 0) { Debug.LogWarning("[MafiaSandbox] TagManager not found; add layers 'Characters' (8) and 'Hitbox' (9) manually."); return; }
             var so = new SerializedObject(assets[0]); var layers = so.FindProperty("layers"); bool changed = false;
             void Set(int idx, string name) { var p = layers.GetArrayElementAtIndex(idx); if (p.stringValue != name) { p.stringValue = name; changed = true; } }
-            Set(8, "Characters"); Set(9, "Hitbox");
+            Set(8, "Characters"); Set(9, "Hitbox"); Set(10, "Vehicles");
             if (changed) so.ApplyModifiedProperties();
             Physics.IgnoreLayerCollision(8, 9, true);
         }
@@ -185,6 +187,7 @@ namespace MafiaSandbox.EditorTools
                 float h = v.name.StartsWith("Arac_Otobus") ? 3f : v.name.StartsWith("Arac_") ? 2.2f : 1.5f;
                 var bc = root.AddComponent<BoxCollider>(); bc.size = new Vector3(v.width, h, v.length); bc.center = new Vector3(0f, h * 0.5f + 0.05f, 0f);
                 var vc = root.AddComponent<VehicleController>(); vc.length = v.length; vc.width = v.width; vc.isPlayerCar = v.player;
+                int vl = LayerMask.NameToLayer("Vehicles"); if (vl >= 0) root.layer = vl;
                 vc.displayName = DisplayName(v.name);
                 if (v.name.StartsWith("Arac_Otobus")) { vc.maxSpeed = 12f; vc.acceleration = 4f; vc.wheelBase = 6f; }
                 else if (v.name.StartsWith("Arac_")) { vc.maxSpeed = 14f; vc.acceleration = 5f; vc.wheelBase = 3.2f; }
@@ -233,10 +236,29 @@ namespace MafiaSandbox.EditorTools
             var charPrefabs = new List<GameObject>();
             foreach (var file in Directory.GetFiles(CharsDir, "*.glb")) { var pf = AssetDatabase.LoadAssetAtPath<GameObject>(file.Replace('\\', '/')); if (pf) charPrefabs.Add(pf); }
             var spawner = new GameObject("NpcSpawner").AddComponent<MafiaSandbox.Npc.NpcSpawner>(); spawner.transform.SetParent(world, false);
-            spawner.prefabs = charPrefabs.ToArray(); spawner.graph = graph; spawner.count = 28;
+            spawner.prefabs = charPrefabs.ToArray(); spawner.graph = graph;
+            foreach (var bi in bRoot.GetComponentsInChildren<BuildingInfo>()) if (bi.kind == "police") spawner.policeStation = bi.door + (bi.door - bi.footprint.center).normalized * 3f;
+            foreach (var p in city.props) if (p.name == "Insaat_Bina") spawner.gangCenter = Coords.ToUnity(p.pos);
+            if (spawner.gangCenter == Vector3.zero) spawner.gangCenter = Coords.ToUnity(25f, 0f, -104f);
+
+            // --- navmesh: baked from the physics colliders on the Default layer (ground/roads/bridges mesh + wall boxes); vehicles carve at runtime
+            var navGo = new GameObject("NavMesh"); navGo.transform.SetParent(world, false);
+            var surface = navGo.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.All; surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            surface.layerMask = 1 << 0; surface.overrideVoxelSize = true; surface.voxelSize = 0.12f; surface.overrideTileSize = true; surface.tileSize = 128;
+            try
+            {
+                surface.BuildNavMesh();
+                const string navPath = "Assets/Scenes/City_NavMesh.asset";
+                Directory.CreateDirectory("Assets/Scenes");
+                if (AssetDatabase.LoadAssetAtPath<NavMeshData>(navPath)) AssetDatabase.DeleteAsset(navPath);
+                if (surface.navMeshData) { AssetDatabase.CreateAsset(surface.navMeshData, navPath); EditorUtility.SetDirty(surface); }
+                Debug.Log("[MafiaSandbox] NavMesh baked → " + navPath);
+            }
+            catch (System.Exception e) { Debug.LogError("[MafiaSandbox] NavMesh bake failed: " + e.Message); }
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
-            gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw;
+            gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
             gm.gameObject.AddComponent<SimpleHud>();
 
             // --- save

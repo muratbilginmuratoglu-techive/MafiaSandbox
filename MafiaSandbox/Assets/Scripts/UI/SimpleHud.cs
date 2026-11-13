@@ -41,6 +41,13 @@ namespace MafiaSandbox.UI
             GUI.color = Color.Lerp(new Color(0.9f, 0.2f, 0.2f), new Color(0.3f, 0.85f, 0.4f), hp); GUI.DrawTexture(new Rect(22, H - 64, 220 * hp, 12), white);
             GUI.color = Color.white;
             GUI.Label(new Rect(22, H - 48, 230, 24), combat ? $"{combat.Weapon.name}   ·   kills {gm.Kills}" : "", logStyle);
+            // wanted stars (top centre)
+            var ws = WantedSystem.I; int lvl = ws ? ws.Level : 0;
+            if (lvl > 0)
+            {
+                var st = new GUIStyle(big) { fontSize = 26 }; st.normal.textColor = ws.PoliceHostile ? new Color(1f, 0.35f, 0.3f) : new Color(1f, 0.85f, 0.3f);
+                GUI.Box(new Rect(W / 2f - 80, 12, 160, 40), new string('★', lvl) + new string('☆', 3 - lvl), st);
+            }
 
             // crosshair / hit marker
             bool aim = combat && (combat.Aiming || combat.Weapon.melee) && !(vi && vi.Current) && Cursor.lockState == CursorLockMode.Locked;

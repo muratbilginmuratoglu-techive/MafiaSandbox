@@ -37,6 +37,10 @@ namespace MafiaSandbox.Vehicles
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             rb.centerOfMass = new Vector3(0f, -0.3f, 0f);
+            // navmesh: carve a hole so pedestrians walk around (parked or driving)
+            var obs = GetComponent<UnityEngine.AI.NavMeshObstacle>(); if (!obs) obs = gameObject.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+            obs.shape = UnityEngine.AI.NavMeshObstacleShape.Box; obs.size = new Vector3(width + 0.3f, 1.5f, length + 0.3f); obs.center = new Vector3(0f, 0.75f, 0f); obs.carving = true; obs.carveOnlyStationary = false; obs.carvingMoveThreshold = 0.3f;
+            int vl = LayerMask.NameToLayer("Vehicles"); if (vl >= 0) gameObject.layer = vl;
             var list = new System.Collections.Generic.List<Transform>();
             foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Wheel_")) list.Add(t);
             wheels = list.ToArray();
