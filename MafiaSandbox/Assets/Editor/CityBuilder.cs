@@ -174,10 +174,10 @@ namespace MafiaSandbox.EditorTools
 
             // --- vehicles (parked ones now; traffic cars come alive in step 4)
             var vRoot = new GameObject("Vehicles").transform; vRoot.SetParent(world, false);
-            VehicleController playerCar = null; int vCount = 0, skippedTraffic = 0;
+            VehicleController playerCar = null; int vCount = 0, skippedTraffic = 0, trafficCount = 0;
+            int obstacleMask = 0; { foreach (var ln in new[] { "Default", "Vehicles", "Characters", "Hitbox" }) { int l = LayerMask.NameToLayer(ln); if (l >= 0) obstacleMask |= 1 << l; } }
             foreach (var v in city.vehicles)
             {
-                if (v.ai) { skippedTraffic++; continue; }
                 var prefab = LoadProp(v.name, cache);
                 if (!prefab) { missing.Add(v.name); continue; }
                 var root = new GameObject("Vehicle " + v.name); root.transform.SetParent(vRoot, false);
@@ -192,8 +192,10 @@ namespace MafiaSandbox.EditorTools
                 if (v.name.StartsWith("Arac_Otobus")) { vc.maxSpeed = 12f; vc.acceleration = 4f; vc.wheelBase = 6f; }
                 else if (v.name.StartsWith("Arac_")) { vc.maxSpeed = 14f; vc.acceleration = 5f; vc.wheelBase = 3.2f; }
                 if (v.player) playerCar = vc;
-                vCount++;
+                if (v.ai) { var drv = root.AddComponent<TrafficDriver>(); drv.obstacleMask = obstacleMask; drv.cruise = v.name.StartsWith("Arac_Otobus") ? 7f : 9f; trafficCount++; }
+                else vCount++;
             }
+            var traffic = graph.gameObject.AddComponent<TrafficManager>(); traffic.graph = graph;
 
             // --- player
             var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharsDir}/{PlayerModel}.glb");
@@ -268,7 +270,7 @@ namespace MafiaSandbox.EditorTools
             if (!scenes.Exists(s => s.path == ScenePath)) { scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true)); EditorBuildSettings.scenes = scenes.ToArray(); }
 
             string miss = missing.Count > 0 ? "\nMissing prop prefabs: " + string.Join(", ", missing) : "";
-            Debug.Log($"[MafiaSandbox] City built: {staticMeshes} static meshes, {placed} props, {cols} colliders, {city.buildings.Length} buildings, {vCount} parked vehicles ({skippedTraffic} traffic cars deferred to step 4). Saved {ScenePath}.{miss}");
+            Debug.Log($"[MafiaSandbox] City built: {staticMeshes} static meshes, {placed} props, {cols} colliders, {city.buildings.Length} buildings, {vCount} parked vehicles, {trafficCount} traffic cars. Saved {ScenePath}.{miss}");
         }
 
         static GameObject LoadProp(string name, Dictionary<string, GameObject> cache)

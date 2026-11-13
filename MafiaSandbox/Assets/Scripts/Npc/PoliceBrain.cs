@@ -39,6 +39,7 @@ namespace MafiaSandbox.Npc
         protected override void OnHit(string zone, Vector3 point)
         {
             if (!Wanted) return;
+            if (body && body.KilledBy != "player") { if (State != "chase" && State != "engage" && State != "arrest") { investigatePos = point; SetState("investigate"); GoTo(point, runSpeed * 0.8f); } return; }   // hit by traffic / a gangster: not the player's fault
             Wanted.PoliceHostile = true; if (Wanted.Level < 2) Wanted.Add(2, "assaulting an officer");
             Wanted.Seen(Player ? Player.transform.position : point);
             GameManager.I?.Say($"{displayName}: We warned you!");

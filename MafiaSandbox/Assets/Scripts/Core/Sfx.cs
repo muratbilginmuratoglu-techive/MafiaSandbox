@@ -33,6 +33,19 @@ namespace MafiaSandbox.Core
             clips["hurt"] = Tone(0.12f, 220f, 0.4f);
             clips["click"] = Noise(0.03f, 0.3f, 0.001f, 0.01f, false);
             clips["pump"] = Noise(0.1f, 0.4f, 0.002f, 0.04f, false);
+            clips["horn"] = Horn(0.45f, 0.5f);
+        }
+
+        AudioClip Horn(float dur, float vol)
+        {
+            int n = (int)(dur * SR); var d = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)SR; float env = Mathf.Min(1f, t / 0.02f) * Mathf.Min(1f, (dur - t) / 0.06f);
+                float x = Mathf.Sin(2f * Mathf.PI * 370f * t) + 0.8f * Mathf.Sin(2f * Mathf.PI * 466f * t) + 0.3f * Mathf.Sin(2f * Mathf.PI * 740f * t);
+                d[i] = Mathf.Clamp(x * 0.4f * env * vol, -1f, 1f);
+            }
+            return Make("horn", d);
         }
 
         float Rnd() => (float)rng.NextDouble() * 2f - 1f;

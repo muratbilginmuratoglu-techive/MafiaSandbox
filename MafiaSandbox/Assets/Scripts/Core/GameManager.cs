@@ -78,6 +78,8 @@ namespace MafiaSandbox.Core
             else if (by == "vehicle") Say($"{NameOf(b)} was run over");
         }
 
+        bool topDown;
+
         void Update()
         {
             float dt = Time.deltaTime;
@@ -98,6 +100,17 @@ namespace MafiaSandbox.Core
                 var sp = FindAnyObjectByType<NpcSpawner>();
                 if (sp && sp.prefabs != null && sp.prefabs.Length > 0) { var p = player.transform.position + player.transform.forward * 5f + Vector3.up * 0.1f; var n = sp.Spawn<CivilianBrain>(sp.prefabs[Random.Range(0, sp.prefabs.Length)], p, player.transform.eulerAngles.y + 180f); n.dummy = true; }
             }
+            if (Input.GetKeyDown(KeyCode.F5) && playerCamera && player)   // F5: top-down debug view over the player
+            {
+                topDown = !topDown; playerCamera.enabled = !topDown;
+                if (topDown) { var cam = playerCamera.GetComponent<Camera>(); cam.orthographic = true; cam.orthographicSize = 45f; }
+                else { var cam = playerCamera.GetComponent<Camera>(); cam.orthographic = false; }
+            }
+            if (topDown && playerCamera && player) { playerCamera.transform.position = player.transform.position + Vector3.up * 80f; playerCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f); }
+            if (Input.GetKeyDown(KeyCode.F4)) { var dn = FindAnyObjectByType<MafiaSandbox.World.DayNightCycle>(); if (dn) { dn.timeOfDay = 13f; dn.paused = !dn.paused; Say(dn.paused ? "Debug: noon, clock paused" : "Debug: clock running"); } }   // F4: noon / pause clock
+            if (Input.GetKeyDown(KeyCode.F3)) { var sb = new System.Text.StringBuilder("[Traffic]\n"); if (player) sb.Append("PLAYER @").Append(player.transform.position.ToString("F2")).Append(" home=").Append(homePosition.ToString("F2")).Append(" station=").Append(policeStationPos.ToString("F1")).Append('\n'); foreach (var d in FindObjectsByType<MafiaSandbox.Vehicles.TrafficDriver>(FindObjectsSortMode.None)) sb.Append(d.name).Append(" @").Append(d.transform.position.ToString("F1")).Append(" yaw").Append(d.transform.eulerAngles.y.ToString("F0")).Append("  ").Append(d.State).Append("  rbv").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().RbVelocity.magnitude.ToString("F1")).Append(" contact(").Append((Time.time - d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContactT).ToString("F0")).Append("s ago) ").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContact).Append('\n'); foreach (var pv in FindObjectsByType<MafiaSandbox.Vehicles.VehicleController>(FindObjectsSortMode.None)) if (pv.isPlayerCar) sb.Append("PLAYER CAR ").Append(pv.name).Append(" @").Append(pv.transform.position.ToString("F2")).Append(" yaw").Append(pv.transform.eulerAngles.y.ToString("F0")).Append(" speed").Append(pv.Speed.ToString("F1")).Append(" rbv").Append(pv.RbVelocity.ToString("F2")).Append(" controlled=").Append(pv.Controlled).Append(" contact(").Append((Time.time - pv.LastContactT).ToString("F0")).Append("s ago) ").Append(pv.LastContact).Append(" ground=").Append(pv.DebugGround).Append('\n');
+                System.IO.File.WriteAllText(System.IO.Path.Combine(Application.dataPath, "..", "traffic_dump.txt"), sb.ToString()); Debug.Log(sb.ToString()); }   // F3: dump traffic state to the console
+            if (Input.GetKeyDown(KeyCode.F6)) MafiaSandbox.Vehicles.TrafficDriver.ShowDebug = !MafiaSandbox.Vehicles.TrafficDriver.ShowDebug;   // F6: traffic debug labels
             if (Input.GetKeyDown(KeyCode.F8) && WantedSystem.I) WantedSystem.I.Add(1, "debug");   // F8: +1 star (debug)
             if (Input.GetKeyDown(KeyCode.F7) && player && !player.InputLocked)   // F7: teleport in front of the police station (debug)
             {

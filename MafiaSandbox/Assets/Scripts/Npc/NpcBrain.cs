@@ -21,6 +21,7 @@ namespace MafiaSandbox.Npc
         public bool dummy;                       // debug: stand still
         public string State { get; protected set; } = "init";
 
+        float offMeshT;
         protected NavMeshAgent agent; protected CharacterBody body; protected CharacterAnimator anim; protected CapsuleCollider capsule;
         protected float stateT, thinkT, respawnT;
         protected Vector3 spawnPos; protected float spawnYaw;
@@ -66,6 +67,14 @@ namespace MafiaSandbox.Npc
         protected abstract void Think();
         protected virtual void OnNoise(Vector3 pos, float radius, GameObject src, bool melee) { }
         protected virtual void OnHit(string zone, Vector3 point) { }
+        /// <summary>A car is honking at us from `carPos`: step off the road. Default: hop 4 m to the side away from the car's path.</summary>
+        public virtual void Honk(Vector3 carPos, Vector3 carForward)
+        {
+            if (dummy || State == "dead" || !agent || !agent.enabled) return;
+            Vector3 side = Vector3.Cross(Vector3.up, carForward).normalized; Vector3 rel = transform.position - carPos;
+            if (Vector3.Dot(rel, side) < 0f) side = -side;
+            GoTo(transform.position + side * 4f + carForward * 1.5f, runSpeed);
+        }
         protected virtual void OnDied(string by) { }
         protected virtual Vector3 RespawnPoint() => spawnPos;
 
@@ -91,6 +100,13 @@ namespace MafiaSandbox.Npc
                 if (respawnT <= 0f) Respawn();
                 return;
             }
+            if (agent.enabled && !agent.isOnNavMesh)
+            {
+                // a carving car (or a ragdoll pile) ate the navmesh under us: hop to the nearest walkable spot instead of freezing
+                offMeshT += dt;
+                if (offMeshT > 0.3f && NavMesh.SamplePosition(transform.position, out var nh, 3f, NavMesh.AllAreas)) { agent.Warp(nh.position); offMeshT = 0f; }
+            }
+            else offMeshT = 0f;
             if (!agent.enabled || !agent.isOnNavMesh) return;
             if (dummy) { agent.isStopped = true; anim.Play(idleClip); return; }
             if (body && body.Stun > 0f) { agent.isStopped = true; return; }

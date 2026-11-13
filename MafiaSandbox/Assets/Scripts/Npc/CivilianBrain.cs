@@ -33,6 +33,7 @@ namespace MafiaSandbox.Npc
         }
 
         protected override void OnHit(string zone, Vector3 point) { StartFlee(point); scared = 1f; }
+        public override void Honk(Vector3 carPos, Vector3 carForward) { if (State == "dead" || dummy) return; if (State == "flee" || State == "hide" || State == "tohide") base.Honk(carPos, carForward); else StartFlee(carPos); }
 
         void StartFlee(Vector3 from)
         {

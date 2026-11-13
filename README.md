@@ -10,7 +10,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 | 1 | Proje iskeleti, glTFast import, şehir yerleşimi (level builder), oyuncu / kamera / araç sürüş | ✅ bu commit |
 | 2 | Silahlar (6 prosedürel model), nişan / ateş / yakın dövüş, vuruş bölgeleri, ragdoll, yaralanma, yaya placeholder'ı, araç çarpması, prosedürel ses | ✅ |
 | 3 | NavMesh + NPC yapay zekâsı (sivil kaç/saklan/merak, sağlıkçı, polis devriye-kovalama-tutuklama-ateş-arama, çete, dükkâncı eller yukarı), aranma seviyesi ★ | ✅ |
-| 4 | Trafik (yol grafiği + kavşak izinleri) | ⏳ |
+| 4 | Trafik: yol grafiğinde şerit takibi, kavşak izinleri, yaya/araç için frenleme, korna (yaya kenara çekilir), kuyruk, karşıdan gelene yol verme, sıkışınca geri çıkıp sollama, çıkmaz sokakta U dönüşü, görüş dışında kendini toparlama/yeniden konumlanma, duvarla kapalı yolların otomatik grafikten düşmesi (tünel), araçlar yere raycast ile oturur (yol çizgileri takılmaz) | ✅ |
 | 5 | Ekonomi: envanter, dükkânlar, fiyat modeli, hırsızlık, soygun + HUD / minimap | ⏳ |
 | 6 | Ev / araba, kamp, şantiye, hayvanlar, gün döngüsü, hava | ⏳ |
 
@@ -30,7 +30,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 `WASD` hareket · `Shift` koşu · `C` çömel · `Space` zıpla · `V` birinci şahıs · fare ile bak (tıkla = imleç kilidi, `Esc` serbest)
 `1–6` silah (tabanca, tüfek, pompalı, bıçak, sopa, revolver) · sağ tık nişan · sol tık ateş / vuruş
 `E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan · `H` yardım
-Debug: `F7` karakolun önüne ışınlan · `F8` +1 ★ · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
+Debug: `F3` trafik durumunu `traffic_dump.txt` dosyasına yazar · `F4` öğlen yap / saati durdur · `F5` kuş bakışı kamera · `F6` araçların üstünde durum etiketleri · `F7` karakolun önüne ışınlan · `F8` +1 ★ · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
 
 ## Proje yapısı
 
