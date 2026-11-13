@@ -26,6 +26,12 @@ namespace MafiaSandbox.Player
         public bool IsRunning { get; private set; }
         public bool InputLocked { get; set; }  // true while driving / in menus
         public Vector3 Velocity => velocity;
+        public bool Moving { get; private set; }
+        /// <summary>Set by PlayerCombat while aiming: body faces this yaw (degrees) and strafes instead of turning into the move direction.</summary>
+        public float? FaceYaw { get; set; }
+        /// <summary>Optional locomotion clip override (aiming / melee stances): gets (moving, running) → clip name or null.</summary>
+        public System.Func<bool, bool, string> LocomotionOverride { get; set; }
+        public float SpeedScale { get; set; } = 1f;     // injuries, exhaustion (step 5)
 
         CharacterController cc;
         Vector3 velocity;
@@ -55,8 +61,10 @@ namespace MafiaSandbox.Player
             Vector3 move = (fwd * input.y + right * input.x);
             if (move.sqrMagnitude > 1f) move.Normalize();
 
-            float speed = IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed;
+            float speed = (IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed) * SpeedScale;
+            if (FaceYaw.HasValue && IsRunning) speed = walkSpeed * 1.35f * SpeedScale;   // no sprinting while aiming
             Vector3 horizontal = move * speed;
+            Moving = move.sqrMagnitude > 0.001f;
 
             // gravity & jump
             bool grounded = cc.isGrounded;
@@ -70,8 +78,9 @@ namespace MafiaSandbox.Player
 
             cc.Move(new Vector3(horizontal.x, velocity.y, horizontal.z) * dt);
 
-            // face movement direction
-            if (move.sqrMagnitude > 0.001f)
+            // face movement direction (or the aim yaw)
+            if (FaceYaw.HasValue) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0f, FaceYaw.Value, 0f), turnSpeed * 2f * dt);
+            else if (move.sqrMagnitude > 0.001f)
             {
                 var target = Quaternion.LookRotation(move, Vector3.up);
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * dt);
@@ -84,7 +93,8 @@ namespace MafiaSandbox.Player
                 else
                 {
                     bool moving = move.sqrMagnitude > 0.001f;
-                    string clip = IsCrouching ? (moving ? "Crouch_Walk" : "Crouch_Idle") : moving ? (IsRunning ? "Run" : "Walk") : "Idle";
+                    string clip = LocomotionOverride != null ? LocomotionOverride(moving, IsRunning) : null;
+                    if (clip == null) clip = IsCrouching ? (moving ? "Crouch_Walk" : "Crouch_Idle") : moving ? (IsRunning ? "Run" : "Walk") : "Idle";
                     animator.Play(clip);
                 }
             }

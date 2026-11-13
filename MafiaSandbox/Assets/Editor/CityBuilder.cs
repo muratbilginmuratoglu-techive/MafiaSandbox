@@ -38,6 +38,7 @@ namespace MafiaSandbox.EditorTools
                 if (SetLegacyAnimation(path)) fixedChars++;
             }
             EnsureLegacyInput();
+            EnsureLayers();
             AssetDatabase.Refresh();
             Debug.Log($"[MafiaSandbox] Setup done. Character GLBs: {seen}, switched to Legacy animation: {fixedChars}. Now run MafiaSandbox ▸ 2. Build City Scene.");
         }
@@ -61,6 +62,18 @@ namespace MafiaSandbox.EditorTools
             so.ApplyModifiedProperties();
             importer.SaveAndReimport();
             return true;
+        }
+
+        /// <summary>Layers: 8 = Characters (CharacterController capsules), 9 = Hitbox (per-bone hit capsules / ragdoll).</summary>
+        public static void EnsureLayers()
+        {
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+            if (assets == null || assets.Length == 0) { Debug.LogWarning("[MafiaSandbox] TagManager not found; add layers 'Characters' (8) and 'Hitbox' (9) manually."); return; }
+            var so = new SerializedObject(assets[0]); var layers = so.FindProperty("layers"); bool changed = false;
+            void Set(int idx, string name) { var p = layers.GetArrayElementAtIndex(idx); if (p.stringValue != name) { p.stringValue = name; changed = true; } }
+            Set(8, "Characters"); Set(9, "Hitbox");
+            if (changed) so.ApplyModifiedProperties();
+            Physics.IgnoreLayerCollision(8, 9, true);
         }
 
         /// <summary>Scripts use the classic UnityEngine.Input. Make sure the project allows it (Active Input Handling = Both).</summary>
@@ -194,6 +207,10 @@ namespace MafiaSandbox.EditorTools
                 var anim = player.AddComponent<CharacterAnimator>();
                 pc = player.AddComponent<PlayerController>(); pc.animator = anim;
                 player.AddComponent<VehicleInteraction>();
+                var pbody = player.AddComponent<MafiaSandbox.Combat.CharacterBody>(); pbody.isPlayer = true; pbody.maxHp = 10; pbody.hp = 10;
+                var combat = player.AddComponent<MafiaSandbox.Combat.PlayerCombat>();
+                int chLayer = LayerMask.NameToLayer("Characters"); if (chLayer >= 0) player.layer = chLayer;
+                combat.shootMask = chLayer >= 0 ? ~(1 << chLayer) : ~0;
                 if (!model.GetComponentInChildren<Animation>()) Debug.LogWarning("[MafiaSandbox] Player model has no Legacy Animation component — run MafiaSandbox ▸ 1. Setup first (then rebuild the scene).");
             }
             else Debug.LogError($"[MafiaSandbox] {CharsDir}/{PlayerModel}.glb missing");
@@ -203,6 +220,7 @@ namespace MafiaSandbox.EditorTools
             mainCam.tag = "MainCamera"; mainCam.farClipPlane = 600f; mainCam.nearClipPlane = 0.08f; mainCam.fieldOfView = 60f;
             cam = mainCam.gameObject.GetComponent<PlayerCamera>(); if (!cam) cam = mainCam.gameObject.AddComponent<PlayerCamera>();
             if (pc) { cam.target = pc.transform; pc.cameraTransform = mainCam.transform; pc.GetComponent<VehicleInteraction>().playerCamera = cam; }
+            { int chL = LayerMask.NameToLayer("Characters"), hbL = LayerMask.NameToLayer("Hitbox"); int mask = ~0; if (chL >= 0) mask &= ~(1 << chL); if (hbL >= 0) mask &= ~(1 << hbL); cam.collisionMask = mask; }
 
             var sun = Object.FindAnyObjectByType<Light>();
             if (!sun) sun = new GameObject("Directional Light", typeof(Light)).GetComponent<Light>();
@@ -210,6 +228,12 @@ namespace MafiaSandbox.EditorTools
             if (!sun.GetComponent<DayNightCycle>()) sun.gameObject.AddComponent<DayNightCycle>();
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = 120f; RenderSettings.fogEndDistance = 420f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+
+            // --- pedestrians (placeholder wander brain; full AI in step 3)
+            var charPrefabs = new List<GameObject>();
+            foreach (var file in Directory.GetFiles(CharsDir, "*.glb")) { var pf = AssetDatabase.LoadAssetAtPath<GameObject>(file.Replace('\\', '/')); if (pf) charPrefabs.Add(pf); }
+            var spawner = new GameObject("NpcSpawner").AddComponent<MafiaSandbox.Npc.NpcSpawner>(); spawner.transform.SetParent(world, false);
+            spawner.prefabs = charPrefabs.ToArray(); spawner.graph = graph; spawner.count = 28;
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw;
@@ -236,7 +260,11 @@ namespace MafiaSandbox.EditorTools
         {
             if (src == null) return new RoadGraph.Node[0];
             var arr = new RoadGraph.Node[src.Length];
-            for (int i = 0; i < src.Length; i++) arr[i] = new RoadGraph.Node { pos = Coords.ToUnity(src[i].x, src[i].y, src[i].z), adj = src[i].adj ?? new int[0] };
+            for (int i = 0; i < src.Length; i++)
+            {
+                var adj = new List<int>(); if (src[i].adj != null) foreach (var a in src[i].adj) if (a >= 0 && a < src.Length) adj.Add(a);
+                arr[i] = new RoadGraph.Node { pos = Coords.ToUnity(src[i].x, src[i].y, src[i].z), adj = adj.ToArray() };
+            }
             return arr;
         }
 

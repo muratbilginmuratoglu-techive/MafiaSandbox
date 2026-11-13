@@ -18,7 +18,6 @@ namespace MafiaSandbox.Vehicles
         void Awake()
         {
             pc = GetComponent<PlayerController>(); cc = GetComponent<CharacterController>();
-            renderers = GetComponentsInChildren<Renderer>(); ownColliders = GetComponentsInChildren<Collider>();
             if (!playerCamera) playerCamera = FindAnyObjectByType<PlayerCamera>();
         }
 
@@ -50,6 +49,7 @@ namespace MafiaSandbox.Vehicles
 
         public void Enter(VehicleController v)
         {
+            renderers = GetComponentsInChildren<Renderer>(); ownColliders = GetComponentsInChildren<Collider>();   // cached here: hitboxes are built in Awake order-independently
             Current = v; Nearby = null;
             pc.InputLocked = true; cc.enabled = false;
             foreach (var r in renderers) r.enabled = false;

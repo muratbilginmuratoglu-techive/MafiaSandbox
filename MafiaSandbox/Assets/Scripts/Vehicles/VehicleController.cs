@@ -87,6 +87,17 @@ namespace MafiaSandbox.Vehicles
 
         void OnCollisionEnter(Collision c)
         {
+            // pedestrians: knock them down (ragdoll) when fast, nudge them when slow
+            var body = c.collider.GetComponentInParent<MafiaSandbox.Combat.CharacterBody>();
+            if (body != null && !body.Dead)
+            {
+                float v = Mathf.Abs(speed);
+                Vector3 dir = (body.transform.position - transform.position); dir.y = 0f; dir = (dir.normalized * 0.8f + transform.forward * Mathf.Sign(speed) * 0.6f).normalized;
+                var contact = c.GetContact(0).point;
+                if (v > 4f) { body.Hit(body.ZoneNear(contact), contact, dir, v > 9f ? 99 : 1, v > 9f, Mathf.Clamp(v * 0.5f, 1f, 8f), "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.6f; }
+                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.5f; }
+                return;
+            }
             // lose speed on hard frontal/rear hits so we don't tunnel along walls
             float along = Vector3.Dot(c.relativeVelocity, transform.forward);
             if (Mathf.Abs(along) > 2f) speed *= 0.25f;

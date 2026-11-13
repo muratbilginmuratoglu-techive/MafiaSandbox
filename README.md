@@ -8,7 +8,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 | Adım | İçerik | Durum |
 |---|---|---|
 | 1 | Proje iskeleti, glTFast import, şehir yerleşimi (level builder), oyuncu / kamera / araç sürüş | ✅ bu commit |
-| 2 | Karakter animasyon katmanı, silahlar, nişan, hasar / ragdoll | ⏳ |
+| 2 | Silahlar (6 prosedürel model), nişan / ateş / yakın dövüş, vuruş bölgeleri, ragdoll, yaralanma, yaya placeholder'ı, araç çarpması, prosedürel ses | ✅ |
 | 3 | NavMesh + NPC yapay zekâsı (sivil / polis / çete / dükkâncı), aranma seviyesi | ⏳ |
 | 4 | Trafik (yol grafiği + kavşak izinleri) | ⏳ |
 | 5 | Ekonomi: envanter, dükkânlar, fiyat modeli, hırsızlık, soygun + HUD / minimap | ⏳ |
@@ -25,10 +25,12 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
    park halindeki araçlar, oyuncu, kamera, gün döngüsü.
 4. ▶ Play. Oyuncu kuzeybatı platodaki harabe evin verandasında başlar; Midnight Regent önde park halinde.
 
-### Kontroller (adım 1)
+### Kontroller
 
 `WASD` hareket · `Shift` koşu · `C` çömel · `Space` zıpla · `V` birinci şahıs · fare ile bak (tıkla = imleç kilidi, `Esc` serbest)
-`E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan
+`1–6` silah (tabanca, tüfek, pompalı, bıçak, sopa, revolver) · sağ tık nişan · sol tık ateş / vuruş
+`E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan · `H` yardım
+Debug: `F9` önüne hareketsiz yaya koyar, `F10` en yakın yayaya bakar, `F11` oyuncuyu öldürür (ragdoll + yeniden doğma testi)
 
 ## Proje yapısı
 
@@ -40,10 +42,13 @@ MafiaSandbox/
     Characters/  rigli karakterler, 38 klip (Polis_01 oyuncu; tam set build_crowd.py ile üretilir)
     Scripts/
       Data/      CityData.cs   — city.json şeması + glTF→Unity koordinat dönüşümü (Coords)
-      Player/    PlayerController, PlayerCamera, CharacterAnimator (Legacy Animation sarmalayıcı)
-      Vehicles/  VehicleController (arcade rigidbody), VehicleInteraction (E bin/in)
+      Player/    PlayerController, PlayerCamera (TPS/FPS/nişan), CharacterAnimator (Legacy, üst gövde katmanı)
+      Combat/    WeaponDefs, WeaponModels (prosedürel), PlayerCombat (hitscan/saçma/yakın dövüş), CharacterBody
+                 (can, vuruş kapsülleri, ragdoll, yaralanma), CombatFx (iz, namlu alevi, kan/kıvılcım)
+      Npc/       NpcSpawner, NpcCharacter (adım-2 yer tutucu beyin: yaya grafiğinde gezinir, silah sesinden kaçar)
+      Vehicles/  VehicleController (arcade rigidbody, yaya çarpması), VehicleInteraction (E bin/in)
       World/     BuildingInfo, CityCollider, RoadGraph, DayNightCycle
-      Core/      GameManager          UI/ SimpleHud (geçici IMGUI HUD)
+      Core/      GameManager (ölüm/yeniden doğma, log), Sfx (prosedürel ses)   UI/ SimpleHud (geçici IMGUI HUD)
     Editor/      CityBuilder.cs — Setup + Build City Scene menüleri
     Tools/       Blender üretim script'leri, HTML prototipten dışa aktarım script'i, referans HTML oyun
   Packages/manifest.json   (glTFast 6.15)
