@@ -1,0 +1,26 @@
+# Unity
+MafiaSandbox/[Ll]ibrary/
+MafiaSandbox/[Tt]emp/
+MafiaSandbox/[Oo]bj/
+MafiaSandbox/[Bb]uild/
+MafiaSandbox/[Bb]uilds/
+MafiaSandbox/[Ll]ogs/
+MafiaSandbox/[Uu]ser[Ss]ettings/
+MafiaSandbox/[Mm]emoryCaptures/
+MafiaSandbox/*.csproj
+MafiaSandbox/*.sln
+MafiaSandbox/*.user
+MafiaSandbox/.vs/
+MafiaSandbox/.idea/
+MafiaSandbox/.vsconfig
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+# OS
+.DS_Store
+Thumbs.db
+__pycache__/
