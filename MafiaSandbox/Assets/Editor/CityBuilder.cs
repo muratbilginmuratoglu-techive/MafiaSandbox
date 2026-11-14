@@ -33,6 +33,8 @@ namespace MafiaSandbox.EditorTools
         [MenuItem("MafiaSandbox/1. Setup (import settings)", priority = 1)]
         public static void Setup()
         {
+            // linear lighting like the three.js prototype: in gamma space sun + ambient add up past white on light pavement
+            if (PlayerSettings.colorSpace != ColorSpace.Linear) { PlayerSettings.colorSpace = ColorSpace.Linear; Debug.Log("[MafiaSandbox] Color space → Linear"); }
             int fixedChars = 0, seen = 0;
             foreach (var file in Directory.GetFiles(CharsDir, "*.glb"))
             {
@@ -130,6 +132,7 @@ namespace MafiaSandbox.EditorTools
         {
             var json = AssetDatabase.LoadAssetAtPath<TextAsset>(CityJson);
             if (!json) { Debug.LogError("[MafiaSandbox] " + CityJson + " missing"); return; }
+            AssetDatabase.ImportAsset(StaticGlb, ImportAssetOptions.ForceUpdate);   // fresh materials: an earlier weather pass had tinted the imported ground material white for good
             var city = JsonUtility.FromJson<CityData>(json.text);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);

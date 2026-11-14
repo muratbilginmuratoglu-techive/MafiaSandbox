@@ -189,6 +189,15 @@ namespace MafiaSandbox.Vehicles
             rb.linearVelocity = new Vector3(planar.x, vy, planar.z);
         }
 
+        /// <summary>Ignore collisions between this car and a character for a while (after a hit), so the solver doesn't stop the car on the capsule.</summary>
+        System.Collections.IEnumerator PassThrough(MafiaSandbox.Combat.CharacterBody body, float seconds)
+        {
+            var mine = GetComponentsInChildren<Collider>(); var theirs = body.GetComponentsInChildren<Collider>(true);
+            foreach (var a in mine) foreach (var b in theirs) if (a && b) Physics.IgnoreCollision(a, b, true);
+            yield return new WaitForSeconds(seconds);
+            foreach (var a in mine) foreach (var b in theirs) if (a && b) Physics.IgnoreCollision(a, b, false);
+        }
+
         public string LastContact = "-"; public float LastContactT;
         public Vector3 RbVelocity => rb ? rb.linearVelocity : Vector3.zero;
         public string DebugGround = "-";
@@ -224,8 +233,13 @@ namespace MafiaSandbox.Vehicles
                 float v = Mathf.Abs(speed);
                 Vector3 dir = (body.transform.position - transform.position); dir.y = 0f; dir = (dir.normalized * 0.8f + transform.forward * Mathf.Sign(speed) * 0.6f).normalized;
                 var contact = c.GetContact(0).point;
-                if (v > 3f) { dir = (dir + Vector3.up * 0.45f).normalized; body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 1.6f, 4f, 26f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.93f; }   // a body barely slows a car; it flies
-                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.8f; }
+                if (v > 3f)
+                {
+                    dir = (dir + Vector3.up * 0.35f).normalized;
+                    body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.95f;
+                    StartCoroutine(PassThrough(body, 2f));   // the body must not act as a wall for the car that hit it
+                }
+                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.85f; }
                 return;
             }
             // lose speed on hard frontal/rear hits so we don't tunnel along walls

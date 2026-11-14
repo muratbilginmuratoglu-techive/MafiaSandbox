@@ -20,7 +20,7 @@ namespace MafiaSandbox.World
         readonly List<Transform> lamps = new List<Transform>(); Light[] lampLights = new Light[10];
         class Fire { public Vector3 pos; public Light light; public ParticleSystem ps; public float ph; }
         readonly List<Fire> fires = new List<Fire>();
-        Material grassMat; Color grassBase; bool grassFound;
+        readonly List<Material> grassMats = new List<Material>(); readonly List<Color> grassBases = new List<Color>(); bool grassFound;
 
         void Awake() { I = this; }
 
@@ -42,11 +42,17 @@ namespace MafiaSandbox.World
             snow = MakePrecip("Snow", new Color(1f, 1f, 1f, 0.9f), 0.12f, 0.12f, 1.6f, false);
             if (Sfx.I) { rainLoop = Sfx.I.Loop("rainloop", 0f, false); ambientLoop = Sfx.I.Loop("ambient", 0.18f, false); }
             // the grass tint lives on the static mesh: find a material that looks like grass (greenest)
-            var st = GameObject.Find("Static"); if (st)
+            // every grass-coloured ground material in the scene (the prototype's plane and the districts' quads) gets the same snow tint
+            var world = GameObject.Find("World"); if (world)
             {
-                float best = -1f;
-                foreach (var r in st.GetComponentsInChildren<Renderer>()) foreach (var m in r.materials) { var c = m.color; float g = c.g - (c.r + c.b) * 0.5f; if (g > best) { best = g; grassMat = m; } }
-                if (grassMat) { grassBase = grassMat.color; grassFound = true; }
+                var seen = new HashSet<Material>();
+                foreach (var r in world.GetComponentsInChildren<MeshRenderer>())
+                {
+                    if (!r.sharedMaterial || !r.sharedMaterial.HasProperty("_Color")) continue;
+                    var c = r.sharedMaterial.color; float g = c.g - (c.r + c.b) * 0.5f; if (g < 0.08f || c.g < 0.45f) continue;   // greenish only
+                    foreach (var m in r.materials) if (seen.Add(m)) { grassMats.Add(m); grassBases.Add(m.color); }
+                }
+                grassFound = grassMats.Count > 0;
             }
             Apply();
         }
@@ -84,7 +90,7 @@ namespace MafiaSandbox.World
         {
             if (rain) { if (weather == WeatherKind.Rain) rain.Play(); else rain.Stop(); }
             if (snow) { if (weather == WeatherKind.Snow) snow.Play(); else snow.Stop(); }
-            if (grassFound) grassMat.color = weather == WeatherKind.Snow ? new Color(0.91f, 0.93f, 0.95f) : grassBase;
+            if (grassFound) for (int i = 0; i < grassMats.Count; i++) if (grassMats[i]) grassMats[i].color = weather == WeatherKind.Snow ? new Color(0.91f, 0.93f, 0.95f) : grassBases[i];
         }
 
         void Update()

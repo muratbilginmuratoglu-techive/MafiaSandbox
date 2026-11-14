@@ -181,17 +181,34 @@ namespace MafiaSandbox.Economy
             WitnessCrime(b, gm.player.transform.position, b.kind == "bank" ? 3 : 2);
         }
 
+        /// <summary>What a body carries is rolled once (by who they were) and shown in the loot window; items are taken one by one.</summary>
+        public class BodyLoot { public List<InvItem> items = new List<InvItem>(); public int cash; public string who; }
+        readonly Dictionary<CharacterBody, BodyLoot> bodyLoot = new Dictionary<CharacterBody, BodyLoot>();
+
+        public BodyLoot LootOf(CharacterBody c)
+        {
+            if (bodyLoot.TryGetValue(c, out var l)) return l;
+            var brain = c.GetComponent<NpcBrain>(); l = new BodyLoot { who = brain ? brain.displayName : "Body" };
+            void Give(string id, float p, int qty = 1) { if (Random.value < p) l.items.Add(new InvItem { id = id, qty = qty, stolen = id == "Paket" }); }
+            if (brain is PoliceBrain) { l.cash = 20 + Random.Range(0, 60); Give("Mermi", 0.8f); Give("Telsiz", 0.5f); Give("Kelepce", 0.6f); }
+            else if (brain is GangBrain || brain is Factions.FactionBrain) { l.cash = 60 + Random.Range(0, 240); Give("Paket", 0.7f); Give("Sigara", 0.6f); Give("Telefon", 0.3f); Give("Saat", 0.2f); }
+            else if (brain is KeeperBrain) { l.cash = 40 + Random.Range(0, 160); Give("Anahtar", 0.5f); Give("Telefon", 0.5f); }
+            else { l.cash = Random.value < 0.75f ? 10 + Random.Range(0, 110) : 0; Give("Telefon", 0.45f); Give("Saat", 0.15f); Give("Anahtar", 0.3f); Give("Sigara", 0.3f); }
+            bodyLoot[c] = l; return l;
+        }
+
         public void LootBody(CharacterBody c)
         {
-            var gm = GameManager.I; var brain = c.GetComponent<NpcBrain>(); c.Looted = true; var got = new List<string>(); int money = 0;
-            void Give(string id, float p, int qty = 1) { if (Random.value < p) { AddItem(id, qty, id == "Paket"); got.Add(Items.Get(id).name + (qty > 1 ? " x" + qty : "")); } }
-            if (brain is PoliceBrain) { money = 20 + Random.Range(0, 60); Give("Mermi", 0.8f); Give("Telsiz", 0.5f); Give("Kelepce", 0.6f); }
-            else if (brain is GangBrain) { money = 60 + Random.Range(0, 240); Give("Paket", 0.7f); Give("Sigara", 0.6f); Give("Telefon", 0.3f); }
-            else if (brain is KeeperBrain) { money = 40 + Random.Range(0, 160); Give("Anahtar", 0.5f); Give("Telefon", 0.5f); }
-            else { money = Random.value < 0.75f ? 10 + Random.Range(0, 110) : 0; Give("Telefon", 0.45f); Give("Saat", 0.15f); Give("Anahtar", 0.3f); Give("Sigara", 0.3f); }
-            if (money > 0) { cash += money; got.Insert(0, "$" + money); }
-            gm.Say(got.Count > 0 ? "Found on the body: " + string.Join(", ", got) : "Nothing on the body");
+            var gm = GameManager.I; LootOf(c);
+            UI.GameUI.I?.OpenLoot(c);
             CopSaw(gm.player.transform.position, 22f, "saw you loot the body");
+        }
+
+        public void TakeLoot(CharacterBody c, InvItem it)
+        {
+            var l = LootOf(c); if (it == null) { if (l.cash > 0) { cash += l.cash; GameManager.I.Say($"Took ${l.cash}"); l.cash = 0; } }
+            else if (l.items.Remove(it)) { AddItem(it.id, it.qty, it.stolen); Sfx.At("click", c.transform.position); }
+            if (l.cash == 0 && l.items.Count == 0) c.Looted = true;
         }
 
         // ------------------------------------------------------------------ shop counter

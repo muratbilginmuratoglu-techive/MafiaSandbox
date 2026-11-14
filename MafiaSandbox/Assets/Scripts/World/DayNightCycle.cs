@@ -38,8 +38,8 @@ namespace MafiaSandbox.World
             float elev = Mathf.Sin((t - 0.25f) * Mathf.PI * 2f) * 75f;
             transform.rotation = Quaternion.Euler(elev, 35f + t * 60f, 0f);
             float day = Mathf.Clamp01(Mathf.InverseLerp(-8f, 12f, elev));
-            if (sun) { sun.color = sunColor.Evaluate(t); sun.intensity = Mathf.Lerp(0.02f, 1.25f, day); sun.shadows = day > 0.05f ? LightShadows.Soft : LightShadows.None; }
-            RenderSettings.ambientLight = Color.Lerp(new Color(0.08f, 0.09f, 0.14f), new Color(0.55f, 0.58f, 0.65f), day);
+            if (sun) { sun.color = sunColor.Evaluate(t); sun.intensity = Mathf.Lerp(0.02f, 1.0f, day); sun.shadows = day > 0.05f ? LightShadows.Soft : LightShadows.None; }
+            RenderSettings.ambientLight = Color.Lerp(new Color(0.08f, 0.09f, 0.14f), new Color(0.36f, 0.39f, 0.46f), day);   // sun + ambient used to add up past white on light pavement
             RenderSettings.fogColor = Color.Lerp(new Color(0.05f, 0.06f, 0.1f), new Color(0.72f, 0.8f, 0.9f), day);
         }
 

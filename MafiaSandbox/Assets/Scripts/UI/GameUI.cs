@@ -17,8 +17,8 @@ namespace MafiaSandbox.UI
     public class GameUI : MonoBehaviour
     {
         public static GameUI I { get; private set; }
-        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen)) || (DebugPanel.I && DebugPanel.I.Open);
-        bool invOpen, mapOpen; Shop shop; Vector2 scrollA, scrollB;
+        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open);
+        bool invOpen, mapOpen; Shop shop; CharacterBody loot; Vector2 scrollA, scrollB;
         GUIStyle win, title, row, dim, btn, price, head;
         PlayerController pc;
 
@@ -33,6 +33,7 @@ namespace MafiaSandbox.UI
             if (Input.GetKeyDown(KeyCode.Escape) && Blocking) CloseAll();
             if (dead && Blocking) CloseAll();
             if (shop != null && Vector3.Distance(gm.player.transform.position, shop.info.counter) > 4f) CloseAll();
+            if (loot != null && (!loot || Vector3.Distance(gm.player.transform.position, loot.transform.position) > 4f)) CloseAll();
             ApplyLock();
         }
 
@@ -44,8 +45,9 @@ namespace MafiaSandbox.UI
         }
         bool wasBlocking;
 
-        public void OpenShop(Shop s) { shop = s; invOpen = false; mapOpen = false; }
-        public void CloseAll() { invOpen = false; mapOpen = false; shop = null; }
+        public void OpenShop(Shop s) { shop = s; invOpen = false; mapOpen = false; loot = null; }
+        public void OpenLoot(CharacterBody b) { loot = b; shop = null; invOpen = false; mapOpen = false; }
+        public void CloseAll() { invOpen = false; mapOpen = false; shop = null; loot = null; }
         public bool MapOpen => mapOpen;
 
         void Styles()
@@ -62,6 +64,40 @@ namespace MafiaSandbox.UI
             var eco = EconomyManager.I; var gm = GameManager.I; if (!eco || !gm) return; Styles();
             if (invOpen) DrawInventory(eco, gm);
             else if (shop != null) DrawShop(eco, gm);
+            else if (loot != null) DrawLoot(eco, gm);
+        }
+
+        void DrawLoot(EconomyManager eco, GameManager gm)
+        {
+            var l = eco.LootOf(loot);
+            float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 230, H / 2f - 190, 460, 380);
+            GUI.Box(r, GUIContent.none, win);
+            GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
+            GUILayout.BeginHorizontal(); GUILayout.Label("Search: " + l.who, title); GUILayout.FlexibleSpace(); GUILayout.Label($"${eco.cash}", new GUIStyle(title) { normal = { textColor = UiSkin.Green } }); GUILayout.EndHorizontal();
+            GUILayout.Label("Esc closes · take what you want", dim);
+            scrollA = GUILayout.BeginScrollView(scrollA);
+            InvItem take = null; bool takeCash = false;
+            if (l.cash > 0)
+            {
+                GUILayout.BeginHorizontal(GUILayout.Height(28)); GUILayout.Label("Cash", row, GUILayout.Width(240)); GUILayout.Label($"${l.cash}", price, GUILayout.Width(70));
+                if (GUILayout.Button("Take", btn, GUILayout.Width(64))) takeCash = true; GUILayout.EndHorizontal();
+            }
+            foreach (var it in l.items)
+            {
+                var def = Items.Get(it.id);
+                GUILayout.BeginHorizontal(GUILayout.Height(28));
+                GUILayout.Label($"{def.name}{(it.qty > 1 ? "  x" + it.qty : "")}{(it.stolen ? "   (hot)" : "")}", it.stolen ? dim : row, GUILayout.Width(240)); GUILayout.Label($"~${def.value}", price, GUILayout.Width(70));
+                if (GUILayout.Button("Take", btn, GUILayout.Width(64))) take = it;
+                GUILayout.EndHorizontal();
+            }
+            if (l.cash == 0 && l.items.Count == 0) GUILayout.Label("Nothing left on the body.", dim);
+            GUILayout.EndScrollView();
+            GUILayout.BeginHorizontal(); GUILayout.FlexibleSpace();
+            if ((l.cash > 0 || l.items.Count > 0) && GUILayout.Button("Take all", btn, GUILayout.Width(90))) { takeCash = l.cash > 0; foreach (var it in new List<InvItem>(l.items)) eco.TakeLoot(loot, it); }
+            if (GUILayout.Button("Close", btn, GUILayout.Width(70))) CloseAll();
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+            if (takeCash) eco.TakeLoot(loot, null); if (take != null) eco.TakeLoot(loot, take);
         }
 
         void DrawInventory(EconomyManager eco, GameManager gm)

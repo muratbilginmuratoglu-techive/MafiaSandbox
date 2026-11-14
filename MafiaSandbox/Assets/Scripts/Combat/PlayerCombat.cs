@@ -42,21 +42,30 @@ namespace MafiaSandbox.Combat
 
         void Start()
         {
-            var hand = body ? body.RightHand : null;
-            holder = new GameObject("WeaponHolder").transform;
-            holder.SetParent(hand ? hand : transform, false);
-            holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity;
+            EnsureHolder();
             foreach (var k in WeaponDef.Order) GetModel(k);
             Equip(current);
         }
 
+        /// <summary>The hand anchor. Created on demand: EconomyManager may call Equip() before this component's Start().</summary>
+        void EnsureHolder()
+        {
+            if (holder) return;
+            if (!body) body = GetComponent<CharacterBody>();
+            var hand = body ? body.RightHand : null;
+            holder = new GameObject("WeaponHolder").transform;
+            holder.SetParent(hand ? hand : transform, false);
+            holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity;
+        }
+
         GameObject GetModel(WeaponKind k)
         {
-            if (models.TryGetValue(k, out var m) && m) return m;
+            EnsureHolder();
+            if (models.TryGetValue(k, out var m) && m) { if (m.transform.parent != holder) m.transform.SetParent(holder, false); return m; }
             try
             {
                 m = WeaponModels.Build(k); m.transform.SetParent(holder, false); m.SetActive(false);
-                foreach (var r in m.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer;
+                var rs = m.GetComponentsInChildren<Renderer>(true); foreach (var r in rs) r.gameObject.layer = gameObject.layer;
             }
             catch (System.Exception e) { Debug.LogError($"[MafiaSandbox] weapon model {k} failed: {e}"); m = new GameObject(k.ToString()); m.transform.SetParent(holder, false); }
             models[k] = m; return m;
@@ -74,7 +83,7 @@ namespace MafiaSandbox.Combat
         string Locomotion(bool moving, bool running)
         {
             var w = Weapon;
-            if (w.melee) return moving ? (running ? "Run" : w.clipPrefix + "_Walk") : w.clipPrefix + "_Idle";
+            if (w.melee) return null;   // carried at the side like anything else; the swing clip plays on the upper body
             if (Aiming) return moving ? w.clipPrefix + "_Walk" : w.clipPrefix + "_Aim";
             return null;
         }
@@ -82,6 +91,7 @@ namespace MafiaSandbox.Combat
         void Update()
         {
             float dt = Time.deltaTime;
+
             cooldown -= dt; heat = Mathf.Max(0f, heat - dt * 1.2f); if (HitMarkerT > 0f) HitMarkerT -= dt;
             if (Cursor.lockState != CursorLockMode.Locked || UI.GameUI.Blocking) unlockedT = 0.35f; else unlockedT -= dt;   // the click that re-locks the cursor / closes a window must not fire the gun
             bool locked = pc.InputLocked || (body && body.Dead) || Cursor.lockState != CursorLockMode.Locked || unlockedT > 0f;
@@ -97,7 +107,7 @@ namespace MafiaSandbox.Combat
             if (model) model.SetActive(!pc.InputLocked && !(body && body.Dead) && !Emoting);   // the weapon stays in hand (lowered when not aiming)
 
             // body faces the camera while aiming (and in first person)
-            if (Aiming || (cam && cam.FirstPerson)) pc.FaceYaw = cam ? cam.Yaw : (float?)null; else pc.FaceYaw = null;
+            if (Aiming || swinging || (cam && cam.FirstPerson)) pc.FaceYaw = cam ? cam.Yaw : (float?)null; else pc.FaceYaw = null;
 
             if (locked) return;
             bool trigger = Weapon.auto ? Input.GetMouseButton(0) : Input.GetMouseButtonDown(0);
@@ -196,8 +206,9 @@ namespace MafiaSandbox.Combat
         IEnumerator Melee()
         {
             var w = Weapon; cooldown = w.rof; swinging = true;
-            anim.PlayUpper(w.clipPrefix + "_Attack");
-            yield return new WaitForSeconds(w.hitAt);
+            const float swingSpeed = 1.35f;   // the generated swing clips are slow; a faster, snappier swing reads better
+            anim.PlayUpper(w.clipPrefix + "_Attack", swingSpeed);
+            yield return new WaitForSeconds(w.hitAt / swingSpeed);
             swinging = false;
             Vector3 fwd = cam ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized : transform.forward;
             Vector3 origin = transform.position + Vector3.up * 1.2f;
