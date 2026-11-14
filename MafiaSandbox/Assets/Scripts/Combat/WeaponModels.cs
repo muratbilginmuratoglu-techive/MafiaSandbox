@@ -60,15 +60,17 @@ namespace MafiaSandbox.Combat
 
         public static GameObject Build(WeaponKind k)
         {
+            GameObject g;
             switch (k)
             {
-                case WeaponKind.Pistol: return Pistol();
-                case WeaponKind.Revolver: return Revolver();
-                case WeaponKind.Rifle: return Rifle();
-                case WeaponKind.Shotgun: return Shotgun();
-                case WeaponKind.Knife: return Knife();
-                default: return Bat();
+                case WeaponKind.Pistol: g = Pistol(); g.transform.localScale = Vector3.one * 1.55f; break;      // the blocky hand swallows a life-size pistol
+                case WeaponKind.Revolver: g = Revolver(); g.transform.localScale = Vector3.one * 1.45f; break;
+                case WeaponKind.Rifle: g = Rifle(); break;
+                case WeaponKind.Shotgun: g = Shotgun(); break;
+                case WeaponKind.Knife: g = Knife(); g.transform.localScale = Vector3.one * 1.3f; break;
+                default: g = Bat(); break;
             }
+            return g;
         }
 
         static GameObject Pistol()

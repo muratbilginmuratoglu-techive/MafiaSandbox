@@ -97,6 +97,34 @@ namespace MafiaSandbox.EditorTools
         }
 
         // ------------------------------------------------------------------ 2. build
+        /// <summary>Parked cars that stay: only the crews' own cars tucked inside their yards (behind the sidewalk line).</summary>
+        static bool KeepParked(VehicleData v) => Mathf.Abs(v.pos[0]) >= 117f && v.name.StartsWith("Araba_SUV");
+
+        /// <summary>
+        /// The prototype's static mesh has a solid slab across the tunnel mouth (x −8…8, z 83…84, up to 6.5 m) that was only
+        /// decoration there (its collision was AABB-based). Here the mesh collider would wall the tunnel off, so the slab's
+        /// triangles are cut out of a copy of the mesh used for both rendering and collision.
+        /// </summary>
+        static Mesh TrimTunnelPortal(Mesh src, Transform node)
+        {
+            var verts = src.vertices; var tris = src.triangles; var keep = new List<int>(tris.Length); int cut = 0;
+            for (int i = 0; i < tris.Length; i += 3)
+            {
+                bool inside = true;
+                for (int k = 0; k < 3 && inside; k++)
+                {
+                    var w = node.TransformPoint(verts[tris[i + k]]);   // Unity world (x mirrored relative to the prototype)
+                    inside = Mathf.Abs(w.x) <= 8.2f && w.z >= 82.8f && w.z <= 84.2f && w.y >= -0.2f && w.y <= 6.7f;
+                }
+                if (inside) { cut++; continue; }
+                keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]);
+            }
+            if (cut == 0) return src;
+            var m = Object.Instantiate(src); m.name = src.name + "_trimmed"; m.triangles = keep.ToArray(); m.RecalculateBounds();
+            Debug.Log($"[MafiaSandbox] Tunnel portal: cut {cut} triangles from the static mesh");
+            return m;
+        }
+
         [MenuItem("MafiaSandbox/2. Build City Scene", priority = 2)]
         public static void BuildScene()
         {
@@ -117,6 +145,8 @@ namespace MafiaSandbox.EditorTools
                 foreach (var mf in go.GetComponentsInChildren<MeshFilter>())
                 {
                     if (!mf.sharedMesh || mf.sharedMesh.vertexCount < 3) continue;
+                    var trimmed = TrimTunnelPortal(mf.sharedMesh, mf.transform);
+                    if (trimmed != mf.sharedMesh) { Directory.CreateDirectory("Assets/Scenes"); AssetDatabase.CreateAsset(trimmed, "Assets/Scenes/CityStatic_trimmed.asset"); mf.sharedMesh = trimmed; }
                     var mc = mf.gameObject.GetComponent<MeshCollider>(); if (!mc) mc = mf.gameObject.AddComponent<MeshCollider>();
                     mc.sharedMesh = mf.sharedMesh; staticMeshes++;
                 }
@@ -186,7 +216,8 @@ namespace MafiaSandbox.EditorTools
             foreach (var v in city.vehicles)
             {
                 // the prototype's filler cars (car park / warehouse lots) just sat there; the traffic and the crews' own cars remain
-                if (!v.ai && !v.player && !v.name.StartsWith("Arac_Polis") && Mathf.Abs(v.pos[0]) < 78f && v.pos[2] < -55f) { continue; }
+                if (v.player) continue;                                                     // no personal car any more: take any car on the street
+                if (!v.ai && !KeepParked(v)) continue;                                      // parked filler cars looked abandoned
                 var prefab = LoadProp(v.name, cache);
                 if (!prefab) { missing.Add(v.name); continue; }
                 var root = new GameObject("Vehicle " + v.name); root.transform.SetParent(vRoot, false);
@@ -269,7 +300,19 @@ namespace MafiaSandbox.EditorTools
                     go.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * 1f, Quaternion.LookRotation(d, Vector3.up));
                     var vol = go.AddComponent<NavMeshModifierVolume>(); vol.size = new Vector3(10f, 6f, inner); vol.center = Vector3.zero; vol.area = 3; nvol++;
                 }
-                Debug.Log("[MafiaSandbox] Road areas: " + nvol);
+                // sidewalks (area 4, cheap) on both sides of every road, running through the junctions
+                for (int i = 0; i < city.roadNodes.Length; i++) foreach (int j in city.roadNodes[i].adj ?? new int[0])
+                {
+                    if (j <= i) continue; var a = Coords.ToUnity(city.roadNodes[i].x, 0f, city.roadNodes[i].z); var b = Coords.ToUnity(city.roadNodes[j].x, 0f, city.roadNodes[j].z);
+                    Vector3 d = b - a; d.y = 0f; float len = d.magnitude; if (len < 8f) continue; d /= len; var right = Vector3.Cross(Vector3.up, d);
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        var go = new GameObject("Sidewalk " + i + "-" + j); go.transform.SetParent(volRoot, false);
+                        go.transform.SetPositionAndRotation((a + b) * 0.5f + right * side * 8.2f + Vector3.up * 1f, Quaternion.LookRotation(d, Vector3.up));
+                        var vol = go.AddComponent<NavMeshModifierVolume>(); vol.size = new Vector3(6.4f, 6f, len + 16f); vol.center = Vector3.zero; vol.area = 4; nvol++;
+                    }
+                }
+                Debug.Log("[MafiaSandbox] Road / sidewalk areas: " + nvol);
             }
             var surface = navGo.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.All; surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;

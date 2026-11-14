@@ -33,7 +33,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 `E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan · `H` yardım
 Debug paneli: `P` (konum ışınlanma — orijinaldeki liste + çete merkezleri + dükkânlar, saat, hava, silah, hileler, gösteri animasyonları). Emote çarkı: `Tab` basılı tut. Sırt çantası: `I`.
 
-Debug tuşları: `F1` +$500 · `F2` sıradaki dükkânın tezgâhına ışınlan · `F3` trafik durumunu `traffic_dump.txt` dosyasına yazar · `F4` öğlen ↔ gece (saat durur) · `F5` kuş bakışı kamera · `F6` araçların üstünde durum etiketleri · `F12` havayı değiştir · `F7` karakolun önüne ışınlan · `Shift+F7` sıradaki çete/aile merkezine ışınlan · `F8` +1 ★ · `Shift+F8` bulunduğun bölgenin sahibiyle kavga başlat (itibar −40) · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
+Debug tuşları: `F1` +$500 · `F2` sıradaki dükkânın tezgâhına ışınlan · `F3` trafik durumunu `traffic_dump.txt` dosyasına yazar · `F4` öğlen ↔ gece (saat durur) · `F5` kuş bakışı kamera · `F6` araçların üstünde durum etiketleri · `F12` havayı değiştir · `F7` karakolun önüne ışınlan (oyuncunun kendi arabası kaldırıldı; sokaktaki her araç `E` ile alınır; silah dükkânı üst geçit merdiveninin altından güneydoğudaki eski otoparka taşındı) · `Shift+F7` sıradaki çete/aile merkezine ışınlan · `F8` +1 ★ · `Shift+F8` bulunduğun bölgenin sahibiyle kavga başlat (itibar −40) · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
 
 ## Proje yapısı
 

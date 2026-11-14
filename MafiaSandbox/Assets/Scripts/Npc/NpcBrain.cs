@@ -57,12 +57,12 @@ namespace MafiaSandbox.Npc
             if (body) { body.OnHit -= OnHitInternal; body.OnDeath -= OnDeathInternal; }
         }
 
-        public const int RoadArea = 3; public const float RoadCost = 14f;
+        public const int RoadArea = 3, SidewalkArea = 4; public const float RoadCost = 14f, OpenCost = 5f;   // lawns / yards / interiors cost 5, sidewalks 1, mid-block road 14
 
         protected virtual void Start()
         {
             if (!graph) graph = FindAnyObjectByType<RoadGraph>();
-            agent.SetAreaCost(RoadArea, RoadCost);
+            agent.SetAreaCost(RoadArea, RoadCost); agent.SetAreaCost(0, OpenCost); agent.SetAreaCost(SidewalkArea, 1f);
             if (!agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var h, 4f, NavMesh.AllAreas)) agent.Warp(h.position);
             thinkT = Random.Range(0f, 0.2f);
             OnSpawned();
@@ -143,7 +143,8 @@ namespace MafiaSandbox.Npc
             agent.speed = speed * (body && body.InjuryLeg > 0 ? 0.55f : 1f); agent.isStopped = false; lookAt = null;
             // walking NPCs keep to the sidewalks and cross at the junctions (road area 3 is expensive); anyone running
             // (fleeing, chasing, rushing to a scene) cuts straight across
-            agent.SetAreaCost(RoadArea, speed >= runSpeed * 0.8f ? 1f : RoadCost);
+            bool running = speed >= runSpeed * 0.8f;
+            agent.SetAreaCost(RoadArea, running ? 1f : RoadCost); agent.SetAreaCost(0, running ? 1f : OpenCost); agent.SetAreaCost(SidewalkArea, 1f);
             return agent.SetDestination(h.position);
         }
         protected void Stop() { if (agent.enabled && agent.isOnNavMesh) { agent.isStopped = true; agent.ResetPath(); } }

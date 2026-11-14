@@ -38,6 +38,14 @@ namespace MafiaSandbox.EditorTools
             geoRoot = new GameObject("Districts").transform; geoRoot.SetParent(world, false);
             MakeMaterials();
 
+            // The prototype put the gun shop right where the overpass stairs come down (x −18…−10, z −31…−21), so its door
+            // was buried in the staircase. It moves to the old car park by the scrapyard; the stairs get their landing back.
+            props.RemoveAll(pp => pp.name == "Dukkan_Silah");
+            blds.RemoveAll(bb => bb.name == "Dukkan_Silah");
+            cols.RemoveAll(cc => cc.min[0] >= -18.2f && cc.max[0] <= -9.8f && cc.min[2] >= -31.2f && cc.max[2] <= -20.8f && cc.max[1] < 4f);
+            Building("Dukkan_Silah", 66f, -66f, 0f, "Gun Shop");
+            Prop("Reklam_Panosu", 60f, -60f, 0f); Prop("Sokak_Lambasi", 72f, -61f, 0f);
+
             // ground beyond the prototype's plane (which reaches x = ±118)
             Ground(-212f, -118f, -160f, 84f); Ground(118f, 212f, -160f, 84f);
 

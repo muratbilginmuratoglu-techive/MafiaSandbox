@@ -19,6 +19,16 @@ namespace MafiaSandbox.World
         public Vector3[] seats;
         public Bounds footprint;
 
+        public static readonly System.Collections.Generic.List<BuildingInfo> All = new System.Collections.Generic.List<BuildingInfo>();
+        void OnEnable() { All.Add(this); }
+        void OnDisable() { All.Remove(this); }
+        /// <summary>The building whose footprint contains the point (ignoring height), or null when outdoors.</summary>
+        public static BuildingInfo At(Vector3 p)
+        {
+            foreach (var b in All) { var f = b.footprint; if (p.x >= f.min.x - 0.3f && p.x <= f.max.x + 0.3f && p.z >= f.min.z - 0.3f && p.z <= f.max.z + 0.3f && p.y >= f.min.y - 1.5f && p.y <= f.max.y) return b; }
+            return null;
+        }
+
         void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.cyan; Gizmos.DrawWireCube(footprint.center, footprint.size);

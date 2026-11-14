@@ -44,7 +44,7 @@ namespace MafiaSandbox.Vehicles
             // The city's road decals (crosswalks, lane paint) are thin one-sided planes a few cm above the asphalt, and a box
             // collider resting on the asphalt catches their edges like a wall. So cars don't touch the ground at all: the
             // collider floats 35 cm up and the car rides on a downward raycast (see FixedUpdate).
-            var box = GetComponent<BoxCollider>(); if (box && !lifted) { box.center += Vector3.up * 0.3f; lifted = true; }
+            var box = GetComponent<BoxCollider>(); if (box && !lifted) { box.center += Vector3.up * 0.5f; box.size = new Vector3(box.size.x, Mathf.Max(0.8f, box.size.y - 0.4f), box.size.z); lifted = true; }   // clears ramps and kerb lips; cars ride on raycasts
             rb.useGravity = false; rb.maxDepenetrationVelocity = 2f;
             groundMask = 1 << 0;   // Default: roads, terrain, ramps
             SetupWheels();
@@ -179,7 +179,9 @@ namespace MafiaSandbox.Vehicles
             else bodyPitch = Mathf.MoveTowards(bodyPitch, 0f, 60f * dt);
             if (gy > float.MinValue)
             {
-                float ny = Mathf.MoveTowards(rb.position.y, gy, (Mathf.Abs(gy - rb.position.y) > 1.5f ? 12f : 6f) * dt);
+                float dy = gy - rb.position.y;
+                float ny = Mathf.Abs(dy) > 2.5f ? rb.position.y + Mathf.Sign(dy) * 14f * dt                        // fell off something / teleported: catch up fast
+                         : rb.position.y + dy * Mathf.Clamp01(1f - Mathf.Exp(-9f * dt));                           // otherwise glide onto the slope, no steps
                 vy = (ny - rb.position.y) / dt; fallV = 0f;
             }
             else { fallV -= 9.81f * dt; vy = fallV; }
@@ -203,7 +205,8 @@ namespace MafiaSandbox.Vehicles
         void BlockInto(Collision c)
         {
             if (c.collider.GetComponentInParent<MafiaSandbox.Combat.CharacterBody>() || c.collider.GetComponentInParent<MafiaSandbox.World.Animal>()) return;
-            var n = c.GetContact(0).normal; if (n.y > 0.55f || n.y < -0.55f) return;   // floors / ramps / roofs are not walls
+            var ct = c.GetContact(0); var n = ct.normal; if (n.y > 0.4f || n.y < -0.55f) return;   // floors / ramps / roofs are not walls
+            if (ct.point.y < rb.position.y + 0.62f) return;                                        // kerb lips, ramp edges, speed bumps: roll over them
             n.y = 0f; n.Normalize();
             float into = Vector3.Dot(transform.forward * speed, -n);
             if (into > 0f) { speed *= Mathf.Clamp01(1f - Mathf.Abs(Vector3.Dot(transform.forward, -n))); if (Mathf.Abs(speed) < 0.4f) speed = 0f; }
@@ -221,8 +224,8 @@ namespace MafiaSandbox.Vehicles
                 float v = Mathf.Abs(speed);
                 Vector3 dir = (body.transform.position - transform.position); dir.y = 0f; dir = (dir.normalized * 0.8f + transform.forward * Mathf.Sign(speed) * 0.6f).normalized;
                 var contact = c.GetContact(0).point;
-                if (v > 4f) { body.Hit(body.ZoneNear(contact), contact, dir, v > 9f ? 99 : 1, v > 9f, Mathf.Clamp(v * 0.5f, 1f, 8f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.6f; }
-                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.5f; }
+                if (v > 3f) { dir = (dir + Vector3.up * 0.45f).normalized; body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 1.6f, 4f, 26f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.93f; }   // a body barely slows a car; it flies
+                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.8f; }
                 return;
             }
             // lose speed on hard frontal/rear hits so we don't tunnel along walls

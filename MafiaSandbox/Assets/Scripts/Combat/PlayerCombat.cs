@@ -83,7 +83,7 @@ namespace MafiaSandbox.Combat
         {
             float dt = Time.deltaTime;
             cooldown -= dt; heat = Mathf.Max(0f, heat - dt * 1.2f); if (HitMarkerT > 0f) HitMarkerT -= dt;
-            if (Cursor.lockState != CursorLockMode.Locked) unlockedT = 0.25f; else unlockedT -= dt;   // the click that re-locks the cursor must not fire the gun
+            if (Cursor.lockState != CursorLockMode.Locked || UI.GameUI.Blocking) unlockedT = 0.35f; else unlockedT -= dt;   // the click that re-locks the cursor / closes a window must not fire the gun
             bool locked = pc.InputLocked || (body && body.Dead) || Cursor.lockState != CursorLockMode.Locked || unlockedT > 0f;
 
             if (!locked)

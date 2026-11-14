@@ -15,7 +15,7 @@ namespace MafiaSandbox.Npc
     public class NpcSpawner : MonoBehaviour
     {
         public GameObject[] prefabs;
-        public int civilians = 70, police = 10, gang = 5;
+        public int civilians = 180, police = 12, gang = 5;
         public RoadGraph graph;
         public Vector3 policeStation;      // station door (Unity space)
         public Vector3 gangCenter;         // construction building
@@ -86,11 +86,55 @@ namespace MafiaSandbox.Npc
             // shopkeepers
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None))
             {
-                if (bi.kind == "home" || bi.kind == "police") continue;
-                if (bi.kind == "house") { if (bi.hasOwner && Random.value < 0.6f) { var o = Spawn<KeeperBrain>(Pick("Vatandas"), bi.ownerPos, bi.ownerYaw); o.building = bi; o.role = "owner"; o.displayName = string.IsNullOrEmpty(bi.ownerName) ? "Resident" : bi.ownerName; } continue; }
+                if (bi.kind == "home") continue;
+                if (bi.kind == "police") { PopulateStation(bi); continue; }
+                if (bi.kind == "house")
+                {
+                    if (bi.hasOwner) { var o = Spawn<KeeperBrain>(Pick("Vatandas"), bi.ownerPos, bi.ownerYaw); o.building = bi; o.role = "owner"; o.displayName = string.IsNullOrEmpty(bi.ownerName) ? "Resident" : bi.ownerName; }
+                    if (bi.seats != null && bi.seats.Length > 0 && Random.value < 0.6f) Loiterer(bi, bi.seats[Random.Range(0, bi.seats.Length)], Random.value < 0.5f ? "Idle" : "Crouch_Idle", "Resident", bi.footprint.center);
+                    continue;
+                }
                 var k = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeperPos, bi.keeperYaw); k.building = bi; k.displayName = bi.label + " keeper";
                 if (bi.hasKeeper2) { var k2 = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeper2Pos, bi.keeper2Yaw); k2.building = bi; k2.displayName = bi.label + " teller"; }
+                PopulateShop(bi);
             }
+        }
+
+        /// <summary>Customers: at the tables of cafes / restaurants (pairs chat), browsing the shelves elsewhere, a short queue at the bank.</summary>
+        void PopulateShop(BuildingInfo bi)
+        {
+            int n = bi.kind == "restaurant" ? 5 : bi.kind == "cafe" ? 4 : bi.kind == "market" ? 3 : bi.kind == "bank" ? 3 : bi.kind == "barber" ? 2 : 1;
+            var seats = new List<Vector3>(bi.seats ?? new Vector3[0]); var shelves = new List<Vector3>(bi.shelves ?? new Vector3[0]);
+            CamperBrain lastTalker = null; Vector3 center = bi.footprint.center;
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 spot; string pose; Vector3 face;
+                if (seats.Count > 0) { int si = Random.Range(0, seats.Count); spot = seats[si]; seats.RemoveAt(si); pose = "Talk"; face = spot + (center - spot).normalized * 0.8f; }
+                else if (bi.kind == "bank") { Vector3 toDoor = (bi.door - bi.counter).normalized; spot = bi.counter + toDoor * (2.2f + i * 1.1f); pose = "Idle"; face = bi.counter; }
+                else if (shelves.Count > 0) { int si = Random.Range(0, shelves.Count); var sh = shelves[si]; shelves.RemoveAt(si); Vector3 inward = (center - sh); inward.y = 0f; spot = sh + inward.normalized * 0.9f; spot.y = bi.footprint.min.y; pose = "Idle"; face = sh; }
+                else { spot = center + new Vector3(Random.Range(-1.5f, 1.5f), 0f, Random.Range(-1.5f, 1.5f)); pose = "Idle"; face = bi.counter; }
+                var c = Loiterer(bi, spot, pose, bi.kind == "bank" ? "Customer" : bi.kind == "cafe" || bi.kind == "restaurant" ? "Guest" : "Shopper", face);
+                if (c != null && pose == "Talk") { if (lastTalker) { c.partner = lastTalker; lastTalker.partner = c; lastTalker = null; } else lastTalker = c; }
+            }
+        }
+
+        /// <summary>The station: a desk sergeant at the counter, two officers chatting, a prisoner in the cell at the back.</summary>
+        void PopulateStation(BuildingInfo bi)
+        {
+            var desk = Loiterer(bi, bi.keeperPos, "Idle", "Desk sergeant", bi.door, "Polis");
+            Vector3 c = bi.footprint.center; Vector3 back = c + (c - bi.door).normalized * (bi.footprint.extents.z * 0.65f);
+            var a = Loiterer(bi, c + new Vector3(1.2f, 0f, 0.6f), "Talk", "Officer", c, "Polis"); var b = Loiterer(bi, c + new Vector3(-0.6f, 0f, 1.4f), "Talk", "Officer", c, "Polis");
+            if (a && b) { a.partner = b; b.partner = a; }
+            Loiterer(bi, back + Vector3.right * 2.5f, "Crouch_Idle", "Prisoner", back, "Vatandas");
+            Loiterer(bi, back - Vector3.right * 2.5f, "Idle", "Prisoner", bi.door, "Vatandas");
+        }
+
+        CamperBrain Loiterer(BuildingInfo bi, Vector3 spot, string pose, string name, Vector3 face, string prefix = "Vatandas")
+        {
+            var hp = spot; hp.y = bi.footprint.min.y;
+            var c = Spawn<CamperBrain>(Pick(prefix), hp, Mathf.Atan2(face.x - hp.x, face.z - hp.z) * Mathf.Rad2Deg);
+            c.homeSpot = c.transform.position; c.pose = pose; c.fire = face; c.displayName = name; c.walkSpeed = 1.6f;
+            return c;
         }
 
         public T Spawn<T>(GameObject prefab, Vector3 pos, float yaw) where T : NpcBrain
@@ -103,7 +147,7 @@ namespace MafiaSandbox.Npc
             var model = Instantiate(prefab, root.transform, false); model.name = "Model";
             var cap = root.AddComponent<CapsuleCollider>(); cap.height = 1.8f; cap.radius = 0.3f; cap.center = new Vector3(0f, 0.9f, 0f);
             var agent = root.AddComponent<NavMeshAgent>();
-            root.AddComponent<CharacterAnimator>();
+            var ca = root.AddComponent<CharacterAnimator>(); if (ca.Anim) ca.Anim.cullingType = AnimationCullingType.BasedOnRenderers;   // 200+ NPCs: only animate the ones on screen
             root.AddComponent<CharacterBody>();
             var brain = root.AddComponent<T>(); brain.graph = graph;
             string baseName = prefab.name.Split('_')[0];

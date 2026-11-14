@@ -13,7 +13,7 @@ namespace MafiaSandbox.Vehicles
         public static TrafficManager I { get; private set; }
         public RoadGraph graph;
         public float laneOffset = 1.9f;        // right-hand traffic, metres from the centre line
-        public int maxCars = 12;               // the little grid jams up with more
+        public int maxCars = 16;               // the little grid jams up with more
         public readonly List<TrafficDriver> drivers = new List<TrafficDriver>();
 
         readonly Dictionary<int, TrafficDriver> tokens = new Dictionary<int, TrafficDriver>();
@@ -80,10 +80,13 @@ namespace MafiaSandbox.Vehicles
         /// <summary>Ask to enter a junction. Granted if free, already ours, or the holder has been sitting on it for too long.</summary>
         public bool Request(int junction, TrafficDriver who)
         {
-            if (!tokens.TryGetValue(junction, out var holder) || holder == null || holder == who || !holder.isActiveAndEnabled || Time.time - tokenSince[junction] > 9f)
+            if (!tokens.TryGetValue(junction, out var holder) || holder == null || holder == who || !holder.isActiveAndEnabled || Time.time - tokenSince[junction] > 6f)
             {
                 tokens[junction] = who; if (holder != who) tokenSince[junction] = Time.time; return true;
             }
+            // following the holder in from the same street: go with it (platoons clear a junction together instead of one by one)
+            int a = who.ApproachOf(junction), b = holder.ApproachOf(junction);
+            if (a >= 0 && a == b && Vector3.Distance(who.transform.position, holder.transform.position) < 16f) return true;
             return false;
         }
 

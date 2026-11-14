@@ -89,6 +89,9 @@ namespace MafiaSandbox.Vehicles
             if (tm.IsJunction(cur) && Vector3.Distance(transform.position, tm.Nodes[cur].pos) < 7f && tm.Request(cur, this)) heldJunction = cur;
         }
 
+        /// <summary>The node this car comes from on its way into (or through) `junction`; -1 if it isn't heading there.</summary>
+        public int ApproachOf(int junction) => next == junction ? cur : cur == junction ? prev : -1;
+
         void OnGUI()
         {
             if (!ShowDebug || !Camera.main) return;
@@ -174,7 +177,8 @@ namespace MafiaSandbox.Vehicles
             for (int i = 0; i < n; i++)
             {
                 var h = hits[i]; if (h.collider.transform.IsChildOf(transform)) continue;
-                if (h.normal.y > 0.55f) continue;                                                                           // ground, kerbs, the hill ramp: not obstacles
+                if (h.normal.y > 0.45f) continue;                                                                           // ground, kerbs, the hill ramp: not obstacles
+                if (h.point.y < transform.position.y + 0.62f && h.collider.gameObject.layer == 0 && !h.collider.GetComponent<MafiaSandbox.World.CityCollider>()) continue;   // ramp lips and kerbs on the static mesh
                 var body = h.collider.GetComponentInParent<CharacterBody>(); if (body && body.Dead && body.Ragdolled) continue;   // drive over the fallen, not the living
                 if (h.distance < nearest)
                 {
@@ -198,7 +202,7 @@ namespace MafiaSandbox.Vehicles
             if (pedAhead && blockedByObstacle) { pedBlockT += dt; if (pedBlockT > 1.5f && honkT <= 0f) { honkT = 2.5f; var brain = pedAhead.GetComponent<MafiaSandbox.Npc.NpcBrain>(); if (brain) brain.Honk(transform.position, transform.forward); MafiaSandbox.Core.Sfx.At("horn", transform.position + transform.forward * 2f); } }
             else pedBlockT = 0f;
             if (pedAhead) blockedT = Mathf.Min(blockedT, 2f);                                                               // don't ram around people, wait for them
-            if (blockedT > (queued ? 12f : 4f)) { blockedT = 0f; if (!yieldToOncoming) { reverseT = 1.1f; overtakeT = 7f; } }
+            if (blockedT > (queued ? 25f : 4f)) { blockedT = 0f; if (!yieldToOncoming && !queued) { reverseT = 1.1f; overtakeT = 7f; } }   // queues are waited out (or recycled when unseen), never overtaken into oncoming traffic
             Vector3 lanePosFor(float al) { var lp = LanePoint(cur, next, Mathf.Clamp01(al / Mathf.Max(0.01f, segLen))); lp.y = transform.position.y; return lp; }
             // a wall across our own lane while we're nicely aligned with the road: this edge isn't drivable, drop it and turn back
             if (wallAhead && blockedByObstacle && Vector3.Dot(transform.forward, segDir) > 0.95f
@@ -214,7 +218,7 @@ namespace MafiaSandbox.Vehicles
             if (offTrack || (Mathf.Abs(vc.Speed) < 0.3f && desired > 0.5f) || blockedByObstacle) troubleT += dt; else troubleT = Mathf.Max(0f, troubleT - dt * 2f);
             // jammed for long (whatever the reason) and nobody's looking: respawn elsewhere, else at least straighten up on the lane
             if (Mathf.Abs(vc.Speed) < 0.5f) idleT += dt; else idleT = Mathf.Max(0f, idleT - dt * 3f);
-            if ((troubleT > 10f || idleT > 20f) && Unseen()) { if (Relocate()) return; troubleT = 5f; idleT = 12f; }
+            if ((troubleT > 8f || idleT > 9f) && Unseen()) { if (Relocate()) return; troubleT = 4f; idleT = 5f; }
 
             // steering
             Vector3 to = target - transform.position; to.y = 0f;
