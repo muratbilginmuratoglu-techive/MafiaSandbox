@@ -61,11 +61,18 @@ namespace MafiaSandbox.Vehicles
             wheels = list.ToArray(); wheelAxes = axes.ToArray();
         }
 
-        public void SetControlled(bool on) { Controlled = on; if (!on) { throttle = 0f; steer = 0f; handbrake = true; } }
+        AudioSource engine;
+        public void SetControlled(bool on)
+        {
+            Controlled = on; if (!on) { throttle = 0f; steer = 0f; handbrake = true; }
+            if (on && !engine && MafiaSandbox.Core.Sfx.I) engine = MafiaSandbox.Core.Sfx.I.Loop("engine", 0.35f, true, transform);
+            if (engine) { engine.mute = !on; }
+        }
         public void SetInput(float throttle01, float steer01, bool brake) { throttle = Mathf.Clamp(throttle01, -1f, 1f); steer = Mathf.Clamp(steer01, -1f, 1f); handbrake = brake; }
 
         void Update()
         {
+            if (engine && Controlled) { float k = Mathf.Abs(speed) / Mathf.Max(1f, maxSpeed); engine.pitch = Mathf.Lerp(engine.pitch, 0.65f + k * 1.3f + (throttle != 0f ? 0.1f : 0f), Time.deltaTime * 4f); engine.volume = 0.3f + k * 0.25f; }
             if (Controlled)
             {
                 throttle = Input.GetAxisRaw("Vertical");
@@ -126,6 +133,8 @@ namespace MafiaSandbox.Vehicles
 
         void OnCollisionEnter(Collision c)
         {
+            var animal = c.collider.GetComponentInParent<MafiaSandbox.World.Animal>();
+            if (animal && !animal.Dead && Mathf.Abs(speed) > 2.5f) { animal.Hit(c.GetContact(0).point, transform.forward * Mathf.Sign(speed)); return; }
             // pedestrians: knock them down (ragdoll) when fast, nudge them when slow
             var body = c.collider.GetComponentInParent<MafiaSandbox.Combat.CharacterBody>();
             if (body != null && !body.Dead)

@@ -55,6 +55,15 @@ namespace MafiaSandbox.UI
             // interaction prompt
             var inter = gm.player.GetComponent<PlayerInteraction>();
             if (inter && !string.IsNullOrEmpty(inter.Prompt) && !(vi && vi.Current) && !UI.GameUI.Blocking) GUI.Box(new Rect(W / 2f - 190, H - 100, 380, 28), inter.Prompt, box);
+            // clock + weather (top centre, under the stars)
+            var dn = MafiaSandbox.World.DayNightCycle.I; var atmo = MafiaSandbox.World.Atmosphere.I;
+            if (dn)
+            {
+                int hh = Mathf.FloorToInt(dn.timeOfDay), mm = Mathf.FloorToInt((dn.timeOfDay - hh) * 60f);
+                string wx = atmo ? (atmo.weather == MafiaSandbox.World.Atmosphere.WeatherKind.Rain ? "  ·  rain" : atmo.weather == MafiaSandbox.World.Atmosphere.WeatherKind.Snow ? "  ·  snow" : "") : "";
+                var cs = new GUIStyle(box) { alignment = TextAnchor.MiddleCenter, fontSize = 13 };
+                GUI.Box(new Rect(W / 2f - 70, 50, 140, 22), $"{hh:00}:{mm:00}{wx}", cs);
+            }
             // wanted stars (top centre)
             var ws = WantedSystem.I; int lvl = ws ? ws.Level : 0;
             if (lvl > 0)

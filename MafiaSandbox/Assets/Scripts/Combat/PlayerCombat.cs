@@ -158,6 +158,10 @@ namespace MafiaSandbox.Combat
                         e.n++; if (hz.zone == "Hit_Head") e.zone = "Hit_Head"; hitsBy[hz.body] = e;
                         CombatFx.I?.Blood(h.point, dir, w.kind == WeaponKind.Shotgun ? 3 : 7);
                     }
+                    else if (h.collider.GetComponentInParent<World.Animal>() is World.Animal an)
+                    {
+                        anyHit = true; an.Hit(h.point, dir);
+                    }
                     else
                     {
                         bool metal = h.collider.GetComponentInParent<Vehicles.VehicleController>() != null;

@@ -266,6 +266,7 @@ namespace MafiaSandbox.EditorTools
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
             gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); gm.gameObject.AddComponent<Minimap>();
+            var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();
             var itemPrefabs = new List<GameObject>();

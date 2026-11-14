@@ -34,6 +34,54 @@ namespace MafiaSandbox.Core
             clips["click"] = Noise(0.03f, 0.3f, 0.001f, 0.01f, false);
             clips["pump"] = Noise(0.1f, 0.4f, 0.002f, 0.04f, false);
             clips["horn"] = Horn(0.45f, 0.5f);
+            clips["bark"] = Voice(0.18f, 420f, 180f, 0.8f, 0.012f);
+            clips["meow"] = Voice(0.42f, 760f, -260f, 0.4f, 0.0f);
+            clips["whine"] = Voice(0.5f, 900f, -500f, 0.45f, 0.0f);
+            clips["crackle"] = Noise(0.05f, 0.35f, 0.001f, 0.02f, false);
+            clips["step"] = Noise(0.06f, 0.22f, 0.002f, 0.025f, false);
+            clips["rainloop"] = Wash(2.0f, 1600f, 0.5f);
+            clips["ambient"] = Wash(4.0f, 300f, 0.35f);
+            clips["engine"] = Engine(1.0f);
+        }
+
+        /// <summary>Animal voice: a pitched buzz with a frequency sweep and a soft envelope.</summary>
+        AudioClip Voice(float dur, float hz0, float sweep, float vol, float growl)
+        {
+            int n = (int)(dur * SR); var d = new float[n]; float ph = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)SR; float u = t / dur; float hz = hz0 + sweep * u; ph += 2f * Mathf.PI * hz / SR;
+                float env = Mathf.Sin(Mathf.PI * u); env *= env; float x = Mathf.Sin(ph) * 0.7f + Mathf.Sin(ph * 2f) * 0.25f + Mathf.Sin(ph * 3f) * 0.1f;
+                if (growl > 0f) x *= 0.6f + 0.4f * Mathf.Sin(2f * Mathf.PI * 45f * t);
+                d[i] = Mathf.Clamp(x * env * vol, -1f, 1f);
+            }
+            return Make("voice", d);
+        }
+
+        /// <summary>Seamless filtered-noise loop (rain, wind / city hum).</summary>
+        AudioClip Wash(float dur, float lpHz, float vol)
+        {
+            int n = (int)(dur * SR); var d = new float[n]; float lp = 0f, lp2 = 0f; float a = Mathf.Clamp01(1f - Mathf.Exp(-2f * Mathf.PI * lpHz / SR));
+            for (int i = 0; i < n; i++) { lp += a * (Rnd() - lp); lp2 += 0.002f * (Rnd() - lp2); d[i] = (lp * 1.5f + lp2 * 6f) * vol; }
+            int fade = SR / 10; for (int i = 0; i < fade; i++) { float k = i / (float)fade; d[i] = d[i] * k + d[n - fade + i] * (1f - k); }   // crossfade the seam
+            return Make("wash", d);
+        }
+
+        /// <summary>Engine loop: a few harmonics of a low tone with a little rumble; pitched at runtime.</summary>
+        AudioClip Engine(float dur)
+        {
+            int n = (int)(dur * SR); var d = new float[n]; float lp = 0f;
+            for (int i = 0; i < n; i++) { float t = i / (float)SR; lp += 0.05f * (Rnd() - lp); d[i] = (Mathf.Sin(2f * Mathf.PI * 60f * t) * 0.5f + Mathf.Sin(2f * Mathf.PI * 120f * t) * 0.3f + Mathf.Sin(2f * Mathf.PI * 181f * t) * 0.12f + lp * 0.5f) * 0.35f; }
+            return Make("engine", d);
+        }
+
+        /// <summary>A dedicated looping source (2D unless spatial), starts playing at `vol`.</summary>
+        public AudioSource Loop(string name, float vol, bool spatial, Transform parent = null)
+        {
+            if (!clips.TryGetValue(name, out var c)) return null;
+            var go = new GameObject("loop " + name); go.transform.SetParent(parent ? parent : transform, false);
+            var src = go.AddComponent<AudioSource>(); src.clip = c; src.loop = true; src.volume = vol; src.spatialBlend = spatial ? 1f : 0f; src.rolloffMode = AudioRolloffMode.Linear; src.minDistance = 4f; src.maxDistance = 60f; src.dopplerLevel = 0f; src.Play();
+            return src;
         }
 
         AudioClip Horn(float dur, float vol)

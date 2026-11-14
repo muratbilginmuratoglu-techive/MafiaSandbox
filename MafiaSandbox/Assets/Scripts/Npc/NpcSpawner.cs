@@ -43,6 +43,17 @@ namespace MafiaSandbox.Npc
                 var prefab = medic ? Pick("Doktor") : (Random.value < 0.8f ? Pick("Vatandas") : Pick("Itfaiyeci"));
                 var c = Spawn<CivilianBrain>(prefab, n, Random.Range(0f, 360f)); c.isMedic = medic; c.bravery = Random.value * 0.6f;
             }
+            // the camp under the bridge (prototype coordinates: x, z, pose, fire index)
+            var fires = new[] { Data.Coords.ToUnity(50f, 0f, 0f), Data.Coords.ToUnity(61f, 0f, 5f), Data.Coords.ToUnity(69f, 0f, -4f) };
+            var campers = new (float x, float z, string pose, int fire)[] { (48.6f, 1.4f, "Crouch_Idle", 0), (51.6f, -1.2f, "Idle", 0), (59.2f, 3.8f, "Talk", 1), (60.2f, 6.4f, "Talk", 1), (67.5f, -2.4f, "Dance", 2), (63f, -7.5f, "Crouch_Idle", -1), (70.5f, 6.5f, "Idle", 2) };
+            CamperBrain talkPartner = null;
+            foreach (var cp in campers)
+            {
+                Vector3 hp = Data.Coords.ToUnity(cp.x, 0f, cp.z); Vector3 face = cp.fire >= 0 ? fires[cp.fire] : hp + Vector3.forward;
+                var c = Spawn<CamperBrain>(Pick("Vatandas"), hp, Mathf.Atan2(face.x - hp.x, face.z - hp.z) * Mathf.Rad2Deg);
+                c.homeSpot = c.transform.position; c.pose = cp.pose; c.fire = cp.fire >= 0 ? fires[cp.fire] : (Vector3?)null; c.displayName = "Camper";
+                if (cp.pose == "Talk") { if (talkPartner) { c.partner = talkPartner; talkPartner.partner = c; } else talkPartner = c; }
+            }
             // police
             for (int i = 0; i < police; i++)
             {

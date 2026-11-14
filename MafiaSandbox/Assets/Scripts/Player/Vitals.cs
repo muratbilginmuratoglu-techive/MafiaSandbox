@@ -13,7 +13,7 @@ namespace MafiaSandbox.Player
         public static Vitals I { get; private set; }
         public float stamina = 100f, hunger = 100f;
         public bool Exhausted { get; private set; }
-        PlayerController pc; CharacterBody body; float starveT, regenT, nagT;
+        PlayerController pc; CharacterBody body; float starveT, regenT, nagT, stepT;
 
         void Awake() { I = this; pc = GetComponent<PlayerController>(); body = GetComponent<CharacterBody>(); }
 
@@ -26,6 +26,8 @@ namespace MafiaSandbox.Player
             if (stamina <= 0f) Exhausted = true; else if (stamina > 25f) Exhausted = false;
             if (pc) { pc.SprintAllowed = !Exhausted; pc.SpeedScale = hunger <= 0f ? 0.8f : 1f; }
 
+            // footsteps
+            if (pc && pc.Moving && !pc.InputLocked) { stepT -= dt; if (stepT <= 0f) { stepT = sprinting ? 0.3f : pc.IsCrouching ? 0.7f : 0.48f; Sfx.At("step", transform.position, sprinting ? 0.5f : 0.3f); } } else stepT = 0.1f;
             hunger = Mathf.Max(0f, hunger - dt / 6f);
             if (hunger <= 0f && body)
             {
