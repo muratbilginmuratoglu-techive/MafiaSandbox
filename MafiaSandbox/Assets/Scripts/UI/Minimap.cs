@@ -82,7 +82,7 @@ namespace MafiaSandbox.UI
 
         void OnGUI()
         {
-            var gm = GameManager.I; if (!gm || !gm.player || map == null || CharacterCreator.IsOpen) return;
+            var gm = GameManager.I; if (!gm || !gm.player || map == null || CharacterCreator.IsOpen || IntroCinematic.Playing) return;
             if (GameUI.I && GameUI.I.MapOpen) DrawBig(gm); else DrawMini(gm);
         }
 

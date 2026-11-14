@@ -17,7 +17,7 @@ namespace MafiaSandbox.UI
     public class GameUI : MonoBehaviour
     {
         public static GameUI I { get; private set; }
-        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen;
+        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing;
         bool invOpen, mapOpen; Shop shop; CharacterBody loot; Vector2 scrollA, scrollB;
         GUIStyle win, title, row, dim, btn, price, head;
         PlayerController pc;
@@ -27,7 +27,7 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return; if (!pc) pc = gm.player;
-            if (CharacterCreator.IsOpen || PhonePanel.IsOpen) { ApplyLock(); return; }
+            if (CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing) { ApplyLock(); return; }
             bool dead = gm.player.GetComponent<CharacterBody>()?.Dead ?? false;
             if (Input.GetKeyDown(KeyCode.I)) { if (shop != null) CloseAll(); else if (!dead) { invOpen = !invOpen; mapOpen = false; } }
             if (Input.GetKeyDown(KeyCode.M)) { if (mapOpen) CloseAll(); else if (!dead) { mapOpen = true; invOpen = false; shop = null; } }

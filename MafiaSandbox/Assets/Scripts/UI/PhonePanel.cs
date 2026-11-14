@@ -19,7 +19,7 @@ namespace MafiaSandbox.UI
         public static bool IsOpen => I && I.open;
         bool open;
 
-        enum Page { Home, Messages, Thread, Contacts, Contact, Settings }
+        enum Page { Home, Messages, Thread, Contacts, Contact, Settings, Missions }
         Page page = Page.Home; Conversation thread; Contact contact; Vector2 scrollList, scrollThread; string draft = ""; bool typing;
 
         class Msg { public bool mine; public string text, time; }
@@ -29,10 +29,11 @@ namespace MafiaSandbox.UI
         readonly List<Conversation> convs = new List<Conversation>();
         readonly List<(float t, Conversation c, string text)> pending = new List<(float, Conversation, string)>();
         readonly HashSet<string> warned = new HashSet<string>();
-        Contact sal, mom, police; bool welcomed, built; float lastHeatT = -99f; int lastWanted; FactionDef lastTerr; float notifyT; string notifyText;
+        Contact sal, mom, police; bool welcomed, built; float welcomeT = -1f; float lastHeatT = -99f; int lastWanted; FactionDef lastTerr; float notifyT; string notifyText;
         GUIStyle bubble, bubbleText, field; PlayerController pc;
 
         void Awake() { I = this; }
+        public static void Post(string id, string text) { if (!I) return; I.BuildContacts(); foreach (var c in I.contacts) if (c.id == id) { I.Notify(c, text); return; } }
 
         int Unread { get { int n = 0; foreach (var c in convs) n += c.unread; return n; } }
         static string Clock() { var d = FindAnyObjectByType<DayNightCycle>(); float h = d ? d.timeOfDay : 12f; int hh = Mathf.FloorToInt(h) % 24, mm = Mathf.FloorToInt((h - Mathf.Floor(h)) * 60f); return $"{hh:00}:{mm:00}"; }
@@ -62,10 +63,11 @@ namespace MafiaSandbox.UI
 
         void Update()
         {
-            var gm = GameManager.I; if (!gm || !gm.player || CharacterCreator.IsOpen) return; pc = gm.player;
+            var gm = GameManager.I; if (!gm || !gm.player || CharacterCreator.IsOpen || IntroCinematic.Playing) return; pc = gm.player;
             BuildContacts();
             string me = PlayerAppearance.PlayerName;
-            if (!welcomed && Time.timeSinceLevelLoad > 4f) { welcomed = true; Notify(sal, $"Welcome to town, {me}. Three families and four crews split this place. Keep your head down, keep some cash on you. Text me if the law gets interested."); }
+            if (welcomeT < 0f) welcomeT = Time.time;
+            if (!welcomed && Time.time - welcomeT > 3f) { welcomed = true; Notify(sal, $"Welcome to town, {me}. Three families and four crews split this place. Keep your head down, keep some cash on you. Text me if the law gets interested."); }
             // events → texts
             var fm = FactionManager.I;
             if (fm && fm.Territory != lastTerr) { lastTerr = fm.Territory; if (lastTerr != null && warned.Add("t_" + lastTerr.id)) { foreach (var c in contacts) if (c.faction == lastTerr) Notify(c, $"{me}. You're on {lastTerr.name} ground. Watch your step."); } }
@@ -91,7 +93,7 @@ namespace MafiaSandbox.UI
 
         void OnGUI()
         {
-            if (CharacterCreator.IsOpen) return;
+            if (CharacterCreator.IsOpen || IntroCinematic.Playing) return;
             float W = Screen.width, H = Screen.height;
             if (!open)
             {
@@ -117,6 +119,7 @@ namespace MafiaSandbox.UI
                 case Page.Contacts: Contacts(inner); break;
                 case Page.Contact: ContactPage(inner); break;
                 case Page.Settings: Settings(inner); break;
+                case Page.Missions: MissionsPage(inner); break;
             }
             GUILayout.EndArea();
             // home button
@@ -133,6 +136,7 @@ namespace MafiaSandbox.UI
             GUILayout.BeginHorizontal(); GUILayout.FlexibleSpace();
             if (Icon("Messages", new Color(0.3f, 0.78f, 0.4f), "MSG", Unread)) page = Page.Messages;
             if (Icon("Contacts", new Color(0.3f, 0.55f, 0.95f), "CT", 0)) page = Page.Contacts;
+            if (Icon("Missions", new Color(0.95f, 0.7f, 0.2f), "MIS", 0)) page = Page.Missions;
             if (Icon("Settings", new Color(0.55f, 0.58f, 0.66f), "SET", 0)) page = Page.Settings;
             GUILayout.FlexibleSpace(); GUILayout.EndHorizontal();
             GUILayout.FlexibleSpace();
@@ -272,6 +276,23 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Message", UiSkin.ButtonOn, GUILayout.Height(38))) { thread = Conv(contact); thread.unread = 0; page = Page.Thread; scrollThread = new Vector2(0, 99999); }
             if (GUILayout.Button("Call", UiSkin.Button, GUILayout.Height(38))) { var cv = Conv(contact); cv.msgs.Add(new Msg { mine = true, text = "(called)", time = Clock() }); pending.Add((Time.time + 2.5f, cv, Reply(contact, ""))); GameManager.I?.Say($"Calling {contact.name}…"); Close(); }
             GUILayout.EndHorizontal();
+        }
+
+        void MissionsPage(Rect inner)
+        {
+            Header("Missions", Page.Home);
+            var qm = QuestManager.I; if (!qm) { GUILayout.Label("No missions.", UiSkin.LabelDim); return; }
+            scrollList = GUILayout.BeginScrollView(scrollList);
+            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 };
+            foreach (var m in qm.View())
+            {
+                string mark = m.state == 0 ? "[done] " : m.state == 1 ? "[now] " : "";
+                GUILayout.Label((m.state == 1 ? "<b>" : "") + mark + m.title + (m.state == 1 ? "</b>" : ""), m.state == 2 ? UiSkin.LabelDim : UiSkin.Label);
+                if (m.state != 2) GUILayout.Label(m.desc, wrap);
+                GUILayout.Space(6);
+            }
+            if (qm.AllDone) GUILayout.Label("Chapter 1 complete.", UiSkin.LabelBold);
+            GUILayout.EndScrollView();
         }
 
         void Settings(Rect inner)

@@ -24,7 +24,7 @@ namespace MafiaSandbox.UI
 
         void Awake() { I = this; }
 
-        void Start() { if (showAtStart) StartCoroutineNextFrame(); }
+        void Start() { if (showAtStart && !FindAnyObjectByType<IntroCinematic>()) StartCoroutineNextFrame(); }
         void StartCoroutineNextFrame() { Invoke(nameof(OpenAtStart), 0.05f); }
         void OpenAtStart() { Begin(false); }
 
