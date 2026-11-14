@@ -32,6 +32,7 @@ namespace MafiaSandbox.Economy
 
         void Update()
         {
+            if (def == null) { if (info) Init(info); else return; }   // a script reload in Play mode drops the non-serialized state
             float dt = Time.deltaTime;
             restockT += dt;
             if (restockT > 90f) { restockT = 0f; foreach (var s in stock.Values) if (s.n < s.max) s.n++; }

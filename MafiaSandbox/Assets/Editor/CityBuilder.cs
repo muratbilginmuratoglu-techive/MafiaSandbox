@@ -75,7 +75,7 @@ namespace MafiaSandbox.EditorTools
             if (assets == null || assets.Length == 0) { Debug.LogWarning("[MafiaSandbox] TagManager not found; add layers 'Characters' (8) and 'Hitbox' (9) manually."); return; }
             var so = new SerializedObject(assets[0]); var layers = so.FindProperty("layers"); bool changed = false;
             void Set(int idx, string name) { var p = layers.GetArrayElementAtIndex(idx); if (p.stringValue != name) { p.stringValue = name; changed = true; } }
-            Set(8, "Characters"); Set(9, "Hitbox"); Set(10, "Vehicles");
+            Set(8, "Characters"); Set(9, "Hitbox"); Set(10, "Vehicles"); Set(11, "Player");
             if (changed) so.ApplyModifiedProperties();
             Physics.IgnoreLayerCollision(8, 9, true);
         }
@@ -109,22 +109,51 @@ namespace MafiaSandbox.EditorTools
         /// </summary>
         static Mesh TrimTunnelPortal(Mesh src, Transform node)
         {
-            var verts = src.vertices; var tris = src.triangles; var keep = new List<int>(tris.Length); int cut = 0;
-            for (int i = 0; i < tris.Length; i += 3)
+            var verts = src.vertices; int cut = 0; var m = Object.Instantiate(src); m.name = src.name + "_trimmed";
+            for (int sub = 0; sub < src.subMeshCount; sub++)   // submesh by submesh: setting Mesh.triangles would merge them (then every material draws the whole mesh)
             {
-                bool inside = true;
-                for (int k = 0; k < 3 && inside; k++)
+                var tris = src.GetTriangles(sub); var keep = new List<int>(tris.Length);
+                for (int i = 0; i < tris.Length; i += 3)
                 {
-                    var w = node.TransformPoint(verts[tris[i + k]]);   // Unity world (x mirrored relative to the prototype)
-                    inside = Mathf.Abs(w.x) <= 8.2f && w.z >= 82.8f && w.z <= 84.2f && w.y >= -0.2f && w.y <= 6.7f;
+                    bool inside = true;
+                    for (int k = 0; k < 3 && inside; k++)
+                    {
+                        var w = node.TransformPoint(verts[tris[i + k]]);   // Unity world (x mirrored relative to the prototype)
+                        inside = Mathf.Abs(w.x) <= 8.2f && w.z >= 82.8f && w.z <= 84.2f && w.y >= -0.2f && w.y <= 6.7f;
+                    }
+                    if (inside) { cut++; continue; }
+                    keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]);
                 }
-                if (inside) { cut++; continue; }
-                keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]);
+                m.SetTriangles(keep, sub, false);
             }
-            if (cut == 0) return src;
-            var m = Object.Instantiate(src); m.name = src.name + "_trimmed"; m.triangles = keep.ToArray(); m.RecalculateBounds();
-            Debug.Log($"[MafiaSandbox] Tunnel portal: cut {cut} triangles from the static mesh");
+            if (cut == 0) { Object.DestroyImmediate(m); return src; }
+            m.RecalculateBounds();
+            Debug.Log($"[MafiaSandbox] Tunnel portal: cut {cut} triangles from the static mesh ({m.subMeshCount} submeshes kept)");
             return m;
+        }
+
+        [System.Serializable] class GlbDoc { public GlbMaterial[] materials; public GlbMesh[] meshes; }
+        [System.Serializable] class GlbMaterial { public string name; public GlbPbr pbrMetallicRoughness; }
+        [System.Serializable] class GlbPbr { public float[] baseColorFactor; }
+        [System.Serializable] class GlbMesh { public GlbPrim[] primitives; }
+        [System.Serializable] class GlbPrim { public int material = -1; }
+
+        /// <summary>Per-primitive base colours straight from the GLB's JSON chunk (linear glTF values → gamma for Material.color).</summary>
+        static Color[] GlbBaseColors(string path)
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes(path); int len = System.BitConverter.ToInt32(bytes, 12);
+                var doc = JsonUtility.FromJson<GlbDoc>(System.Text.Encoding.UTF8.GetString(bytes, 20, len));
+                var prims = doc.meshes[0].primitives; var cols = new Color[prims.Length];
+                for (int i = 0; i < prims.Length; i++)
+                {
+                    var f = prims[i].material >= 0 ? doc.materials[prims[i].material].pbrMetallicRoughness?.baseColorFactor : null;
+                    cols[i] = f != null && f.Length >= 3 ? new Color(f[0], f[1], f[2], 1f).gamma : Color.clear;   // clear = vertex-coloured (shop furniture): keep the imported material
+                }
+                return cols;
+            }
+            catch (System.Exception e) { Debug.LogWarning("[MafiaSandbox] GLB colours: " + e.Message); return new Color[0]; }
         }
 
         [MenuItem("MafiaSandbox/2. Build City Scene", priority = 2)]
@@ -152,6 +181,22 @@ namespace MafiaSandbox.EditorTools
                     if (trimmed != mf.sharedMesh) { Directory.CreateDirectory("Assets/Scenes"); AssetDatabase.CreateAsset(trimmed, "Assets/Scenes/CityStatic_trimmed.asset"); mf.sharedMesh = trimmed; }
                     var mc = mf.gameObject.GetComponent<MeshCollider>(); if (!mc) mc = mf.gameObject.AddComponent<MeshCollider>();
                     mc.sharedMesh = mf.sharedMesh; staticMeshes++;
+                    // plain Standard materials with the glTF base colours: the import's vertex-coloured materials shaded the
+                    // ground unevenly (roads fading into the kerb colour) once the project went linear
+                    var mr = mf.GetComponent<MeshRenderer>();
+                    if (mr)
+                    {
+                        const string matsPath = "Assets/Scenes/CityStatic_materials.asset"; Directory.CreateDirectory("Assets/Scenes"); if (AssetDatabase.LoadAssetAtPath<Material>(matsPath)) AssetDatabase.DeleteAsset(matsPath);
+                        var mats = mr.sharedMaterials; var fresh = new Material[mats.Length]; var glbColors = GlbBaseColors(StaticGlb);
+                        for (int i = 0; i < mats.Length; i++)
+                        {
+                            var src = mats[i]; Color c = i < glbColors.Length ? glbColors[i] : Color.gray;
+                            if (c.a == 0f) { fresh[i] = src; continue; }
+                            var m = new Material(Shader.Find("Standard")) { name = (src ? src.name : "static") + "_std", color = c }; m.SetFloat("_Glossiness", 0.05f); m.SetFloat("_Metallic", 0f);
+                            if (!AssetDatabase.LoadAssetAtPath<Material>(matsPath)) AssetDatabase.CreateAsset(m, matsPath); else AssetDatabase.AddObjectToAsset(m, matsPath); fresh[i] = m;
+                        }
+                        mr.sharedMaterials = fresh;
+                    }
                 }
                 SetStaticRecursive(go, true);
             }
@@ -215,7 +260,7 @@ namespace MafiaSandbox.EditorTools
             // --- vehicles (parked ones now; traffic cars come alive in step 4)
             var vRoot = new GameObject("Vehicles").transform; vRoot.SetParent(world, false);
             VehicleController playerCar = null; int vCount = 0, skippedTraffic = 0, trafficCount = 0;
-            int obstacleMask = 0; { foreach (var ln in new[] { "Default", "Vehicles", "Characters", "Hitbox" }) { int l = LayerMask.NameToLayer(ln); if (l >= 0) obstacleMask |= 1 << l; } }
+            int obstacleMask = 0; { foreach (var ln in new[] { "Default", "Vehicles", "Characters", "Hitbox", "Player" }) { int l = LayerMask.NameToLayer(ln); if (l >= 0) obstacleMask |= 1 << l; } }
             foreach (var v in city.vehicles)
             {
                 // the prototype's filler cars (car park / warehouse lots) just sat there; the traffic and the crews' own cars remain
@@ -259,8 +304,8 @@ namespace MafiaSandbox.EditorTools
                 var pbody = player.AddComponent<MafiaSandbox.Combat.CharacterBody>(); pbody.isPlayer = true; pbody.maxHp = 10; pbody.hp = 10;
                 var combat = player.AddComponent<MafiaSandbox.Combat.PlayerCombat>();
                 player.AddComponent<Vitals>(); player.AddComponent<MafiaSandbox.Economy.PlayerInteraction>();
-                int chLayer = LayerMask.NameToLayer("Characters"); if (chLayer >= 0) player.layer = chLayer;
-                combat.shootMask = chLayer >= 0 ? ~(1 << chLayer) : ~0;
+                int plLayer = LayerMask.NameToLayer("Player"); int chLayer = LayerMask.NameToLayer("Characters"); player.layer = plLayer >= 0 ? plLayer : chLayer;   // own layer: cars pass through NPC capsules but still block the player on foot
+                { int m = ~0; if (chLayer >= 0) m &= ~(1 << chLayer); if (plLayer >= 0) m &= ~(1 << plLayer); combat.shootMask = m; }
                 if (!model.GetComponentInChildren<Animation>()) Debug.LogWarning("[MafiaSandbox] Player model has no Legacy Animation component — run MafiaSandbox ▸ 1. Setup first (then rebuild the scene).");
             }
             else Debug.LogError($"[MafiaSandbox] {CharsDir}/{PlayerModel}.glb missing");
@@ -270,7 +315,7 @@ namespace MafiaSandbox.EditorTools
             mainCam.tag = "MainCamera"; mainCam.farClipPlane = 600f; mainCam.nearClipPlane = 0.08f; mainCam.fieldOfView = 60f;
             cam = mainCam.gameObject.GetComponent<PlayerCamera>(); if (!cam) cam = mainCam.gameObject.AddComponent<PlayerCamera>();
             if (pc) { cam.target = pc.transform; pc.cameraTransform = mainCam.transform; pc.GetComponent<VehicleInteraction>().playerCamera = cam; }
-            { int chL = LayerMask.NameToLayer("Characters"), hbL = LayerMask.NameToLayer("Hitbox"); int mask = ~0; if (chL >= 0) mask &= ~(1 << chL); if (hbL >= 0) mask &= ~(1 << hbL); cam.collisionMask = mask; }
+            { int chL = LayerMask.NameToLayer("Characters"), hbL = LayerMask.NameToLayer("Hitbox"), plL = LayerMask.NameToLayer("Player"); int mask = ~0; if (chL >= 0) mask &= ~(1 << chL); if (hbL >= 0) mask &= ~(1 << hbL); if (plL >= 0) mask &= ~(1 << plL); cam.collisionMask = mask; }
 
             var sun = Object.FindAnyObjectByType<Light>();
             if (!sun) sun = new GameObject("Directional Light", typeof(Light)).GetComponent<Light>();

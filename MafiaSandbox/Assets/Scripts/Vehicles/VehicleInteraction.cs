@@ -59,6 +59,14 @@ namespace MafiaSandbox.Vehicles
             if (playerCamera) playerCamera.SetVehicle(v.transform);
         }
 
+        System.Collections.IEnumerator IgnoreCar(VehicleController v, float seconds)
+        {
+            var mine = GetComponentsInChildren<Collider>(true); var theirs = v ? v.GetComponentsInChildren<Collider>(true) : new Collider[0];
+            foreach (var a in mine) foreach (var b in theirs) if (a && b) Physics.IgnoreCollision(a, b, true);
+            yield return new WaitForSeconds(seconds);
+            foreach (var a in mine) foreach (var b in theirs) if (a && b) Physics.IgnoreCollision(a, b, false);
+        }
+
         public void Exit()
         {
             var v = Current; Current = null;
@@ -72,6 +80,8 @@ namespace MafiaSandbox.Vehicles
                 pos = v.transform.position - v.transform.forward * (v.length * 0.5f + 1f) + Vector3.up * 0.2f;
             foreach (var r in renderers) r.enabled = true;
             foreach (var c in ownColliders) c.enabled = true;
+            // the car we just left must not run us over: no contact between it and us for a moment
+            StartCoroutine(IgnoreCar(v, 2.5f));
             pc.Teleport(pos, v.transform.eulerAngles.y);
             pc.InputLocked = false;
             if (playerCamera) playerCamera.SetVehicle(null);

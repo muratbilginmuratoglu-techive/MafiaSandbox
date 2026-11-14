@@ -85,7 +85,7 @@ namespace MafiaSandbox.Combat
             if (bones.Count < 10) { Debug.LogWarning($"{name}: rig bones not found ({bones.Count})", this); return; }
             BuildRagdoll();
             BuildHitZones();
-            if (CharactersLayer >= 0) gameObject.layer = CharactersLayer;
+            if (CharactersLayer >= 0 && gameObject.layer != LayerMask.NameToLayer("Player")) gameObject.layer = CharactersLayer;   // the player keeps its own layer (cars pass through NPCs only)
         }
 
         Transform B(string n) => bones.TryGetValue(n, out var t) ? t : null;

@@ -25,7 +25,7 @@ namespace MafiaSandbox.Vehicles
         public bool Controlled { get; private set; }
         public float Speed => speed;             // signed, m/s along forward
 
-        Rigidbody rb; bool lifted; int groundMask; float fallV;
+        Rigidbody rb; bool lifted; int groundMask; float fallV; static bool layersSet; static readonly Collider[] sweepHits = new Collider[32]; readonly System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float> hitAt = new System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float>(); int pedMask = -1;
         float speed, throttle, steer; bool handbrake;
         Transform[] wheels; Vector3[] wheelAxes;  // optional: nodes named Wheel_* spin for show (axle axis per wheel)
 
@@ -41,6 +41,7 @@ namespace MafiaSandbox.Vehicles
             var obs = GetComponent<UnityEngine.AI.NavMeshObstacle>(); if (!obs) obs = gameObject.AddComponent<UnityEngine.AI.NavMeshObstacle>();
             obs.shape = UnityEngine.AI.NavMeshObstacleShape.Box; obs.size = new Vector3(width + 0.3f, 1.5f, length + 0.3f); obs.center = new Vector3(0f, 0.75f, 0f); obs.carving = true; obs.carveOnlyStationary = false; obs.carvingMoveThreshold = 0.3f;
             int vl = LayerMask.NameToLayer("Vehicles"); if (vl >= 0) gameObject.layer = vl;
+            if (!layersSet) { layersSet = true; int ch = LayerMask.NameToLayer("Characters"), hb = LayerMask.NameToLayer("Hitbox"); if (vl >= 0 && ch >= 0) Physics.IgnoreLayerCollision(vl, ch, true); if (vl >= 0 && hb >= 0) Physics.IgnoreLayerCollision(vl, hb, true); }   // NPC bodies never stop a car; hits come from the sweep below
             // The city's road decals (crosswalks, lane paint) are thin one-sided planes a few cm above the asphalt, and a box
             // collider resting on the asphalt catches their edges like a wall. So cars don't touch the ground at all: the
             // collider floats 35 cm up and the car rides on a downward raycast (see FixedUpdate).
@@ -106,7 +107,7 @@ namespace MafiaSandbox.Vehicles
         AudioSource engine;
         public void SetControlled(bool on)
         {
-            Controlled = on; if (!on) { throttle = 0f; steer = 0f; handbrake = true; }
+            Controlled = on; if (!on) { throttle = 0f; steer = 0f; handbrake = true; StopNow(); }
             if (on && !engine && MafiaSandbox.Core.Sfx.I) engine = MafiaSandbox.Core.Sfx.I.Loop("engine", 0.35f, true, transform);
             if (engine) { engine.mute = !on; }
         }
@@ -187,7 +188,32 @@ namespace MafiaSandbox.Vehicles
             else { fallV -= 9.81f * dt; vy = fallV; }
             Vector3 planar = transform.forward * speed;
             rb.linearVelocity = new Vector3(planar.x, vy, planar.z);
+            SweepPedestrians(dt);
         }
+
+        /// <summary>Running people over without the physics ever touching them: a box just ahead of the bumper finds bodies, they get hit and fly, the car doesn't notice.</summary>
+        void SweepPedestrians(float dt)
+        {
+            float v = Mathf.Abs(speed); if (v < 2.5f) return;
+            if (pedMask < 0) { int ch = LayerMask.NameToLayer("Characters"), hb = LayerMask.NameToLayer("Hitbox"), pl = LayerMask.NameToLayer("Player"); pedMask = (ch >= 0 ? 1 << ch : 0) | (hb >= 0 ? 1 << hb : 0) | (pl >= 0 ? 1 << pl : 0); }
+            Vector3 dirF = transform.forward * Mathf.Sign(speed); float reach = 0.5f + v * dt * 2f;
+            Vector3 c = rb.position + dirF * (length * 0.5f + reach * 0.5f) + Vector3.up * 0.9f;
+            int n = Physics.OverlapBoxNonAlloc(c, new Vector3(width * 0.5f + 0.15f, 0.9f, reach * 0.5f + 0.3f), sweepHits, transform.rotation, pedMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var body = sweepHits[i].GetComponentInParent<MafiaSandbox.Combat.CharacterBody>(); if (!body || body.Dead) continue;
+                if (hitAt.TryGetValue(body, out float t) && Time.time - t < 1.5f) continue; hitAt[body] = Time.time;
+                var vi = body.GetComponent<VehicleInteraction>(); if (vi && vi.Current) continue;   // the driver of another car
+                Vector3 dir = body.transform.position - rb.position; dir.y = 0f; dir = (dir.normalized * 0.6f + dirF * 0.8f + Vector3.up * 0.35f).normalized;
+                Vector3 contact = body.ChestPos;
+                body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle");
+                MafiaSandbox.Core.Sfx.At("thud", contact);
+                StartCoroutine(PassThrough(body, 2.5f));
+            }
+        }
+
+        /// <summary>Stop dead (used when the driver bails out so the car can't roll over them).</summary>
+        public void StopNow() { speed = 0f; throttle = 0f; handbrake = true; if (rb) rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f); }
 
         /// <summary>Ignore collisions between this car and a character for a while (after a hit), so the solver doesn't stop the car on the capsule.</summary>
         System.Collections.IEnumerator PassThrough(MafiaSandbox.Combat.CharacterBody body, float seconds)
@@ -235,11 +261,10 @@ namespace MafiaSandbox.Vehicles
                 var contact = c.GetContact(0).point;
                 if (v > 3f)
                 {
-                    dir = (dir + Vector3.up * 0.35f).normalized;
-                    body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); speed *= 0.95f;
-                    StartCoroutine(PassThrough(body, 2f));   // the body must not act as a wall for the car that hit it
+                    if (!(hitAt.TryGetValue(body, out float t0) && Time.time - t0 < 1.5f)) { hitAt[body] = Time.time; dir = (dir + Vector3.up * 0.35f).normalized; body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); }
+                    StartCoroutine(PassThrough(body, 2.5f));   // the body must not act as a wall for the car that hit it
                 }
-                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); speed *= 0.85f; }
+                else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); }
                 return;
             }
             // lose speed on hard frontal/rear hits so we don't tunnel along walls
