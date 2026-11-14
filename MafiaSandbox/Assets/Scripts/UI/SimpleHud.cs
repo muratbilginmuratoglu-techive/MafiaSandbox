@@ -16,11 +16,11 @@ namespace MafiaSandbox.UI
         float fps, fpsT; int frames; bool showHelp = true;
         VehicleInteraction vi; PlayerCombat combat; CharacterBody body; float dmgFlash; int lastHp = -1;
 
-        void Update() { frames++; fpsT += Time.unscaledDeltaTime; if (fpsT >= 0.5f) { fps = frames / fpsT; frames = 0; fpsT = 0f; } if (Input.GetKeyDown(KeyCode.H)) showHelp = !showHelp; }
+        void Update() { if (CharacterCreator.IsOpen || PhonePanel.IsOpen) return; frames++; fpsT += Time.unscaledDeltaTime; if (fpsT >= 0.5f) { fps = frames / fpsT; frames = 0; fpsT = 0f; } if (Input.GetKeyDown(KeyCode.H)) showHelp = !showHelp; }
 
         void OnGUI()
         {
-            var gm = GameManager.I; if (!gm || !gm.player) return;
+            var gm = GameManager.I; if (!gm || !gm.player || CharacterCreator.IsOpen) return;
             if (!vi) vi = gm.player.GetComponent<VehicleInteraction>();
             if (!combat) combat = gm.player.GetComponent<PlayerCombat>();
             if (!body) body = gm.player.GetComponent<CharacterBody>();

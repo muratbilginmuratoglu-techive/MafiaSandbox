@@ -28,6 +28,7 @@ namespace MafiaSandbox.EditorTools
         const string CityJson = "Assets/Data/city.json";
         const string ScenePath = "Assets/Scenes/City.unity";
         const string PlayerModel = "Polis_01";
+        const string PlayerParts = "Assets/Characters/Player/Player_Parts.glb";   // modular player body (hair / hats / tops / bottoms on one skeleton) for the character creator
 
         // ------------------------------------------------------------------ 1. setup
         [MenuItem("MafiaSandbox/1. Setup (import settings)", priority = 1)]
@@ -41,6 +42,7 @@ namespace MafiaSandbox.EditorTools
                 var path = file.Replace('\\', '/'); seen++;
                 if (SetLegacyAnimation(path)) fixedChars++;
             }
+            if (File.Exists(PlayerParts)) { seen++; if (SetLegacyAnimation(PlayerParts)) fixedChars++; }
             EnsureLegacyInput();
             EnsureLayers();
             AssetDatabase.Refresh();
@@ -287,7 +289,8 @@ namespace MafiaSandbox.EditorTools
             var traffic = graph.gameObject.AddComponent<TrafficManager>(); traffic.graph = graph; traffic.maxCars = 18;
 
             // --- player
-            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharsDir}/{PlayerModel}.glb");
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerParts); bool modular = playerPrefab != null;
+            if (!playerPrefab) playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharsDir}/{PlayerModel}.glb");
             PlayerController pc = null; PlayerCamera cam = null;
             var homePos = Coords.ToUnity(city.home.x, city.home.y, city.home.z) + Vector3.up * 0.1f;
             float homeYaw = -90f;  // face the plateau road (three.js +X = Unity -X)
@@ -298,6 +301,7 @@ namespace MafiaSandbox.EditorTools
                 model.name = "Model"; model.transform.SetParent(player.transform, false);
                 player.transform.SetPositionAndRotation(homePos, Quaternion.Euler(0f, homeYaw, 0f));
                 var cc = player.AddComponent<CharacterController>(); cc.height = 1.8f; cc.radius = 0.32f; cc.center = new Vector3(0f, 0.92f, 0f); cc.stepOffset = 0.4f; cc.slopeLimit = 50f;
+                if (modular) player.AddComponent<PlayerAppearance>();
                 var anim = player.AddComponent<CharacterAnimator>();
                 pc = player.AddComponent<PlayerController>(); pc.animator = anim;
                 player.AddComponent<VehicleInteraction>();
@@ -378,7 +382,7 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>(); gm.gameObject.AddComponent<CharacterCreator>(); gm.gameObject.AddComponent<PhonePanel>();
             var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();
