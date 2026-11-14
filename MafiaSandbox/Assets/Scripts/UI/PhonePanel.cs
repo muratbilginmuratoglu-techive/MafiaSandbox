@@ -19,7 +19,7 @@ namespace MafiaSandbox.UI
         public static bool IsOpen => I && I.open;
         bool open;
 
-        enum Page { Home, Messages, Thread, Contacts, Contact, Settings, Missions }
+        enum Page { Home, Messages, Thread, Contacts, Contact, Settings, Missions, Jobs }
         Page page = Page.Home; Conversation thread; Contact contact; Vector2 scrollList, scrollThread; string draft = ""; bool typing;
 
         class Msg { public bool mine; public string text, time; }
@@ -120,6 +120,7 @@ namespace MafiaSandbox.UI
                 case Page.Contact: ContactPage(inner); break;
                 case Page.Settings: Settings(inner); break;
                 case Page.Missions: MissionsPage(inner); break;
+                case Page.Jobs: JobsPage(inner); break;
             }
             GUILayout.EndArea();
             // home button
@@ -137,6 +138,7 @@ namespace MafiaSandbox.UI
             if (Icon("Messages", new Color(0.3f, 0.78f, 0.4f), "MSG", Unread)) page = Page.Messages;
             if (Icon("Contacts", new Color(0.3f, 0.55f, 0.95f), "CT", 0)) page = Page.Contacts;
             if (Icon("Missions", new Color(0.95f, 0.7f, 0.2f), "MIS", 0)) page = Page.Missions;
+            if (Icon("Jobs", new Color(0.85f, 0.35f, 0.35f), "JOB", 0)) page = Page.Jobs;
             if (Icon("Settings", new Color(0.55f, 0.58f, 0.66f), "SET", 0)) page = Page.Settings;
             GUILayout.FlexibleSpace(); GUILayout.EndHorizontal();
             GUILayout.FlexibleSpace();
@@ -276,6 +278,28 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Message", UiSkin.ButtonOn, GUILayout.Height(38))) { thread = Conv(contact); thread.unread = 0; page = Page.Thread; scrollThread = new Vector2(0, 99999); }
             if (GUILayout.Button("Call", UiSkin.Button, GUILayout.Height(38))) { var cv = Conv(contact); cv.msgs.Add(new Msg { mine = true, text = "(called)", time = Clock() }); pending.Add((Time.time + 2.5f, cv, Reply(contact, ""))); GameManager.I?.Say($"Calling {contact.name}…"); Close(); }
             GUILayout.EndHorizontal();
+        }
+
+        void JobsPage(Rect inner)
+        {
+            Header("Jobs from Sal", Page.Home);
+            var jm = Gang.JobManager.I; if (!jm) { GUILayout.Label("No jobs.", UiSkin.LabelDim); return; }
+            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 };
+            scrollList = GUILayout.BeginScrollView(scrollList);
+            GUILayout.Label($"<b>{Gang.Respect.RankName}</b>   ·   debt left ${Gang.CrewManager.Debt - (Gang.CrewManager.I ? Gang.CrewManager.I.DebtPaid : 0)}", UiSkin.Label);
+            GUILayout.Space(6);
+            if (jm.Active != null)
+            {
+                GUILayout.Label("<b>Active: " + jm.Active.title + "  ($" + jm.Active.reward + ")</b>", UiSkin.Label); GUILayout.Label(jm.Active.desc, wrap);
+                if (GUILayout.Button("Drop job", UiSkin.Button, GUILayout.Height(30))) jm.Abandon();
+            }
+            else foreach (var j in jm.Offers.ToArray())
+            {
+                GUILayout.Label($"<b>{j.title}</b>   ${j.reward}", UiSkin.Label); GUILayout.Label(j.desc, wrap);
+                if (GUILayout.Button("Accept", UiSkin.ButtonOn, GUILayout.Height(30))) { if (jm.Accept(j)) { open = false; } break; }
+                GUILayout.Space(6);
+            }
+            GUILayout.EndScrollView();
         }
 
         void MissionsPage(Rect inner)

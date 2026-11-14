@@ -10,11 +10,12 @@ namespace MafiaSandbox.Economy
     /// <summary>F / G interactions on foot: take or buy items (G = steal), trade at a counter, search a body. Also builds the prompt text.</summary>
     public class PlayerInteraction : MonoBehaviour
     {
-        public enum Kind { None, Item, Counter, Body }
+        public enum Kind { None, Item, Counter, Body, Civilian, Crew }
         public Kind TargetKind { get; private set; }
         public Pickable TargetItem { get; private set; }
         public Shop TargetShop { get; private set; }
         public CharacterBody TargetBody { get; private set; }
+        public Npc.NpcBrain TargetNpc { get; private set; }
         public string Prompt { get; private set; } = "";
         public float LootT { get; private set; }
 
@@ -30,11 +31,12 @@ namespace MafiaSandbox.Economy
             if (GameUI.Blocking || pc.InputLocked || (body && body.Dead) || (vi && vi.Current) || gm.Arrested) return;
             if (Input.GetKeyDown(KeyCode.F)) Do(eco, false);
             else if (Input.GetKeyDown(KeyCode.G)) Do(eco, true);
+            else if (Input.GetKeyDown(KeyCode.X)) DoAlt();
         }
 
         void Find(EconomyManager eco)
         {
-            TargetKind = Kind.None; TargetItem = null; TargetShop = null; TargetBody = null; Prompt = "";
+            TargetKind = Kind.None; TargetItem = null; TargetShop = null; TargetBody = null; TargetNpc = null; Prompt = "";
             if ((body && body.Dead) || (vi && vi.Current) || GameManager.I.Arrested) return;
             Vector3 pp = transform.position; Vector3 f = transform.forward; float best = 9f;
             void Consider(Kind k, Vector3 pos, float range, Pickable pk, Shop sh, CharacterBody cb)
@@ -47,8 +49,18 @@ namespace MafiaSandbox.Economy
             foreach (var s in eco.shops) if (s.kind != "house" && s.kind != "home" && s.kind != "police" && (s.info.counter - pp).sqrMagnitude < 9f) Consider(Kind.Counter, s.info.counter, 2.3f, null, s, null);
             foreach (var cb in CharacterBody.All) if (cb && cb.Dead && cb.Ragdolled && !cb.Looted && cb != body && (cb.transform.position - pp).sqrMagnitude < 16f) Consider(Kind.Body, cb.ChestPos, 2.2f, null, null, cb);
 
+            foreach (var cb in CharacterBody.All)
+            {
+                if (!cb || cb.Dead || cb == body || cb.isPlayer || (cb.transform.position - pp).sqrMagnitude > 7.5f) continue;
+                var nb = cb.GetComponent<Npc.NpcBrain>(); bool civ = nb is Npc.CivilianBrain && nb.State != "flee" && nb.State != "hide" && nb.State != "tohide"; bool crew = nb is Gang.CrewBrain;
+                if (!civ && !crew) continue;
+                Vector3 to = cb.transform.position - pp; to.y = 0f; float d = to.magnitude; to.Normalize(); if (d > 0.1f && Vector3.Dot(to, f) < 0.2f) continue;
+                float score = d - 1.5f - Vector3.Dot(to, f) * 0.6f; if (score < best) { best = score; TargetKind = crew ? Kind.Crew : Kind.Civilian; TargetItem = null; TargetShop = null; TargetBody = cb; TargetNpc = nb; }
+            }
             switch (TargetKind)
             {
+                case Kind.Civilian: { var cm = Gang.CrewManager.I; Prompt = cm ? $"F  Recruit {TargetNpc.displayName} (${cm.RecruitCost})    X  Offer product" : ""; break; }
+                case Kind.Crew: Prompt = $"F  Crew: {TargetNpc.displayName}"; break;
                 case Kind.Item:
                     {
                         var pk = TargetItem; var b = pk.shop;
@@ -58,7 +70,7 @@ namespace MafiaSandbox.Economy
                         else Prompt = $"F  Buy: {pk.def.name} ${b.BuyPrice(pk.id)}    G  Steal";
                         break;
                     }
-                case Kind.Counter: Prompt = TargetShop.kind == "bank" ? "F  Bank: talk to the teller" : $"F  {TargetShop.label}: trade"; break;
+                case Kind.Counter: Prompt = TargetShop.kind == "bank" ? "F  Bank: talk to the teller" : $"F  {TargetShop.label}: trade" + (Gang.CrewManager.Eligible(TargetShop) ? "    X  Protection / buy" : ""); break;
                 case Kind.Body: Prompt = $"F  Search body: {NameOf(TargetBody)}"; break;
             }
         }
@@ -71,8 +83,16 @@ namespace MafiaSandbox.Economy
             {
                 case Kind.Item: eco.TakeItem(TargetItem, steal); if (anim) anim.PlayUpper("Take"); break;
                 case Kind.Counter: if (!steal) { if (TargetShop.kind == "bank") GameManager.I.Say("Teller: We don't deal with your kind here. The vault is at the back… not that you'd dare."); else GameUI.I?.OpenShop(TargetShop); } break;
+                case Kind.Civilian: if (!steal) Gang.CrewManager.I?.TryRecruit((Npc.CivilianBrain)TargetNpc); break;
+                case Kind.Crew: if (!steal) CrewPanel.I?.OpenCrew((Gang.CrewBrain)TargetNpc); break;
                 case Kind.Body: if (!steal && LootT <= 0f) { LootT = 0.9f; if (anim) anim.PlayUpper("Take"); var cb = TargetBody; Invoke(nameof(FinishLoot), 0.7f); pendingLoot = cb; } break;
             }
+        }
+        void DoAlt()
+        {
+            var cm = Gang.CrewManager.I; if (!cm) return;
+            if (TargetKind == Kind.Civilian) cm.Deal((Npc.CivilianBrain)TargetNpc);
+            else if (TargetKind == Kind.Counter && Gang.CrewManager.Eligible(TargetShop)) CrewPanel.I?.OpenVenue(TargetShop);
         }
         CharacterBody pendingLoot;
         void FinishLoot() { if (pendingLoot && !pendingLoot.Looted) EconomyManager.I?.LootBody(pendingLoot); pendingLoot = null; }

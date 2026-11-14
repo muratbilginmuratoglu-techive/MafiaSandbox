@@ -18,6 +18,22 @@ namespace MafiaSandbox.Core
 
         void Awake() { I = this; }
 
+        // ---- witness model: stars only come from police who actually SEE a crime; civilians who see one only make you a suspect for a while
+        public float SuspectT { get; private set; } int suspectSev; float suspectCheck;
+        public void Suspect(int severity, float seconds = 70f) { suspectSev = Mathf.Max(suspectSev, severity); SuspectT = Mathf.Max(SuspectT, seconds); }
+
+        /// <summary>A crime at `pos`: if an officer within `range` has a clear view of it, that's `stars` stars; returns whether a cop saw it.</summary>
+        public bool CopWitness(Vector3 pos, float range, int stars, string why)
+        {
+            foreach (var cop in FindObjectsByType<MafiaSandbox.Npc.PoliceBrain>(FindObjectsSortMode.None))
+            {
+                if (cop.Dead || Vector3.Distance(cop.transform.position, pos) > range) continue;
+                if (!MafiaSandbox.Npc.Perception.Clear(cop.transform.position + Vector3.up * 1.6f, pos + Vector3.up * 1.2f)) continue;
+                Raise(stars, why); Seen(pos); cop.Chase(); return true;
+            }
+            return false;
+        }
+
         public void Add(int stars, string why)
         {
             int before = Level; Level = Mathf.Clamp(Level + stars, 0, 3); SinceSeen = 0f;
@@ -33,6 +49,17 @@ namespace MafiaSandbox.Core
 
         void Update()
         {
+            if (SuspectT > 0f)
+            {
+                SuspectT -= Time.deltaTime; suspectCheck -= Time.deltaTime;
+                if (SuspectT <= 0f) suspectSev = 0;
+                else if (suspectCheck <= 0f && Level == 0 && GameManager.I && GameManager.I.player)
+                {
+                    suspectCheck = 0.6f; var pp = GameManager.I.player.transform.position;
+                    foreach (var cop in FindObjectsByType<MafiaSandbox.Npc.PoliceBrain>(FindObjectsSortMode.None))
+                        if (!cop.Dead && Vector3.Distance(cop.transform.position, pp) < 24f && cop.SeesPlayer(24f, 140f)) { int s = suspectSev; SuspectT = 0f; suspectSev = 0; Raise(s, "recognised from a witness report"); Seen(pp); cop.Chase(); break; }
+                }
+            }
             if (Level <= 0) return;
             SinceSeen += Time.deltaTime;
             if (SinceSeen > DecaySeconds)

@@ -72,7 +72,8 @@ namespace MafiaSandbox.Core
                     if (d < (isCop ? 60f : 28f) && Perception.Clear(o.transform.position + Vector3.up * 1.6f, player.transform.position + Vector3.up * 1.2f)) { witnessed = true; if (isCop) copSaw = true; }
                 }
                 if (cop) { WantedSystem.I.PoliceHostile = true; WantedSystem.I.Add(3, "officer down"); }
-                else if (witnessed) WantedSystem.I.Add(copSaw ? 2 : 1, copSaw ? "murder in front of the police" : "a witness saw the killing");
+                else if (copSaw) WantedSystem.I.Add(2, "murder in front of the police");
+                else if (witnessed) { WantedSystem.I.Suspect(2); Say("Somebody saw that. Stay out of sight of the police for a while."); }
                 if (WantedSystem.I.Level > 0) WantedSystem.I.Seen(player.transform.position);
             }
             else if (by == "vehicle") Say($"{NameOf(b)} was run over");

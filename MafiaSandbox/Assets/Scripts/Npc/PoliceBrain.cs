@@ -30,9 +30,10 @@ namespace MafiaSandbox.Npc
             float d = Vector3.Distance(pos, transform.position);
             if (d > radius * 1.6f) return;
             bool playerShot = Player && src == Player.gameObject;
-            if (playerShot && Wanted) { if (Wanted.Level == 0) Wanted.Add(1, "shots fired"); Wanted.Seen(pos); }
+            if (playerShot && Wanted && Wanted.Level > 0) Wanted.Seen(pos);
             if (State == "chase" || State == "engage" || State == "arrest") return;
-            if (playerShot && CanSeePlayer(sightRange + 10f, 360f)) { StartChase(); return; }
+            if (playerShot && CanSeePlayer(sightRange + 10f, 360f)) { Wanted.Raise(1, "shots fired"); StartChase(); return; }
+            if (playerShot && Wanted) Wanted.Suspect(1, 45f);
             investigatePos = pos; SetState("investigate"); GoTo(pos, runSpeed * 0.8f);
         }
 

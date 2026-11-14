@@ -163,12 +163,14 @@ namespace MafiaSandbox.Economy
         public void WitnessCrime(Shop b, Vector3 pos, int level)
         {
             if (!WantedSystem.I) return;
-            WantedSystem.I.Raise(Mathf.Min(level, 3), level >= 2 ? "robbery" : "theft"); WantedSystem.I.Seen(pos); b.alarmAt = Time.time;
+            b.alarmAt = Time.time;
+            if (level < 2) { WantedSystem.I.Suspect(1); }   // petty theft: the keeper phones it in, but you only get a star if an officer then spots you
+            else { WantedSystem.I.Raise(Mathf.Min(level, 3), "robbery"); WantedSystem.I.Seen(pos); }
             var cops = new List<PoliceBrain>(); foreach (var c in FindObjectsByType<PoliceBrain>(FindObjectsSortMode.None)) if (!c.Dead && c.IsIdle) cops.Add(c);
             cops.Sort((a, c2) => Vector3.Distance(a.transform.position, pos).CompareTo(Vector3.Distance(c2.transform.position, pos)));
             int n = Mathf.Min(cops.Count, level >= 2 ? 3 : 1);
             for (int i = 0; i < n; i++) StartCoroutine(DispatchLater(cops[i], b.info.door, pos, 2.5f + Random.value * 3f));
-            GameManager.I.Say(level >= 2 ? "Silent alarm! Police are on their way." : "The shopkeeper called the police.");
+            GameManager.I.Say(level >= 2 ? "Silent alarm! Police are on their way." : "The shopkeeper phoned it in. Don't let an officer spot you.");
         }
         IEnumerator DispatchLater(PoliceBrain c, Vector3 door, Vector3 threat, float delay) { yield return new WaitForSeconds(delay); if (c && !c.Dead && c.IsIdle) c.Dispatch(door, threat); }
 

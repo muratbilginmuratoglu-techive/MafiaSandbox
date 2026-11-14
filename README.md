@@ -77,3 +77,12 @@ alınır, `Build City Scene` tekrar çalıştırılır. Prop'lar değişirse `bu
 ## Intro & missions
 - Game start: in-engine intro cinematic (Space / click skips) → character creator → Chapter 1.
 - Chapter 1 is an 8-step mission chain (phone → car → gun shop → $1000 → family HQ → 2 crew kills → shake the heat → home). Tracker top-right, yellow beacon in the world, Missions app on the phone, Sal texts each step. Progress is saved (PlayerPrefs `ms_quest_idx_v1`).
+
+## Crew, turf & jobs
+- **K** opens your organisation: Crew, Venues, Supplies (Sal's product + debt), Hustles, Status. Rank (Street Rat → Boss) grows with Respect.
+- **F** on a civilian recruits them (sign-on cash, can refuse); **X** on a civilian sells product; **X** at a shop counter leans on the owner (protection) or buys the shop. Armed crew nearby is required to lean on bigger shops.
+- Crew roles: Follow / Guard / Dealer; arm them from the Crew tab. Venues and dealers pay out every 6 in-game hours; crew costs wages.
+- Police: only a cop who sees a crime adds stars. Civilian witnesses only make you a "suspect" for ~70 s (a cop recognising you then raises stars).
+- Phone ▸ Jobs: smuggling run, chop-shop car delivery, contract hit. Shotgun spread/range widened.
+- Main story: 14 missions in 3 acts (Uncle Enzo's $6000 debt to Sal → crew → turf).
+- 12 ways to earn: see K ▸ Hustles.
