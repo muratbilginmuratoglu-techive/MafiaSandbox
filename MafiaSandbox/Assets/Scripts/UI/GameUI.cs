@@ -10,14 +10,14 @@ using MafiaSandbox.Factions;
 namespace MafiaSandbox.UI
 {
     /// <summary>
-    /// IMGUI windows: backpack (Tab / I) and the shop counter (F at a counter): buy list with stock and live prices, weapons
+    /// IMGUI windows: backpack (I) and the shop counter (F at a counter): buy list with stock and live prices, weapons
     /// at the gun shop, sell list for what the shop buys (the pawn shop fences stolen goods). Opening a window frees the
     /// cursor and locks movement; Esc / Tab closes.
     /// </summary>
     public class GameUI : MonoBehaviour
     {
         public static GameUI I { get; private set; }
-        public static bool Blocking => I && (I.invOpen || I.shop != null || I.mapOpen);
+        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen)) || (DebugPanel.I && DebugPanel.I.Open);
         bool invOpen, mapOpen; Shop shop; Vector2 scrollA, scrollB;
         GUIStyle win, title, row, dim, btn, price, head;
         PlayerController pc;
@@ -28,7 +28,7 @@ namespace MafiaSandbox.UI
         {
             var gm = GameManager.I; if (!gm || !gm.player) return; if (!pc) pc = gm.player;
             bool dead = gm.player.GetComponent<CharacterBody>()?.Dead ?? false;
-            if (Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.I)) { if (shop != null) CloseAll(); else if (!dead) { invOpen = !invOpen; mapOpen = false; } }
+            if (Input.GetKeyDown(KeyCode.I)) { if (shop != null) CloseAll(); else if (!dead) { invOpen = !invOpen; mapOpen = false; } }
             if (Input.GetKeyDown(KeyCode.M)) { if (mapOpen) CloseAll(); else if (!dead) { mapOpen = true; invOpen = false; shop = null; } }
             if (Input.GetKeyDown(KeyCode.Escape) && Blocking) CloseAll();
             if (dead && Blocking) CloseAll();
@@ -51,13 +51,9 @@ namespace MafiaSandbox.UI
         void Styles()
         {
             if (win != null) return;
-            win = new GUIStyle(GUI.skin.box) { padding = new RectOffset(14, 14, 10, 10) }; win.normal.background = Tex(new Color(0.08f, 0.09f, 0.11f, 0.94f));
-            title = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold }; title.normal.textColor = Color.white;
-            head = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold }; head.normal.textColor = new Color(0.85f, 0.85f, 0.9f);
-            row = new GUIStyle(GUI.skin.label) { fontSize = 14 }; row.normal.textColor = Color.white;
-            dim = new GUIStyle(row); dim.normal.textColor = new Color(0.65f, 0.65f, 0.7f);
-            price = new GUIStyle(row) { alignment = TextAnchor.MiddleRight }; price.normal.textColor = new Color(0.56f, 0.9f, 0.6f);
-            btn = new GUIStyle(GUI.skin.button) { fontSize = 13 };
+            win = UiSkin.PanelSolid; title = UiSkin.Title; head = UiSkin.H2; row = UiSkin.Label; dim = UiSkin.LabelDim;
+            price = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.MiddleRight }; price.normal.textColor = UiSkin.Green;
+            btn = UiSkin.Button;
         }
         static Texture2D Tex(Color c) { var t = new Texture2D(1, 1); t.SetPixel(0, 0, c); t.Apply(); return t; }
 
@@ -74,7 +70,7 @@ namespace MafiaSandbox.UI
             GUI.Box(r, GUIContent.none, win);
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
             GUILayout.BeginHorizontal(); GUILayout.Label("Backpack", title); GUILayout.FlexibleSpace(); GUILayout.Label($"${eco.cash}", new GUIStyle(title) { normal = { textColor = new Color(0.56f, 0.9f, 0.6f) } }); GUILayout.EndHorizontal();
-            GUILayout.Label("Tab / Esc closes · food restores hunger & stamina · stolen goods only sell at the pawn shop", dim);
+            GUILayout.Label("I / Esc closes · food restores hunger & stamina · stolen goods only sell at the pawn shop", dim);
             scrollA = GUILayout.BeginScrollView(scrollA);
             if (eco.inv.Count == 0) GUILayout.Label("Your backpack is empty. Buy from shops, take what's lying around (F) or search bodies.", dim);
             InvItem use = null, drop = null;

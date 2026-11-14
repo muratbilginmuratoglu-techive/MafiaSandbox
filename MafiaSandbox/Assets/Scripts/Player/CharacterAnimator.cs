@@ -34,7 +34,7 @@ namespace MafiaSandbox.Player
             Play("Idle");
         }
 
-        static bool IsOneShot(string clip) =>
+        public static bool IsOneShot(string clip) =>
             clip == "Jump" || clip == "Death" || clip.StartsWith("Hit_") || clip.EndsWith("_Fire") || clip.EndsWith("_Attack") || clip == "Give" || clip == "Take" || clip == "Wave";
 
         public bool Has(string clip) => anim != null && anim[clip] != null;

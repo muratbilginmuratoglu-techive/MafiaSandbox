@@ -13,7 +13,7 @@ namespace MafiaSandbox.Vehicles
         public VehicleController Nearby { get; private set; }
 
         PlayerController pc; CharacterController cc; Renderer[] renderers; Collider[] ownColliders;
-        static readonly Collider[] hits = new Collider[16];
+        static readonly Collider[] hits = new Collider[64];
 
         void Awake()
         {
@@ -35,7 +35,8 @@ namespace MafiaSandbox.Vehicles
 
         VehicleController FindNearby()
         {
-            int n = Physics.OverlapSphereNonAlloc(transform.position + Vector3.up, enterRange, hits, ~0, QueryTriggerInteraction.Ignore);
+            int vl = LayerMask.NameToLayer("Vehicles"); int mask = vl >= 0 ? 1 << vl : ~0;   // only vehicle colliders: the sphere used to fill up with ground / hitbox colliders and miss the car
+            int n = Physics.OverlapSphereNonAlloc(transform.position + Vector3.up, enterRange, hits, mask, QueryTriggerInteraction.Ignore);
             VehicleController best = null; float bd = float.MaxValue;
             for (int i = 0; i < n; i++)
             {

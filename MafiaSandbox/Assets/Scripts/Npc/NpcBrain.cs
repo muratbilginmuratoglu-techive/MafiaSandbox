@@ -57,9 +57,12 @@ namespace MafiaSandbox.Npc
             if (body) { body.OnHit -= OnHitInternal; body.OnDeath -= OnDeathInternal; }
         }
 
+        public const int RoadArea = 3; public const float RoadCost = 14f;
+
         protected virtual void Start()
         {
             if (!graph) graph = FindAnyObjectByType<RoadGraph>();
+            agent.SetAreaCost(RoadArea, RoadCost);
             if (!agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var h, 4f, NavMesh.AllAreas)) agent.Warp(h.position);
             thinkT = Random.Range(0f, 0.2f);
             OnSpawned();
@@ -138,6 +141,9 @@ namespace MafiaSandbox.Npc
             if (!agent.enabled || !agent.isOnNavMesh) return false;
             if (!NavMesh.SamplePosition(p, out var h, sampleRadius, NavMesh.AllAreas)) return false;
             agent.speed = speed * (body && body.InjuryLeg > 0 ? 0.55f : 1f); agent.isStopped = false; lookAt = null;
+            // walking NPCs keep to the sidewalks and cross at the junctions (road area 3 is expensive); anyone running
+            // (fleeing, chasing, rushing to a scene) cuts straight across
+            agent.SetAreaCost(RoadArea, speed >= runSpeed * 0.8f ? 1f : RoadCost);
             return agent.SetDestination(h.position);
         }
         protected void Stop() { if (agent.enabled && agent.isOnNavMesh) { agent.isStopped = true; agent.ResetPath(); } }

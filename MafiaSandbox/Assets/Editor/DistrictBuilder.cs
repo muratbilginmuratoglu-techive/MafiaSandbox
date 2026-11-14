@@ -104,7 +104,7 @@ namespace MafiaSandbox.EditorTools
             for (float z = zBot + 2f; z < zTop - 2f; z += 4f) Prop("Grafiti_Duvari", xOut + side * 0.8f, z, Mathf.PI / 2f);
             Prop("Reklam_Panosu", side * 130f, zBot + 1.5f, side < 0 ? Mathf.PI : 0f);
             Vehicle(side < 0 ? "Araba_Sedan_Kirmizi" : "Araba_Hatchback_Beyaz", side * 121f, zBot + 16f, Mathf.PI / 2f);
-            Vehicle("Motosiklet_Siyah", side * 125f, zBot + 20f, 0.4f); Vehicle("Motosiklet_Kirmizi", side * 127f, zBot + 20f, 0.2f);
+            Prop("Motosiklet_Siyah", side * 125f, zBot + 20f, 0.4f); Prop("Motosiklet_Kirmizi", side * 127f, zBot + 20f, 0.2f);
             Prop("Sokak_Lambasi", side * 122f, zTop - 24f, 0f);
         }
 

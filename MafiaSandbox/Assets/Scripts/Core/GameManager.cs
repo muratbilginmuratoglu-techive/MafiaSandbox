@@ -100,12 +100,7 @@ namespace MafiaSandbox.Core
                 var sp = FindAnyObjectByType<NpcSpawner>();
                 if (sp && sp.prefabs != null && sp.prefabs.Length > 0) { var p = player.transform.position + player.transform.forward * 5f + Vector3.up * 0.1f; var n = sp.Spawn<CivilianBrain>(sp.prefabs[Random.Range(0, sp.prefabs.Length)], p, player.transform.eulerAngles.y + 180f); n.dummy = true; }
             }
-            if (Input.GetKeyDown(KeyCode.F5) && playerCamera && player)   // F5: top-down debug view over the player
-            {
-                topDown = !topDown; playerCamera.enabled = !topDown;
-                if (topDown) { var cam = playerCamera.GetComponent<Camera>(); cam.orthographic = true; cam.orthographicSize = 45f; }
-                else { var cam = playerCamera.GetComponent<Camera>(); cam.orthographic = false; }
-            }
+            if (Input.GetKeyDown(KeyCode.F5)) ToggleTopDown();   // F5: top-down debug view over the player
             if (topDown && playerCamera && player) { playerCamera.transform.position = player.transform.position + Vector3.up * 80f; playerCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f); }
             if (Input.GetKeyDown(KeyCode.F4)) { var dn = FindAnyObjectByType<MafiaSandbox.World.DayNightCycle>(); if (dn) { dn.timeOfDay = Mathf.Abs(dn.timeOfDay - 13f) < 0.01f && dn.paused ? 22f : 13f; dn.paused = true; Say(dn.timeOfDay > 20f ? "Debug: night, clock paused" : "Debug: noon, clock paused"); } }   // F4: noon / pause clock
             if (Input.GetKeyDown(KeyCode.F1) && MafiaSandbox.Economy.EconomyManager.I) { MafiaSandbox.Economy.EconomyManager.I.cash += 500; Say("Debug: +$500"); }   // F1: cash (debug)
@@ -155,6 +150,13 @@ namespace MafiaSandbox.Core
         }
 
         IEnumerator RespawnAfter(float s) { yield return new WaitForSeconds(s); Respawn(); }
+
+        public void ToggleTopDown()
+        {
+            if (!playerCamera || !player) return;
+            topDown = !topDown; playerCamera.enabled = !topDown;
+            var cam = playerCamera.GetComponent<Camera>(); cam.orthographic = topDown; if (topDown) cam.orthographicSize = 45f;
+        }
 
         public void Respawn()
         {

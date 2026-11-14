@@ -49,7 +49,7 @@ namespace MafiaSandbox.Economy
             }
             StartCoroutine(LinkKeepers());
             var pc = GameManager.I ? GameManager.I.player.GetComponent<PlayerCombat>() : null;
-            if (pc) { for (int i = 0; i < pc.owned.Length; i++) pc.owned[i] = WeaponDef.Order[i] == WeaponKind.Pistol || WeaponDef.Order[i] == WeaponKind.Knife; pc.Equip(WeaponKind.Pistol); }
+            if (pc) { for (int i = 0; i < pc.owned.Length; i++) pc.owned[i] = true; /* every weapon is available from the start (sandbox) */ pc.Equip(WeaponKind.Pistol); }
         }
 
         IEnumerator LinkKeepers()

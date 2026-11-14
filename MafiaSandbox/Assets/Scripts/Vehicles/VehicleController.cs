@@ -47,18 +47,60 @@ namespace MafiaSandbox.Vehicles
             var box = GetComponent<BoxCollider>(); if (box && !lifted) { box.center += Vector3.up * 0.3f; lifted = true; }
             rb.useGravity = false; rb.maxDepenetrationVelocity = 2f;
             groundMask = 1 << 0;   // Default: roads, terrain, ramps
-            var list = new System.Collections.Generic.List<Transform>(); var axes = new System.Collections.Generic.List<Vector3>();
-            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Wheel_"))
+            SetupWheels();
+            body = transform.Find("Model"); if (body) bodyBaseRot = body.localRotation;
+        }
+
+        Transform body; Quaternion bodyBaseRot = Quaternion.identity; float bodyPitch;
+        Transform[] steerPivots; bool[] isFront;
+
+        /// <summary>
+        /// Wheel nodes (Wheel_*) spin around their axle and the front pair steers. The axle is found from the wheel mesh
+        /// itself (the thinnest axis of its bounds) so it does not depend on how the importer oriented the nodes; each
+        /// wheel is re-parented under a pivot so steering (pivot yaw) and rolling (wheel spin) don't fight.
+        /// </summary>
+        /// <summary>Model-space wheel centres (x, y, z) + radius for models whose wheels are baked into the body mesh (the Regent).</summary>
+        public Vector4[] fallbackWheels;
+
+        void SetupWheels()
+        {
+            var model = transform.Find("Model"); var filters = GetComponentsInChildren<MeshFilter>();
+            if (fallbackWheels != null && fallbackWheels.Length > 0 && model && filters.Length == 1)
             {
-                list.Add(t);
-                // the wheel's axle is whichever of its local axes lines up with the car's right vector (the glTF import
-                // mirrors X and the model sits rotated under the root, so this is found rather than assumed)
-                Vector3 best = Vector3.right; float bd = -1f;
-                foreach (var ax in new[] { Vector3.right, Vector3.up, Vector3.forward })
-                { float d = Vector3.Dot(t.TransformDirection(ax), transform.right); if (Mathf.Abs(d) > Mathf.Abs(bd)) { bd = d; best = ax; } }
-                axes.Add(best * Mathf.Sign(bd));
+                model = filters[0].transform;   // mesh space: the importer may nest the mesh under an extra node
+                // procedural wheels laid over the baked ones: tyre + hub, slightly bigger so they cover the static ones
+                var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
+                var tyre = new Material(Shader.Find("Standard")) { color = new Color(0.08f, 0.08f, 0.09f) }; tyre.SetFloat("_Glossiness", 0.2f);
+                var hub = new Material(Shader.Find("Standard")) { color = new Color(0.75f, 0.76f, 0.78f) }; hub.SetFloat("_Glossiness", 0.7f); hub.SetFloat("_Metallic", 0.8f);
+                int i = 0;
+                foreach (var w in fallbackWheels)
+                {
+                    var g = new GameObject("Wheel_F" + (i++)); g.transform.SetParent(model, false); g.transform.localPosition = new Vector3(w.x, w.y, w.z);
+                    g.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // cylinder axis (local Y) → model Z (the axle)
+                    var mf = g.AddComponent<MeshFilter>(); mf.sharedMesh = cyl; var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = tyre;
+                    g.transform.localScale = new Vector3(w.w * 2f, 0.14f, w.w * 2f);
+                    var h = new GameObject("Hub"); h.transform.SetParent(g.transform, false); h.transform.localScale = new Vector3(0.6f, 1.02f, 0.6f);
+                    var hf = h.AddComponent<MeshFilter>(); hf.sharedMesh = cyl; var hr = h.AddComponent<MeshRenderer>(); hr.sharedMaterial = hub;
+                }
             }
-            wheels = list.ToArray(); wheelAxes = axes.ToArray();
+            var list = new System.Collections.Generic.List<Transform>(); var axes = new System.Collections.Generic.List<Vector3>(); var pivots = new System.Collections.Generic.List<Transform>(); var fronts = new System.Collections.Generic.List<bool>();
+            float maxFwd = 0f; var cand = new System.Collections.Generic.List<Transform>();
+            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Wheel_") && t.GetComponent<MeshFilter>()) cand.Add(t);
+            foreach (var t in cand) maxFwd = Mathf.Max(maxFwd, Mathf.Abs(transform.InverseTransformPoint(t.position).z));
+            foreach (var t in cand)
+            {
+                var mesh = t.GetComponent<MeshFilter>().sharedMesh; Vector3 ext = mesh ? Vector3.Scale(mesh.bounds.extents, t.localScale) : new Vector3(1, 1, 0.1f);
+                Vector3 axle = ext.x <= ext.y && ext.x <= ext.z ? Vector3.right : ext.y <= ext.z ? Vector3.up : Vector3.forward;
+                // make the spin direction consistent with the car's right vector
+                if (Vector3.Dot(t.TransformDirection(axle), transform.right) < 0f) axle = -axle;
+                var pivot = new GameObject(t.name + "_Pivot").transform;
+                pivot.SetParent(t.parent, false); pivot.SetPositionAndRotation(t.position, t.rotation); pivot.localScale = Vector3.one;
+                t.SetParent(pivot, true);
+                list.Add(t); axes.Add(axle); pivots.Add(pivot);
+                fronts.Add(transform.InverseTransformPoint(t.position).z > maxFwd * 0.5f);
+            }
+            wheels = list.ToArray(); wheelAxes = axes.ToArray(); steerPivots = pivots.ToArray(); isFront = fronts.ToArray();
+            if (isPlayerCar) { var sb = new System.Text.StringBuilder("[MafiaSandbox] player car wheels: "); for (int k = 0; k < wheels.Length; k++) sb.Append(wheels[k].name).Append(transform.InverseTransformPoint(wheels[k].position).ToString("F2")).Append(isFront[k] ? "F " : "R "); Debug.Log(sb.ToString()); }
         }
 
         AudioSource engine;
@@ -79,11 +121,22 @@ namespace MafiaSandbox.Vehicles
                 steer = Input.GetAxisRaw("Horizontal");
                 handbrake = Input.GetKey(KeyCode.Space);
             }
-            // cosmetic wheel spin
-            if (wheels != null && Mathf.Abs(speed) > 0.05f)
+            // wheels: roll with the ground speed, front pair follows the steering input
+            if (wheels != null)
             {
                 float deg = speed / 0.34f * Mathf.Rad2Deg * Time.deltaTime;
-                for (int i = 0; i < wheels.Length; i++) wheels[i].Rotate(wheelAxes[i], deg, Space.Self);
+                float steerDeg = -steer * maxSteerDeg * 0.9f;
+                for (int i = 0; i < wheels.Length; i++)
+                {
+                    if (Mathf.Abs(speed) > 0.05f) wheels[i].Rotate(wheelAxes[i], deg, Space.Self);
+                    if (isFront[i]) { var pv = steerPivots[i]; Vector3 upLocal = pv.InverseTransformDirection(transform.up); pv.localRotation = Quaternion.Slerp(pv.localRotation, Quaternion.AngleAxis(steerDeg, upLocal), Time.deltaTime * 8f); }
+                }
+            }
+            // body follows the slope (the rigidbody itself stays upright; only the visual tilts)
+            if (body)
+            {
+                var target = Quaternion.AngleAxis(bodyPitch, Vector3.right) * bodyBaseRot;
+                body.localRotation = Quaternion.Slerp(body.localRotation, target, Time.deltaTime * 6f);
             }
         }
 
@@ -110,9 +163,20 @@ namespace MafiaSandbox.Vehicles
             if (Mathf.Abs(speed) > 0.05f) rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, yawRate * dt, 0f));
 
             // ground follow: ride on a raycast instead of resting on the mesh (see Awake)
-            float vy; float gy = float.MinValue; Vector3 fwd = transform.forward * (length * 0.5f - 0.4f);
-            foreach (var off in new[] { Vector3.zero, fwd, -fwd })   // centre, nose and tail: ride the highest so the box clears ramps
-                if (Physics.Raycast(rb.position + off + Vector3.up * 1.6f, Vector3.down, out var gh, 8f, groundMask, QueryTriggerInteraction.Ignore) && gh.point.y > gy) { gy = gh.point.y; DebugGround = gh.collider.name + " y" + gy.ToString("F2"); }
+            float vy; float gy = float.MinValue; float half = length * 0.5f - 0.4f; Vector3 fwd = transform.forward * half;
+            float yNose = float.NaN, yTail = float.NaN;
+            foreach (var off in new[] { Vector3.zero, fwd, -fwd })   // centre, nose and tail
+                if (Physics.Raycast(rb.position + off + Vector3.up * 1.6f, Vector3.down, out var gh, 8f, groundMask, QueryTriggerInteraction.Ignore))
+                {
+                    if (gh.point.y > gy) { gy = gh.point.y; DebugGround = gh.collider.name + " y" + gy.ToString("F2"); }
+                    if (off == fwd) yNose = gh.point.y; else if (off == -fwd) yTail = gh.point.y;
+                }
+            if (!float.IsNaN(yNose) && !float.IsNaN(yTail))
+            {
+                gy = (yNose + yTail) * 0.5f;                                   // sit on the slope instead of hovering at the high end
+                bodyPitch = -Mathf.Atan2(yNose - yTail, 2f * half) * Mathf.Rad2Deg;
+            }
+            else bodyPitch = Mathf.MoveTowards(bodyPitch, 0f, 60f * dt);
             if (gy > float.MinValue)
             {
                 float ny = Mathf.MoveTowards(rb.position.y, gy, (Mathf.Abs(gy - rb.position.y) > 1.5f ? 12f : 6f) * dt);
@@ -129,6 +193,21 @@ namespace MafiaSandbox.Vehicles
         void OnCollisionStay(Collision c)
         {
             var n = c.GetContact(0).normal; LastContact = c.collider.name + "/" + LayerMask.LayerToName(c.collider.gameObject.layer) + " n" + n.ToString("F2"); LastContactT = Time.time;
+            BlockInto(c);
+        }
+
+        /// <summary>
+        /// We drive by setting the velocity directly, so pressing into a wall would make the solver fight us every step
+        /// (the "glitching" against props). Kill the velocity component that points into the contact and nudge out.
+        /// </summary>
+        void BlockInto(Collision c)
+        {
+            if (c.collider.GetComponentInParent<MafiaSandbox.Combat.CharacterBody>() || c.collider.GetComponentInParent<MafiaSandbox.World.Animal>()) return;
+            var n = c.GetContact(0).normal; if (n.y > 0.55f || n.y < -0.55f) return;   // floors / ramps / roofs are not walls
+            n.y = 0f; n.Normalize();
+            float into = Vector3.Dot(transform.forward * speed, -n);
+            if (into > 0f) { speed *= Mathf.Clamp01(1f - Mathf.Abs(Vector3.Dot(transform.forward, -n))); if (Mathf.Abs(speed) < 0.4f) speed = 0f; }
+            rb.position += n * 0.01f;
         }
 
         void OnCollisionEnter(Collision c)
@@ -149,6 +228,7 @@ namespace MafiaSandbox.Vehicles
             // lose speed on hard frontal/rear hits so we don't tunnel along walls
             float along = Vector3.Dot(c.relativeVelocity, transform.forward);
             if (Mathf.Abs(along) > 2f) speed *= 0.25f;
+            BlockInto(c);
         }
     }
 }

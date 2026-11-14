@@ -129,6 +129,9 @@ namespace MafiaSandbox.EditorTools
             var cache = new Dictionary<string, GameObject>(); var missing = new HashSet<string>(); int placed = 0;
             foreach (var p in city.props)
             {
+                // the exporter listed every vehicle in props as well; those are placed (and driven) from city.vehicles, so a
+                // static copy here would be a ghost car standing in the street
+                if (p.name.StartsWith("Araba_") || p.name.StartsWith("Arac_") || p.name.StartsWith("Car_")) continue;
                 var prefab = LoadProp(p.name, cache);
                 if (!prefab) { missing.Add(p.name); continue; }
                 var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab); go.name = p.name; go.transform.SetParent(propsRoot, false);
@@ -182,24 +185,27 @@ namespace MafiaSandbox.EditorTools
             int obstacleMask = 0; { foreach (var ln in new[] { "Default", "Vehicles", "Characters", "Hitbox" }) { int l = LayerMask.NameToLayer(ln); if (l >= 0) obstacleMask |= 1 << l; } }
             foreach (var v in city.vehicles)
             {
+                // the prototype's filler cars (car park / warehouse lots) just sat there; the traffic and the crews' own cars remain
+                if (!v.ai && !v.player && !v.name.StartsWith("Arac_Polis") && Mathf.Abs(v.pos[0]) < 78f && v.pos[2] < -55f) { continue; }
                 var prefab = LoadProp(v.name, cache);
                 if (!prefab) { missing.Add(v.name); continue; }
                 var root = new GameObject("Vehicle " + v.name); root.transform.SetParent(vRoot, false);
                 root.transform.SetPositionAndRotation(Coords.ToUnity(v.pos) + Vector3.up * 0.05f, Quaternion.Euler(0f, Coords.YawToUnity(v.heading) - 90f, 0f));
                 var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab); model.name = "Model"; model.transform.SetParent(root.transform, false);
-                model.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);   // glTF nose (+X) → root forward (+Z)
+                model.transform.localRotation = Quaternion.Euler(0f, v.name == "Car_Regent" ? -90f : 90f, 0f);   // glTF nose (+X) → root forward (+Z); the Regent was modelled nose -X
                 float h = v.name.StartsWith("Arac_Otobus") ? 3f : v.name.StartsWith("Arac_") ? 2.2f : 1.5f;
                 var bc = root.AddComponent<BoxCollider>(); bc.size = new Vector3(v.width, h, v.length); bc.center = new Vector3(0f, h * 0.5f + 0.05f, 0f);
                 var vc = root.AddComponent<VehicleController>(); vc.length = v.length; vc.width = v.width; vc.isPlayerCar = v.player;
                 int vl = LayerMask.NameToLayer("Vehicles"); if (vl >= 0) root.layer = vl;
                 vc.displayName = DisplayName(v.name);
+                if (v.name == "Car_Regent") vc.fallbackWheels = new[] { new Vector4(1.74f, 0.36f, 0.86f, 0.37f), new Vector4(1.74f, 0.36f, -0.86f, 0.37f), new Vector4(-1.2f, 0.36f, 0.86f, 0.37f), new Vector4(-1.2f, 0.36f, -0.86f, 0.37f) };   // baked wheels: overlay spinning ones (model space, X mirrored by the importer)
                 if (v.name.StartsWith("Arac_Otobus")) { vc.maxSpeed = 12f; vc.acceleration = 4f; vc.wheelBase = 6f; }
                 else if (v.name.StartsWith("Arac_")) { vc.maxSpeed = 14f; vc.acceleration = 5f; vc.wheelBase = 3.2f; }
                 if (v.player) playerCar = vc;
                 if (v.ai) { var drv = root.AddComponent<TrafficDriver>(); drv.obstacleMask = obstacleMask; drv.cruise = v.name.StartsWith("Arac_Otobus") ? 7f : 9f; trafficCount++; }
                 else vCount++;
             }
-            var traffic = graph.gameObject.AddComponent<TrafficManager>(); traffic.graph = graph;
+            var traffic = graph.gameObject.AddComponent<TrafficManager>(); traffic.graph = graph; traffic.maxCars = 18;
 
             // --- player
             var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharsDir}/{PlayerModel}.glb");
@@ -250,6 +256,21 @@ namespace MafiaSandbox.EditorTools
 
             // --- navmesh: baked from the physics colliders on the Default layer (ground/roads/bridges mesh + wall boxes); vehicles carve at runtime
             var navGo = new GameObject("NavMesh"); navGo.transform.SetParent(world, false);
+            // road surfaces get NavMesh area 3 ("Road"): pedestrians pay a high cost there (NpcBrain), so routes follow the
+            // sidewalks and cross at the junctions (crosswalks). The volume stops 8 m short of each junction so the
+            // crossing itself is cheap. Fleeing / chasing NPCs drop the cost and cut straight across.
+            {
+                var volRoot = new GameObject("RoadAreas").transform; volRoot.SetParent(world, false); int nvol = 0;
+                for (int i = 0; i < city.roadNodes.Length; i++) foreach (int j in city.roadNodes[i].adj ?? new int[0])
+                {
+                    if (j <= i) continue; var a = Coords.ToUnity(city.roadNodes[i].x, 0f, city.roadNodes[i].z); var b = Coords.ToUnity(city.roadNodes[j].x, 0f, city.roadNodes[j].z);
+                    Vector3 d = b - a; d.y = 0f; float len = d.magnitude; if (len < 20f) continue; d /= len;
+                    float inner = len - 16f; var go = new GameObject("Road " + i + "-" + j); go.transform.SetParent(volRoot, false);
+                    go.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * 1f, Quaternion.LookRotation(d, Vector3.up));
+                    var vol = go.AddComponent<NavMeshModifierVolume>(); vol.size = new Vector3(10f, 6f, inner); vol.center = Vector3.zero; vol.area = 3; nvol++;
+                }
+                Debug.Log("[MafiaSandbox] Road areas: " + nvol);
+            }
             var surface = navGo.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.All; surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.layerMask = 1 << 0; surface.overrideVoxelSize = true; surface.voxelSize = 0.12f; surface.overrideTileSize = true; surface.tileSize = 128;
@@ -266,7 +287,7 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>();
             var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();

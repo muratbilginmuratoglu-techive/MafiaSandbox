@@ -15,7 +15,7 @@ namespace MafiaSandbox.Npc
     public class NpcSpawner : MonoBehaviour
     {
         public GameObject[] prefabs;
-        public int civilians = 26, police = 8, gang = 5;
+        public int civilians = 70, police = 10, gang = 5;
         public RoadGraph graph;
         public Vector3 policeStation;      // station door (Unity space)
         public Vector3 gangCenter;         // construction building
@@ -60,7 +60,7 @@ namespace MafiaSandbox.Npc
             {
                 var p = policeStation + new Vector3(Random.Range(-6f, 6f), 0f, Random.Range(-6f, 6f));
                 if (i >= 3) p = graph.pedNodes[Random.Range(0, graph.pedNodes.Length)].pos;   // some already out on patrol
-                var b = Spawn<PoliceBrain>(Pick("Polis"), p, Random.Range(0f, 360f)); b.stationPos = policeStation; b.walkSpeed = 1.9f; b.runSpeed = 6.2f;
+                var b = Spawn<PoliceBrain>(Pick("Polis"), p, Random.Range(0f, 360f)); b.stationPos = policeStation; b.walkSpeed = 1.9f; b.runSpeed = 5.3f;
             }
             // gang
             for (int i = 0; i < gang; i++)

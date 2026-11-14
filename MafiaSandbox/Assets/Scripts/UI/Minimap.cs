@@ -89,9 +89,9 @@ namespace MafiaSandbox.UI
         void DrawMini(GameManager gm)
         {
             float H = Screen.height; const float S = 190f; float radiusM = 55f;
-            var r = new Rect(12, H - 12 - S - 84, S, S);
+            var r = new Rect(12, H - 12 - S - 20, S, S);
             Vector3 p = gm.player.transform.position; Vector2 c = ToPx(p); float half = radiusM * PxPerM;
-            GUI.color = new Color(0, 0, 0, 0.6f); GUI.DrawTexture(new Rect(r.x - 3, r.y - 3, S + 6, S + 6), dot); GUI.color = Color.white;
+            UiSkin.DrawPanel(new Rect(r.x - 5, r.y - 5, S + 10, S + 10));
             GUI.DrawTextureWithTexCoords(r, map, new Rect((c.x - half) / TexSize, (c.y - half) / TexSize, 2f * half / TexSize, 2f * half / TexSize));
             // live dots (north up: +z = up on screen)
             float scale = S / (2f * radiusM);
@@ -108,8 +108,7 @@ namespace MafiaSandbox.UI
             var ps = new Vector2(r.x + S / 2f, r.y + S / 2f); float yaw = gm.player.transform.eulerAngles.y;
             GUIUtility.RotateAroundPivot(yaw, ps); GUI.color = Color.white; GUI.DrawTexture(new Rect(ps.x - 2, ps.y - 9, 4, 12), dot); GUI.DrawTexture(new Rect(ps.x - 6, ps.y - 3, 12, 4), dot); GUIUtility.RotateAroundPivot(-yaw, ps);
             GUI.color = Color.white;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 11 }; st.normal.textColor = new Color(1, 1, 1, 0.7f);
-            GUI.Label(new Rect(r.x, r.yMax + 2, S, 16), "M map", st);
+            GUI.Label(new Rect(r.x, r.yMax + 6, S, 16), "M map   ·   I backpack", UiSkin.Small);
         }
 
         void DrawBig(GameManager gm)
@@ -117,7 +116,7 @@ namespace MafiaSandbox.UI
             float W = Screen.width, H = Screen.height; float S = Mathf.Min(H - 60f, 700f);
             var r = new Rect(W / 2f - S / 2f - 90, H / 2f - S / 2f, S, S);
             GUI.color = new Color(0, 0, 0, 0.75f); GUI.DrawTexture(new Rect(0, 0, W, H), dot); GUI.color = Color.white;
-            GUI.DrawTexture(r, map);
+            UiSkin.DrawPanel(new Rect(r.x - 8, r.y - 8, S + 16, S + 16), true); GUI.DrawTexture(r, map);
             float sx = S / (worldMaxX - worldMinX), sz = S / (worldMaxZ - worldMinZ);
             Vector2 Sp(Vector3 w) => new Vector2(r.x + (w.x - worldMinX) * sx, r.yMax - (w.z - worldMinZ) * sz);
             void Dot(Vector3 w, Color col, float sz2) { var s = Sp(w); GUI.color = col; GUI.DrawTexture(new Rect(s.x - sz2 / 2, s.y - sz2 / 2, sz2, sz2), dot); }
@@ -132,16 +131,16 @@ namespace MafiaSandbox.UI
             foreach (var f in FactionDefs.All) { var c = Data.Coords.ToUnity(f.territory.center.x, 0f, f.territory.center.y + 18f); var s = Sp(c); var ts = new GUIStyle(lab) { fontSize = 13 }; ts.normal.textColor = Color.Lerp(f.color, Color.white, 0.35f); GUI.Label(new Rect(s.x - 60, s.y - 9, 120, 18), f.name, ts); }
             Dot(gm.player.transform.position, Color.white, 9f);
             // legend
-            var box = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = 13, padding = new RectOffset(10, 10, 8, 8) }; box.normal.textColor = Color.white;
+            var box = new GUIStyle(UiSkin.PanelSolid) { alignment = TextAnchor.UpperLeft, fontSize = 13, padding = new RectOffset(12, 12, 10, 10) };
             var eco = EconomyManager.I; var ws = WantedSystem.I;
             string legend = "CITY MAP   (M / Esc closes)\n\n";
             foreach (var kv in KindCol) legend += $"■ {Items.ShopFor(kv.Key)?.title ?? kv.Key}\n";
             legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n\n";
             var fm = FactionManager.I; if (fm) foreach (var f in FactionDefs.All) legend += $"■ {f.name}: {FactionManager.Standing(fm.Rep(f))}\n";
             legend += "\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
-            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 190, 330), legend, box);
+            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 200, 360), legend, box);
             // coloured squares for the legend rows
-            int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 26, r.y + 44 + i * 17f, 10, 10), dot); i++; }
+            int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 28, r.y + 46 + i * 17f, 10, 10), dot); i++; }
             GUI.color = Color.white;
         }
     }

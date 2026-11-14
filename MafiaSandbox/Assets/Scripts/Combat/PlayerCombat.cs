@@ -19,6 +19,8 @@ namespace MafiaSandbox.Combat
 
         public WeaponDef Weapon => WeaponDef.All[current];
         public bool Aiming { get; private set; }
+        public bool Emoting { get; set; }
+        public System.Func<bool, bool, string> LocomotionFn => Locomotion;           // emote wheel: hide the weapon while waving / dancing
         float unlockedT;
         public float HitMarkerT { get; private set; }
         public bool HitMarkerHead { get; private set; }
@@ -92,7 +94,7 @@ namespace MafiaSandbox.Combat
             bool wantAim = !locked && (Input.GetMouseButton(1) || aimHold > 0f);
             if (aimHold > 0f) aimHold -= dt;
             SetAiming(wantAim && !Weapon.melee);
-            if (model) model.SetActive(!pc.InputLocked && !(body && body.Dead) && (Aiming || Weapon.melee || cooldown > Weapon.rof - 0.35f));
+            if (model) model.SetActive(!pc.InputLocked && !(body && body.Dead) && !Emoting);   // the weapon stays in hand (lowered when not aiming)
 
             // body faces the camera while aiming (and in first person)
             if (Aiming || (cam && cam.FirstPerson)) pc.FaceYaw = cam ? cam.Yaw : (float?)null; else pc.FaceYaw = null;
