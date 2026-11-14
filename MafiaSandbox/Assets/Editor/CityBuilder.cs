@@ -106,6 +106,7 @@ namespace MafiaSandbox.EditorTools
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             var world = new GameObject("World").transform;
+            DistrictBuilder.Extend(city, world);   // step 7: the gang / mafia districts beyond x = ±78
 
             // --- static geometry (ground, roads, bridge, overpass, tunnel, kerbs, markings)
             var staticPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StaticGlb);
@@ -265,7 +266,7 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); gm.gameObject.AddComponent<Minimap>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>();
             var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();

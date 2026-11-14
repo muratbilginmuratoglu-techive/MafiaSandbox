@@ -5,6 +5,8 @@ using MafiaSandbox.Core;
 using MafiaSandbox.Economy;
 using MafiaSandbox.Player;
 
+using MafiaSandbox.Factions;
+
 namespace MafiaSandbox.UI
 {
     /// <summary>
@@ -68,7 +70,7 @@ namespace MafiaSandbox.UI
 
         void DrawInventory(EconomyManager eco, GameManager gm)
         {
-            float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 260, H / 2f - 220, 520, 440);
+            float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 300, H / 2f - 250, 600, 500);
             GUI.Box(r, GUIContent.none, win);
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
             GUILayout.BeginHorizontal(); GUILayout.Label("Backpack", title); GUILayout.FlexibleSpace(); GUILayout.Label($"${eco.cash}", new GUIStyle(title) { normal = { textColor = new Color(0.56f, 0.9f, 0.6f) } }); GUILayout.EndHorizontal();
@@ -92,6 +94,18 @@ namespace MafiaSandbox.UI
             var pc = gm.player.GetComponent<PlayerCombat>();
             if (pc) { var owned = new List<string>(); for (int i = 0; i < WeaponDef.Order.Length; i++) if (pc.owned[i]) owned.Add(WeaponDef.All[WeaponDef.Order[i]].name); GUILayout.Label("Weapons: " + string.Join(", ", owned), dim); }
             if (Vitals.I) GUILayout.Label($"Stamina {Vitals.I.stamina:0}%   ·   Food {Vitals.I.hunger:0}%", dim);
+            var fm = FactionManager.I;
+            if (fm)
+            {
+                GUILayout.Space(4); GUILayout.Label("Reputation", title);
+                GUILayout.BeginHorizontal();
+                foreach (var f in FactionDefs.All)
+                {
+                    float v = fm.Rep(f); var st = new GUIStyle(dim) { alignment = TextAnchor.MiddleCenter }; st.normal.textColor = Color.Lerp(f.color, Color.white, 0.4f);
+                    GUILayout.Label($"{f.name}\n{FactionManager.Standing(v)} ({v:+0;-0;0})", st, GUILayout.Width((r.width - 28) / FactionDefs.All.Count));
+                }
+                GUILayout.EndHorizontal();
+            }
             GUILayout.EndArea();
         }
 

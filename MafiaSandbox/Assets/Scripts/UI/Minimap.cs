@@ -7,6 +7,8 @@ using MafiaSandbox.Npc;
 using MafiaSandbox.Vehicles;
 using MafiaSandbox.World;
 
+using MafiaSandbox.Factions;
+
 namespace MafiaSandbox.UI
 {
     /// <summary>
@@ -34,6 +36,12 @@ namespace MafiaSandbox.UI
         {
             map = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             px = new Color32[TexSize * TexSize]; var grass = new Color32(118, 150, 104, 255); for (int i = 0; i < px.Length; i++) px[i] = grass;
+            // faction territories: a light tint of the crew's colour
+            foreach (var f in FactionDefs.All)
+            {
+                var a = ToPx(Data.Coords.ToUnity(f.territory.xMin, 0f, f.territory.yMin)); var b = ToPx(Data.Coords.ToUnity(f.territory.xMax, 0f, f.territory.yMax));
+                var tint = Color.Lerp(grass, f.color, 0.28f); FillRect(a, b, tint);
+            }
             var graph = FindAnyObjectByType<RoadGraph>();
             if (graph && graph.roadNodes != null)
             {
@@ -93,8 +101,8 @@ namespace MafiaSandbox.UI
             foreach (var b in CharacterBody.All)
             {
                 if (!b || b.Dead || b.gameObject == gm.player.gameObject) continue; var br = b.GetComponent<NpcBrain>();
-                Color col = br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : new Color(0.86f, 0.86f, 0.86f);
-                Dot(b.transform.position, col, br is PoliceBrain || br is GangBrain ? 6f : 4f);
+                Color col = br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : br is FactionBrain fb && fb.Def != null ? fb.Def.color : new Color(0.86f, 0.86f, 0.86f);
+                Dot(b.transform.position, col, br is PoliceBrain || br is GangBrain || br is FactionBrain ? 6f : 4f);
             }
             // player arrow
             var ps = new Vector2(r.x + S / 2f, r.y + S / 2f); float yaw = gm.player.transform.eulerAngles.y;
@@ -117,17 +125,20 @@ namespace MafiaSandbox.UI
             foreach (var b in CharacterBody.All)
             {
                 if (!b || b.Dead || b.gameObject == gm.player.gameObject) continue; var br = b.GetComponent<NpcBrain>();
-                Dot(b.transform.position, br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : new Color(0.86f, 0.86f, 0.86f), 5f);
+                Dot(b.transform.position, br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : br is FactionBrain fb && fb.Def != null ? fb.Def.color : new Color(0.86f, 0.86f, 0.86f), 5f);
             }
             var lab = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }; lab.normal.textColor = Color.white;
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None)) { if (bi.kind == "house") continue; var s = Sp(bi.footprint.center); GUI.color = new Color(0, 0, 0, 0.55f); GUI.DrawTexture(new Rect(s.x - 42, s.y - 9, 84, 18), dot); GUI.color = Color.white; GUI.Label(new Rect(s.x - 42, s.y - 9, 84, 18), bi.label, lab); }
+            foreach (var f in FactionDefs.All) { var c = Data.Coords.ToUnity(f.territory.center.x, 0f, f.territory.center.y + 18f); var s = Sp(c); var ts = new GUIStyle(lab) { fontSize = 13 }; ts.normal.textColor = Color.Lerp(f.color, Color.white, 0.35f); GUI.Label(new Rect(s.x - 60, s.y - 9, 120, 18), f.name, ts); }
             Dot(gm.player.transform.position, Color.white, 9f);
             // legend
             var box = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = 13, padding = new RectOffset(10, 10, 8, 8) }; box.normal.textColor = Color.white;
             var eco = EconomyManager.I; var ws = WantedSystem.I;
             string legend = "CITY MAP   (M / Esc closes)\n\n";
             foreach (var kv in KindCol) legend += $"■ {Items.ShopFor(kv.Key)?.title ?? kv.Key}\n";
-            legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
+            legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n\n";
+            var fm = FactionManager.I; if (fm) foreach (var f in FactionDefs.All) legend += $"■ {f.name}: {FactionManager.Standing(fm.Rep(f))}\n";
+            legend += "\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
             GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 190, 330), legend, box);
             // coloured squares for the legend rows
             int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 26, r.y + 44 + i * 17f, 10, 10), dot); i++; }

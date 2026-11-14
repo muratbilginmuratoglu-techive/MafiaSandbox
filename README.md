@@ -13,11 +13,12 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 | 4 | Trafik: yol grafiğinde şerit takibi, kavşak izinleri, yaya/araç için frenleme, korna (yaya kenara çekilir), kuyruk, karşıdan gelene yol verme, sıkışınca geri çıkıp sollama, çıkmaz sokakta U dönüşü, görüş dışında kendini toparlama/yeniden konumlanma, duvarla kapalı yolların otomatik grafikten düşmesi (tünel), araçlar yere raycast ile oturur (yol çizgileri takılmaz) | ✅ |
 | 5 | Ekonomi: nakit + sırt çantası (Tab), 22 eşya, 9 dükkân türü + evler/banka/karakol, raflardan satın alma / çalma (F / G), kasa (vault), silah dükkânı (silahlar artık satın alınır; başlangıç tabanca + bıçak), rehinci çalıntı malı %45'ten alır, fiyat modeli (kıtlık × gece × doygunluk × aranma), tanıklar (dükkâncı / ev sahibi / polis görürse ★, sessiz alarm → polis gelir), tabanca doğrultarak soygun (kasa parası), ceset arama, tutuklanınca çalıntı eşya el konur + ceza · HUD: can / stamina / açlık barları, nakit, minimap + büyük harita (M) | ✅ |
 | 6 | Prosedürel köpek/kediler (dolaşma, kaçma, köpek peşine takılır, vurulur/ezilir), köprü altı kamp sakinleri (ateş başında poz, konuşma, dans; silah sesinde tepki), varil ateşleri (alev partikülü + titreşen ışık + çıtırtı), hava (açık/yağmur/kar; sis, güneş, çim rengi, yağmur sesi; birkaç dakikada bir değişir, `F12` ile döndür), gece sokak lambaları, saat + hava HUD'da, sesler: motor (hıza göre perde), ayak sesi, havlama/miyav, ortam uğultusu | ✅ |
+| 7 | Çete & mafya: şehir iki yana büyütüldü (batı/doğu mahalleleri, x=±110/±160 caddeleri, 2×4 blok, konut sırası; `DistrictBuilder` şehir verisine ekler). 4 çete (Mavi Akrepler, Yeşil Yılanlar, Sarı Çakallar, Kızıl Kurtlar — kıyafet rengiyle) + 2 mafya ailesi (Moretti: antrasit takım/şarap kravat, Kaplan: krem takım). Her grubun bölgesi (HUD'da afiş + etiket, haritada renk), mekânı (çete: bar + depo + avlu; aile: restoran + 2 villa + çeşme + siyah SUV'lar), kapı nöbetçileri, avluda takılanlar ve devriye turu var. İtibar (−100…+100, `Tab`'da): bir üyeye vurmak/öldürmek o grupla ve müttefikleriyle (aynı blok) bozar, rakip blokla biraz düzelir; −15 altı bölgelerinde uyarı, −35 altı görünce saldırı (çeteler sopa, aileler tabanca). Blok: batı = Moretti+Mavi+Yeşil, doğu = Kaplan+Sarı+Kırmızı; rakip blok üyeleri karşılaşınca kavga eder | ✅ |
 
 ## Açmak için
 
 1. Unity Hub ▸ **Add** ▸ `MafiaSandbox/` klasörünü seç (Unity 6.x). İlk açılışta Package Manager
-   `com.unity.cloud.gltfast` paketini indirir ve 140 prop + 6 karakter GLB'sini import eder (1–2 dk).
+   `com.unity.cloud.gltfast` paketini indirir ve 140 prop + 32 karakter GLB'sini import eder (1–2 dk).
 2. Menü **MafiaSandbox ▸ 1. Setup (import settings)** — karakter GLB'lerini Legacy animasyona çevirir,
    gerekiyorsa *Active Input Handling = Both* yapar (bu durumda editörü bir kez yeniden başlat).
 3. Menü **MafiaSandbox ▸ 2. Build City Scene** — `Assets/Data/city.json` + GLB'lerden `Assets/Scenes/City.unity`
@@ -30,7 +31,7 @@ Low-poly open-city crime sandbox. Originally prototyped as a single-file Three.j
 `WASD` hareket · `Shift` koşu · `C` çömel · `Space` zıpla · `V` birinci şahıs · fare ile bak (tıkla = imleç kilidi, `Esc` serbest)
 `1–6` silah (tabanca, tüfek, pompalı, bıçak, sopa, revolver) · sağ tık nişan · sol tık ateş / vuruş
 `E` araca bin / in · araçta `W/S` gaz-fren, `A/D` direksiyon, `Space` el freni · `R` eve ışınlan · `H` yardım
-Debug: `F1` +$500 · `F2` sıradaki dükkânın tezgâhına ışınlan · `F3` trafik durumunu `traffic_dump.txt` dosyasına yazar · `F4` öğlen ↔ gece (saat durur) · `F5` kuş bakışı kamera · `F6` araçların üstünde durum etiketleri · `F12` havayı değiştir · `F7` karakolun önüne ışınlan · `F8` +1 ★ · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
+Debug: `F1` +$500 · `F2` sıradaki dükkânın tezgâhına ışınlan · `F3` trafik durumunu `traffic_dump.txt` dosyasına yazar · `F4` öğlen ↔ gece (saat durur) · `F5` kuş bakışı kamera · `F6` araçların üstünde durum etiketleri · `F12` havayı değiştir · `F7` karakolun önüne ışınlan · `Shift+F7` sıradaki çete/aile merkezine ışınlan · `F8` +1 ★ · `Shift+F8` bulunduğun bölgenin sahibiyle kavga başlat (itibar −40) · `F9` önüne hareketsiz yaya koyar · `F10` en yakın yayaya bakar · `F11` oyuncuyu öldürür
 
 ## Proje yapısı
 

@@ -78,7 +78,7 @@ namespace MafiaSandbox.Core
             else if (by == "vehicle") Say($"{NameOf(b)} was run over");
         }
 
-        bool topDown; int shopCycle = -1;
+        bool topDown; int shopCycle = -1, factionCycle = -1;
 
         void Update()
         {
@@ -127,8 +127,17 @@ namespace MafiaSandbox.Core
                 System.IO.File.WriteAllText(System.IO.Path.Combine(Application.dataPath, "..", "traffic_dump.txt"), sb.ToString()); Debug.Log(sb.ToString()); }   // F3: dump traffic state to the console
             if (Input.GetKeyDown(KeyCode.F12) && MafiaSandbox.World.Atmosphere.I) MafiaSandbox.World.Atmosphere.I.CycleWeather();   // F12: weather
             if (Input.GetKeyDown(KeyCode.F6)) MafiaSandbox.Vehicles.TrafficDriver.ShowDebug = !MafiaSandbox.Vehicles.TrafficDriver.ShowDebug;   // F6: traffic debug labels
-            if (Input.GetKeyDown(KeyCode.F8) && WantedSystem.I) WantedSystem.I.Add(1, "debug");   // F8: +1 star (debug)
-            if (Input.GetKeyDown(KeyCode.F7) && player && !player.InputLocked)   // F7: teleport in front of the police station (debug)
+            if (Input.GetKeyDown(KeyCode.F8) && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))   // Shift+F8: pick a fight with the crew whose turf you stand in (debug)
+            { var fm = Factions.FactionManager.I; if (fm && fm.Territory != null) { fm.PlayerAttacked(fm.Territory, true); } }
+            else if (Input.GetKeyDown(KeyCode.F8) && WantedSystem.I) WantedSystem.I.Add(1, "debug");   // F8: +1 star (debug)
+            if (Input.GetKeyDown(KeyCode.F7) && player && !player.InputLocked && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)))   // Shift+F7: cycle the gang / family HQs (debug)
+            {
+                var all = Factions.FactionDefs.All; factionCycle = (factionCycle + 1) % all.Count; var f = all[factionCycle];
+                Vector3 p = f.HqUnity + Vector3.forward * 2f;   // the HQ doors face +z (prototype) roads, so 4 m out on the road side
+                if (UnityEngine.AI.NavMesh.SamplePosition(p, out var h, 8f, UnityEngine.AI.NavMesh.AllAreas)) p = h.position;
+                player.Teleport(p + Vector3.up * 0.1f, 0f); playerCamera?.SetYaw(180f); Say($"→ {f.name} HQ");
+            }
+            else if (Input.GetKeyDown(KeyCode.F7) && player && !player.InputLocked)   // F7: teleport in front of the police station (debug)
             {
                 Vector3 p = policeStationPos + (homePosition - policeStationPos).normalized * 0f + Vector3.right * 6f;
                 if (UnityEngine.AI.NavMesh.SamplePosition(p, out var h, 8f, UnityEngine.AI.NavMesh.AllAreas)) p = h.position;

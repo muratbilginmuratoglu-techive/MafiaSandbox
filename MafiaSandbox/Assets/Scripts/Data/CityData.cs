@@ -60,6 +60,7 @@ namespace MafiaSandbox.Data
         public static bool FlipX = true;
 
         public static Vector3 ToUnity(float x, float y, float z) => FlipX ? new Vector3(-x, y, z) : new Vector3(x, y, -z);
+        public static Vector3 FromUnity(Vector3 u) => FlipX ? new Vector3(-u.x, u.y, u.z) : new Vector3(u.x, u.y, -u.z);
         public static Vector3 ToUnity(float[] p) => p == null || p.Length < 3 ? Vector3.zero : ToUnity(p[0], p[1], p[2]);
         public static Vector3 ToUnityXZ(float x, float z, float y = 0f) => ToUnity(x, y, z);
 

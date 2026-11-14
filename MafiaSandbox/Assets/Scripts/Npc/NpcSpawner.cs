@@ -4,6 +4,7 @@ using UnityEngine.AI;
 using MafiaSandbox.Combat;
 using MafiaSandbox.Player;
 using MafiaSandbox.World;
+using MafiaSandbox.Factions;
 
 namespace MafiaSandbox.Npc
 {
@@ -66,6 +67,21 @@ namespace MafiaSandbox.Npc
             {
                 float a = i / (float)gang * Mathf.PI * 2f; var p = gangCenter + new Vector3(Mathf.Cos(a) * 5f, 0f, Mathf.Sin(a) * 5f);
                 var g = Spawn<GangBrain>(Pick("Vatandas"), p, Random.Range(0f, 360f)); g.homeSpot = p; g.displayName = "Crew " + (i + 1); g.runSpeed = 6f;
+            }
+            // gangs and families (step 7): a few at the HQ door, a few in the yard, the rest on the patrol loop
+            foreach (var f in FactionDefs.All)
+            {
+                var route = new Vector3[f.patrol.Length]; for (int i = 0; i < route.Length; i++) route[i] = Data.Coords.ToUnity(f.patrol[i].x, 0f, f.patrol[i].y);
+                for (int i = 0; i < f.members; i++)
+                {
+                    string role = i < 2 ? "guard" : i < f.members - 3 ? "loiter" : "patrol";
+                    Vector3 spot = role == "patrol" ? route[(i * 3) % route.Length] : Data.Coords.ToUnity(f.spots[i % f.spots.Length].x, 0f, f.spots[i % f.spots.Length].y);
+                    if (role == "guard") spot += new Vector3(i == 0 ? -1.2f : 1.2f, 0f, 0f);
+                    var m = Spawn<FactionBrain>(Pick(f.prefabPrefix), spot + new Vector3(Random.Range(-0.6f, 0.6f), 0f, Random.Range(-0.6f, 0.6f)), Random.Range(0f, 360f));
+                    m.factionId = f.id; m.role = role; m.homeSpot = m.transform.position; m.route = route; m.routeIdx = (i * 3) % route.Length;
+                    m.displayName = (f.kind == FactionKind.Mafia ? (i < 2 ? "Soldier" : i < 4 ? "Capo" : "Associate") : (i < 2 ? "Lookout" : "Member")) + " · " + f.name;
+                    m.walkSpeed = 1.8f; m.runSpeed = f.kind == FactionKind.Mafia ? 5.8f : 6.2f;
+                }
             }
             // shopkeepers
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None))
