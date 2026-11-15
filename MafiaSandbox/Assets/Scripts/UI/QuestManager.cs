@@ -124,7 +124,7 @@ namespace MafiaSandbox.UI
             }
             CurrentTarget = q.target != null ? q.target() : null; Coach = TipOf(q);
             if (Waypoints.I) Waypoints.I.QuestTarget = CurrentTarget;
-            SetBeacon(CurrentTarget);
+            SetBeacon(null);   // the target is shown on the maps only, not in the world
         }
 
         void SetBeacon(Vector3? p)

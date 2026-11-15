@@ -57,18 +57,11 @@ namespace MafiaSandbox.UI
                 routeT = 1.2f; lastFrom = from; lastQ = QuestTarget; lastP = pin;
                 QuestRoute = QuestTarget.HasValue ? Path(from, QuestTarget.Value) : new Vector3[0];
                 PinRoute = pin.HasValue ? Path(from, pin.Value) : new Vector3[0];
-                if (QuestRoute.Length > 1 && !qLine) qLine = MakeLine("QuestRouteLine", new Color(1f, 0.82f, 0.15f, 0.8f));
-                if (PinRoute.Length > 1 && !pLine) pLine = MakeLine("PinRouteLine", new Color(0.25f, 0.9f, 1f, 0.8f));
-                if (qLine) { qLine.gameObject.SetActive(QuestRoute.Length > 1); Fill(qLine, QuestRoute); }
-                if (pLine) { pLine.gameObject.SetActive(PinRoute.Length > 1); Fill(pLine, PinRoute); }
             }
             if (pin.HasValue)
             {
-                if (!pinBeacon) { pinBeacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder); pinBeacon.name = "PinBeacon"; Destroy(pinBeacon.GetComponent<Collider>()); var m = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.25f, 0.9f, 1f, 0.35f) }; pinBeacon.GetComponent<Renderer>().material = m; pinBeacon.transform.localScale = new Vector3(0.6f, 30f, 0.6f); }
-                pinBeacon.SetActive(true); pinBeacon.transform.position = pin.Value + Vector3.up * 30f;
                 if (new Vector2(from.x - pin.Value.x, from.z - pin.Value.z).magnitude < 3f) { RemovePin(Pins.Count - 1); gm.Say("You reached your pin."); }
             }
-            else if (pinBeacon) pinBeacon.SetActive(false);
         }
         static bool SameT(Vector3? a, Vector3? b) => a.HasValue == b.HasValue && (!a.HasValue || (a.Value - b.Value).sqrMagnitude < 0.25f);
     }
