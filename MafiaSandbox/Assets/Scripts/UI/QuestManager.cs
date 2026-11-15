@@ -69,7 +69,7 @@ namespace MafiaSandbox.UI
             var lg = new GameObject("Ember"); lg.transform.SetParent(c.transform, false); lg.transform.localPosition = new Vector3(0.08f, 1.55f, 0.35f); var li = lg.AddComponent<Light>(); li.color = new Color(1f, 0.45f, 0.15f); li.range = 4f; li.intensity = 1.6f;
             var ar = new GameObject("MarkerArrow"); ar.transform.SetParent(c.transform, false); ar.transform.localPosition = new Vector3(0f, 2.6f, 0f);
             var tm = ar.AddComponent<TextMesh>(); tm.text = "▼\nJOSHUA"; tm.fontSize = 64; tm.characterSize = 0.06f; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.color = new Color(1f, 0.82f, 0.15f);
-            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; var lm = new Material(Shader.Find("Sprites/Default")); lm.mainTexture = f.material.mainTexture; ar.GetComponent<MeshRenderer>().sharedMaterial = lm; }
+            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; var ts = Shader.Find("GUI/Text Shader"); if (ts) { var lm = new Material(ts); lm.mainTexture = f.material.mainTexture; lm.color = new Color(1f, 0.82f, 0.15f); lm.SetInt("unity_GUIZTestMode", 8); lm.renderQueue = 4000; ar.GetComponent<MeshRenderer>().sharedMaterial = lm; } }
             ar.AddComponent<MarkerBob>();
         }
         class MarkerBob : MonoBehaviour { Vector3 b; void Start() { b = transform.localPosition; } void Update() { transform.localPosition = b + Vector3.up * Mathf.Sin(Time.time * 3f) * 0.08f; var cam = Camera.main; if (cam) transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position, Vector3.up); } }

@@ -87,6 +87,7 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Traffic labels", UiSkin.Button)) Vehicles.TrafficDriver.ShowDebug = !Vehicles.TrafficDriver.ShowDebug;
             if (GUILayout.Button("Spawn dummy", UiSkin.Button)) { var sp = FindAnyObjectByType<Npc.NpcSpawner>(); if (sp && sp.prefabs.Length > 0) { var p = gm.player.transform.position + gm.player.transform.forward * 4f; var n = sp.Spawn<Npc.CivilianBrain>(sp.prefabs[Random.Range(0, sp.prefabs.Length)], p, gm.player.transform.eulerAngles.y + 180f); n.dummy = true; } }
             if (GUILayout.Button("Respawn", UiSkin.Button)) gm.Respawn();
+            if (GUILayout.Button("Joshua night", UiSkin.Button)) { QuestManager.AskedCashier = true; QuestManager.AskedGuest = true; var jdn = DayNightCycle.I; if (jdn) jdn.timeOfDay = 20.2f; Teleport(Coords.ToUnity(25f, 0f, 36f), 0f, false); }
             GUILayout.EndHorizontal();
             GUILayout.Label("SHOWCASE ANIMATION  (plays on you until you move)", UiSkin.H2);
             if (clips == null) { var a = gm.player.GetComponentInChildren<Animation>(); var l = new List<string>(); if (a) foreach (AnimationState st in a) l.Add(st.name); l.Sort(); clips = l.ToArray(); }

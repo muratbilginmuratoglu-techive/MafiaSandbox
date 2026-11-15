@@ -11,6 +11,7 @@ namespace MafiaSandbox.Npc
     /// </summary>
     public class CivilianBrain : NpcBrain
     {
+        static readonly System.Collections.Generic.HashSet<CharacterBody> attended = new System.Collections.Generic.HashSet<CharacterBody>();
         public bool isMedic;
         [Range(0f, 1f)] public float bravery = 0.3f;
 
@@ -165,7 +166,7 @@ namespace MafiaSandbox.Npc
                     if (stateT > 3f)
                     {
                         if (patient && !patient.Dead) { patient.Treat(); GameManager.I?.Say($"{displayName} treated a wounded pedestrian"); }
-                        else GameManager.I?.Say($"{displayName} could do nothing more for the victim");
+                        else { if (patient) attended.Add(patient); GameManager.I?.Say($"{displayName} could do nothing more for the victim"); }
                         patient = null; SetState("wander"); PickWanderTarget();
                     }
                     break;
@@ -182,7 +183,8 @@ namespace MafiaSandbox.Npc
                 CharacterBody best = null; float bd = 40f * 40f;
                 foreach (var b in CharacterBody.All)
                 {
-                    if (b == body || b.isPlayer || (!b.Dead && b.InjuryLeg == 0 && b.InjuryArm == 0)) continue;
+                    if (!b.Dead) attended.Remove(b);
+                    if (b == body || b.isPlayer || (b.Dead && attended.Contains(b)) || (!b.Dead && b.InjuryLeg == 0 && b.InjuryArm == 0)) continue;
                     float d = (b.transform.position - transform.position).sqrMagnitude; if (d < bd) { bd = d; best = b; }
                 }
                 if (best && (!best.Dead || best.KilledBy != null)) { patient = best; SetState("medic_go"); GoTo(best.transform.position, walkSpeed * 1.3f); }
