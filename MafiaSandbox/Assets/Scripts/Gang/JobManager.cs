@@ -122,7 +122,7 @@ namespace MafiaSandbox.Gang
         void OnGUI()
         {
             if (Active == null || CharacterCreator.IsOpen || IntroCinematic.Playing || !pc) return;
-            float W = Screen.width; var r = new Rect(W - 330, UI.QuestManager.PanelBottom + 8f, 318, 70); UiSkin.DrawPanel(r);
+            float W = Screen.width; var r = new Rect(W - 396, UI.QuestManager.PanelBottom + 8f, 384, 70); UiSkin.DrawPanel(r);
             GUI.Label(new Rect(r.x + 12, r.y + 6, r.width - 24, 20), "JOB  ·  $" + Active.reward, UiSkin.H2);
             string line = Active.type == "courier" ? (stage == 0 ? "Pick up the package" : "Deliver the package") : Active.type == "chop" ? (stage == 0 ? "Steal a car" : "Park it at the pawn shop garage") : "Kill " + hitName;
             GUI.Label(new Rect(r.x + 12, r.y + 24, r.width - 24, 22), "<b>" + Active.title + "</b>: " + line, UiSkin.Label);

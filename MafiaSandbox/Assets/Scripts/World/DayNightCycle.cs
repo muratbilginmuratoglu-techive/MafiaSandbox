@@ -14,14 +14,18 @@ namespace MafiaSandbox.World
 
         Light sun;
         public int Day = 1;
+        /// <summary>True from 05:00 on: the clock stands still until the player sleeps.</summary>
+        public bool Frozen { get; private set; }
+        float exhaustT;
         public float TotalHours => (Day - 1) * 24f + timeOfDay;
         /// <summary>Jump forward to the given clock hour (next day if it is already past).</summary>
-        public void SkipTo(float hour) { if (hour <= timeOfDay) Day++; timeOfDay = hour; }
+        public void SkipTo(float hour) { if (hour <= timeOfDay) Day++; timeOfDay = hour; Frozen = false; }
 
         void Reset() { BuildDefaults(); }
         void Awake()
         {
             I = this; sun = GetComponent<Light>();
+            if (MafiaSandbox.Core.SaveGame.Has) { Day = MafiaSandbox.Core.SaveGame.SavedDay; timeOfDay = 6.5f; }
             if (sunColor == null || sunColor.colorKeys.Length == 0) BuildDefaults();
         }
 
@@ -38,9 +42,20 @@ namespace MafiaSandbox.World
         {
             if (!paused)
             {
-                // daylight (06-20, 14 h) lasts 10 real minutes and so does the night (20-06, 10 h)
-                float rate = (IsNight ? 10f : 14f) / 600f * (hoursPerRealSecond * 60f);
-                timeOfDay += rate * Time.deltaTime; if (timeOfDay >= 24f) { timeOfDay -= 24f; Day++; }
+                // the day (06:00-20:00, 14 h) lasts 10 real minutes, the night (20:00-05:00, 9 h) 8 minutes; at 05:00 the clock stops until you sleep
+                float rate = (IsNight ? 9f / 480f : 14f / 600f) * (hoursPerRealSecond * 60f);
+                if (!Frozen) { timeOfDay += rate * Time.deltaTime; if (timeOfDay >= 24f) { timeOfDay -= 24f; Day++; } }
+                if (!Frozen && timeOfDay >= 5f && timeOfDay < 6f)
+                {
+                    timeOfDay = 5f; Frozen = true;
+                    var gmF = MafiaSandbox.Core.GameManager.I; if (gmF) { gmF.Banner("05:00", "Dawn is close and you are dead on your feet. Go home and sleep (F at your bed) to save and start the next day.", 6f); gmF.Say("05:00 - time has stopped. Sleep to start a new day."); }
+                }
+                if (Frozen)
+                {
+                    // exhausted: stamina stays low, and a reminder every half minute
+                    var vt = MafiaSandbox.Player.Vitals.I; if (vt) vt.stamina = Mathf.Min(vt.stamina, 30f);
+                    exhaustT -= Time.deltaTime; if (exhaustT <= 0f) { exhaustT = 30f; var g2 = MafiaSandbox.Core.GameManager.I; if (g2) g2.Say("You can barely stand. Go home and sleep."); }
+                }
             }
             float t = timeOfDay / 24f;
             // sun elevation: -90 at midnight, +90 at noon-ish

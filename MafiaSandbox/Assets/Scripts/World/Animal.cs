@@ -109,7 +109,7 @@ namespace MafiaSandbox.World
             {
                 float a = Random.value * Mathf.PI * 2f, r = Random.value * radius; var p = home + new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r);
                 if (OnRoad(p)) continue;
-                if (NavMesh.SamplePosition(p, out var nh, 1.5f, NavMesh.AllAreas)) return nh.position;
+                if (NavMesh.SamplePosition(p, out var nh, 1.5f, NavMesh.AllAreas) && nh.position.y < 0.45f) return nh.position;   // never a roof / table top
             }
             return null;
         }
@@ -123,6 +123,12 @@ namespace MafiaSandbox.World
                 return;
             }
             if (!agent || !agent.enabled || !agent.isOnNavMesh) return;
+            // the navmesh also covers the tops of low roofs, tables and crates: an animal that ends up up there goes back down to the street
+            if (transform.position.y > 0.5f)
+            {
+                Vector3 g = home; for (int k = 0; k < 8; k++) { var cand = home + new Vector3(Random.Range(-radius, radius), 0f, Random.Range(-radius, radius)); if (!OnRoad(cand) && NavMesh.SamplePosition(cand, out var gh, 2f, NavMesh.AllAreas) && gh.position.y < 0.45f) { g = gh.position; break; } }
+                agent.Warp(g); target = null; return;
+            }
             bool driving = gm && gm.player && gm.player.GetComponent<Vehicles.VehicleInteraction>()?.Current;
             float dPlayer = player ? Vector3.Distance(player.position, transform.position) : 999f;
             bool moving = false; float speed = walk;

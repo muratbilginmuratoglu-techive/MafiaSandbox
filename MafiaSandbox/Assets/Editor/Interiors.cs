@@ -224,8 +224,9 @@ namespace MafiaSandbox.EditorTools
             // shop sign on the back wall, in the building's name
             if (!house && !ruin && !string.IsNullOrEmpty(label))
             {
-                var sb = Pc(c, "TitleBoard", new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.05f), Vector3.forward); B(sb, "Board", 0f, 0f, 0f, Mathf.Min(3.4f, 0.28f * label.Length + 0.8f), 0.55f, 0.06f, accent);
-                Sign(c, label.ToUpperInvariant(), new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.11f), 0.075f, White, 180f);
+                var sb = Pc(c, "TitleBoard", new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.05f), Vector3.forward); string up = label.ToUpperInvariant(); float maxBw = Mathf.Min(c.hx * 1.3f, 5.5f), bw = Mathf.Min(maxBw, MafiaSandbox.World.LabelUtil.Width(up, 0.075f) + 0.7f);
+                B(sb, "Board", 0f, 0f, 0f, bw, 0.55f, 0.06f, accent);
+                Sign(c, up, new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.11f), MafiaSandbox.World.LabelUtil.Fit(up, 0.075f, bw - 0.5f), White, 180f);
             }
             // per-kind extras
             switch (kind)

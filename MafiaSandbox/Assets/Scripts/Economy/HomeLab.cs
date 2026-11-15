@@ -169,7 +169,7 @@ namespace MafiaSandbox.Economy
         public float HoursLeft(int r) => Mathf.Max(0f, batches[r].readyAt - DayNightCycle.I.TotalHours);
 
         // ------------------------------------------------------------------ sleeping
-        public static bool CanSleepNow { get { var d = DayNightCycle.I; return d && (d.timeOfDay >= 19.5f || d.timeOfDay < 5f); } }
+        public static bool CanSleepNow { get { var d = DayNightCycle.I; return d && (d.timeOfDay >= 19.5f || d.timeOfDay < 6f); } }
         public void TrySleep()
         {
             var gm = GameManager.I; if (sleeping) return;
@@ -181,12 +181,13 @@ namespace MafiaSandbox.Economy
         {
             sleeping = true; var gm = GameManager.I; var dn = DayNightCycle.I; var pc = gm.player;
             for (float t = 0f; t < 1.2f; t += Time.unscaledDeltaTime) { fade = t / 1.2f; yield return null; }
-            fade = 1f; float from = dn.timeOfDay; float slept = (7f - from + 24f) % 24f; dn.SkipTo(7f);
+            fade = 1f; float from = dn.timeOfDay; float slept = (6f - from + 24f) % 24f; dn.SkipTo(6f);
+            Npc.NpcBrain.ReviveAll(); MafiaSandbox.Core.SaveGame.Save();   // a new day: everybody who died yesterday is back, and the game is saved
             var body = pc.GetComponent<CharacterBody>(); if (body) body.Treat(999);
             if (Vitals.I) { Vitals.I.stamina = 100f; Vitals.I.hunger = Mathf.Max(25f, Vitals.I.hunger - 20f); }
             if (WantedSystem.I) WantedSystem.I.Clear();
             var cm = CrewManager.I; string rep = cm ? cm.LastReport : "";
-            wakeText = $"DAY {dn.Day}\nslept {slept:0} hours" + (string.IsNullOrEmpty(rep) ? "" : "\n" + rep);
+            wakeText = $"DAY {dn.Day}\nslept {slept:0} hours\ngame saved" + (string.IsNullOrEmpty(rep) ? "" : "\n" + rep);
             yield return new WaitForSecondsRealtime(2.6f); wakeText = "";
             for (float t = 0f; t < 1.4f; t += Time.unscaledDeltaTime) { fade = 1f - t / 1.4f; yield return null; }
             fade = 0f; sleeping = false; gm.Say("Good morning. Check the workbench and your venues.");

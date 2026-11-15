@@ -112,9 +112,9 @@ namespace MafiaSandbox.World
             var blueSign = new Color(0.15f, 0.4f, 0.65f); var green = new Color(0.2f, 0.65f, 0.4f); var paper = new Color(0.95f, 0.95f, 0.9f);
             float zb = -6.825f - EXT + 0.25f;   // inner face of the back wall
             // signs
-            Box("CheckInBoard", new Vector3(-8.62f, 2.45f, 3.6f), new Vector3(0.06f, 0.55f, 3.0f), blueSign, false); Label("CHECK-IN", new Vector3(-8.57f, 2.45f, 3.6f), 0.12f, Color.white, 270f);
-            Box("DoctorBoard", new Vector3(-7.8f, 2.95f, -6.62f), new Vector3(1.5f, 0.4f, 0.04f), green, false, false, true); Label("DOCTOR", new Vector3(-7.8f, 2.95f, -6.58f), 0.07f, Color.white);
-            Box("TreatBoard", new Vector3(7.6f, 2.95f, -6.62f), new Vector3(1.9f, 0.4f, 0.04f), green, false, false, true); Label("TREATMENT", new Vector3(7.6f, 2.95f, -6.58f), 0.07f, Color.white);
+            Box("CheckInBoard", new Vector3(-8.62f, 2.45f, 3.6f), new Vector3(0.06f, 0.55f, LabelUtil.Width("CHECK-IN", 0.12f) + 0.6f), blueSign, false); Label("CHECK-IN", new Vector3(-8.57f, 2.45f, 3.6f), 0.12f, Color.white, 270f);
+            Box("DoctorBoard", new Vector3(-7.8f, 2.95f, -6.62f), new Vector3(LabelUtil.Width("DOCTOR", 0.07f) + 0.5f, 0.4f, 0.04f), green, false, false, true); Label("DOCTOR", new Vector3(-7.8f, 2.95f, -6.58f), 0.07f, Color.white);
+            Box("TreatBoard", new Vector3(7.6f, 2.95f, -6.62f), new Vector3(LabelUtil.Width("TREATMENT", 0.07f) + 0.5f, 0.4f, 0.04f), green, false, false, true); Label("TREATMENT", new Vector3(7.6f, 2.95f, -6.58f), 0.07f, Color.white);
             Label("WAITING AREA", new Vector3(6.2f, 2.6f, 6.62f), 0.08f, new Color(0.15f, 0.3f, 0.5f), 0f);
             // windows on the side walls of the wing
             Box("WindowWingL", new Vector3(-9.02f, 1.9f, -9.3f), new Vector3(0.06f, 1.4f, 2.2f), glass, false); Box("WindowWingR", new Vector3(9.02f, 1.9f, -9.3f), new Vector3(0.06f, 1.4f, 2.2f), glass, false);
@@ -124,7 +124,7 @@ namespace MafiaSandbox.World
             Box("DocPaper", new Vector3(-5.2f, 0.87f, -9.35f), new Vector3(0.4f, 0.02f, 0.3f), paper, false);
             Box("DocChair", new Vector3(-4.6f, 0.45f, -10.25f), new Vector3(0.55f, 0.08f, 0.55f), dark); Box("DocChairBack", new Vector3(-4.6f, 0.85f, -10.5f), new Vector3(0.55f, 0.7f, 0.06f), dark, false);
             foreach (float x in new[] { -5.4f, -3.8f }) { Box("PatientChair", new Vector3(x, 0.4f, -8.4f), new Vector3(0.5f, 0.06f, 0.5f), glass); Box("PatientChairBack", new Vector3(x, 0.7f, -8.15f), new Vector3(0.5f, 0.5f, 0.06f), glass, false); }
-            Box("FilingCabinet", new Vector3(-8.2f, 0.7f, -8.1f), new Vector3(0.7f, 1.4f, 0.8f), grey); Box("FilingCabinet2", new Vector3(-8.2f, 0.7f, -9.0f), new Vector3(0.7f, 1.4f, 0.8f), grey);
+            Box("FilingCabinet", new Vector3(-6.0f, 0.7f, zb + 0.45f), new Vector3(0.7f, 1.4f, 0.8f), grey); Box("FilingCabinet2", new Vector3(-5.1f, 0.7f, zb + 0.45f), new Vector3(0.7f, 1.4f, 0.8f), grey);
             Box("BookShelf", new Vector3(-2.2f, 1.1f, zb + 0.2f), new Vector3(2.4f, 2.0f, 0.4f), wood);
             for (int i = 0; i < 6; i++) Box("Book", new Vector3(-3.1f + i * 0.35f, 1.5f, zb + 0.43f), new Vector3(0.22f, 0.5f, 0.04f), new Color[] { red, blueSign, green, paper, wood, steel }[i], false);
             Box("ExamCouch", new Vector3(-7.4f, 0.45f, -10.7f), new Vector3(0.8f, 0.7f, 1.9f), white); Box("ExamCouchPad", new Vector3(-7.4f, 0.83f, -10.7f), new Vector3(0.75f, 0.1f, 1.8f), blueSign, false);
@@ -140,7 +140,7 @@ namespace MafiaSandbox.World
             }
             Box("TreatCurtain", new Vector3(4.4f, 1.75f, -9.8f), new Vector3(0.05f, 2.2f, 2.8f), new Color(0.65f, 0.82f, 0.88f), false);
             Box("XRayBase", new Vector3(1.2f, 0.9f, -8.0f), new Vector3(0.9f, 1.8f, 0.7f), steel); Box("XRayArm", new Vector3(1.9f, 1.7f, -8.0f), new Vector3(1.0f, 0.2f, 0.25f), grey, false); Box("XRayScreen", new Vector3(1.2f, 1.3f, -7.62f), new Vector3(0.5f, 0.4f, 0.03f), new Color(0.3f, 0.7f, 0.95f), false, false, true);
-            Box("MedCartTop", new Vector3(7.3f, 0.85f, -8.0f), new Vector3(0.9f, 0.06f, 0.55f), steel); Box("MedCartBody", new Vector3(7.3f, 0.42f, -8.0f), new Vector3(0.85f, 0.8f, 0.5f), white);
+            Box("MedCartTop", new Vector3(7.3f, 0.85f, -9.0f), new Vector3(0.9f, 0.06f, 0.55f), steel); Box("MedCartBody", new Vector3(7.3f, 0.42f, -9.0f), new Vector3(0.85f, 0.8f, 0.5f), white);
             Box("TreatSink", new Vector3(8.4f, 0.9f, -11.0f), new Vector3(0.5f, 0.12f, 0.8f), white); Box("TreatSinkBase", new Vector3(8.4f, 0.45f, -11.0f), new Vector3(0.5f, 0.9f, 0.9f), grey);
             Box("TreatCross", new Vector3(8.55f, 2.0f, -9.0f), new Vector3(0.03f, 0.5f, 0.15f), red, false); Box("TreatCross2", new Vector3(8.55f, 2.0f, -9.0f), new Vector3(0.03f, 0.15f, 0.5f), red, false);
         }

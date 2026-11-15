@@ -28,7 +28,7 @@ namespace MafiaSandbox.Economy
 
         void Awake()
         {
-            I = this;
+            I = this; if (MafiaSandbox.Core.SaveGame.Has) cash = MafiaSandbox.Core.SaveGame.SavedCash;
             if (itemPrefabs != null) foreach (var p in itemPrefabs) if (p) prefabByName[p.name] = p;
             itemRoot = new GameObject("Items").transform;
         }

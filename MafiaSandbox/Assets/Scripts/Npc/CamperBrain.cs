@@ -10,15 +10,20 @@ namespace MafiaSandbox.Npc
     public class CamperBrain : NpcBrain
     {
         public Vector3 homeSpot; public string pose = "Idle"; public Vector3? fire; public CamperBrain partner;
-        float poseT; string cur;
+        float poseT; string cur; bool seated;
+        /// <summary>Seated guests: no sitting clip exists, so they hold the crouch pose with the body dropped onto the seat.</summary>
+        void SetSeated(bool on)
+        {
+            seated = on; var m = transform.Find("Model"); if (m) m.localPosition = on ? new Vector3(0f, -0.14f, 0f) : Vector3.zero;
+        }
 
-        protected override void OnSpawned() { SetState("camp"); Stop(); idleClip = pose; cur = pose; poseT = Random.Range(2f, 6f); lookAt = fire ?? (Vector3?)(homeSpot + Vector3.forward); }
+        protected override void OnSpawned() { SetState("camp"); Stop(); SetSeated(pose == "Sit"); idleClip = pose == "Sit" ? "Crouch_Idle" : pose; cur = idleClip; poseT = Random.Range(2f, 6f); lookAt = fire ?? (Vector3?)(homeSpot + Vector3.forward); }
         protected override Vector3 RespawnPoint() => homeSpot;
-        protected override void OnHit(string zone, Vector3 point) { var p = EscapePoint(point, 25f, true); if (p.HasValue && GoTo(p.Value, runSpeed)) SetState("flee"); }
+        protected override void OnHit(string zone, Vector3 point) { SetSeated(false); var p = EscapePoint(point, 25f, true); if (p.HasValue && GoTo(p.Value, runSpeed)) SetState("flee"); }
         protected override void OnNoise(Vector3 pos, float radius, GameObject src, bool melee)
         {
             if (State == "dead" || melee) return; float d = Vector3.Distance(pos, transform.position);
-            if (d < 10f) { var p = EscapePoint(pos, 20f, true); if (p.HasValue && GoTo(p.Value, runSpeed)) SetState("flee"); }
+            if (d < 10f) { SetSeated(false); var p = EscapePoint(pos, 20f, true); if (p.HasValue && GoTo(p.Value, runSpeed)) SetState("flee"); }
             else if (d < 40f && State == "camp") { SetState("curious"); lookAt = pos; idleClip = "Idle"; }
         }
 
@@ -29,9 +34,9 @@ namespace MafiaSandbox.Npc
             {
                 case "camp":
                     if (Vector3.Distance(transform.position, homeSpot) > 1f) { if (!agent.hasPath) GoTo(homeSpot, walkSpeed); idleClip = "Idle"; break; }
-                    if (partner) { lookAt = partner.transform.position; idleClip = partner.Dead || partner.State != "camp" ? "Idle" : "Talk"; break; }
+                    if (partner) { lookAt = partner.transform.position; idleClip = seated ? "Crouch_Idle" : partner.Dead || partner.State != "camp" ? "Idle" : "Talk"; break; }
                     if (fire.HasValue) lookAt = fire;
-                    poseT -= dt; if (poseT <= 0f) { poseT = 4f + Random.value * 6f; cur = Random.value < 0.7f ? pose : (Random.value < 0.5f ? "Idle" : "Wave"); }
+                    poseT -= dt; if (poseT <= 0f) { poseT = 4f + Random.value * 6f; cur = seated ? "Crouch_Idle" : Random.value < 0.7f ? pose : (Random.value < 0.5f ? "Idle" : "Wave"); }
                     idleClip = cur; break;
                 case "curious":
                     if (stateT > 6f) { SetState("camp"); lookAt = fire; } break;

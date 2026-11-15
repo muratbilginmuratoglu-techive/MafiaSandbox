@@ -104,11 +104,11 @@ namespace MafiaSandbox.UI
             }
             Styles();
             float pw = 330, ph = Mathf.Min(620, H - 40); var r = new Rect(W - pw - 40, (H - ph) / 2f, pw, ph);
-            UiSkin.DrawPanel(r, true);
-            var inner = new Rect(r.x + 14, r.y + 12, r.width - 28, r.height - 24);
+            DrawPhoneBody(r);
+            var inner = new Rect(r.x + 20, r.y + 30, r.width - 40, r.height - 56);
             GUILayout.BeginArea(inner);
             // status bar
-            GUILayout.BeginHorizontal(); GUILayout.Label(Clock(), UiSkin.LabelBold); GUILayout.FlexibleSpace(); GUILayout.Label("LTE  100%", UiSkin.LabelDim); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); GUILayout.Label(Clock(), UiSkin.LabelBold); GUILayout.FlexibleSpace(); GUILayout.Space(70); GUILayout.EndHorizontal();
             GUILayout.Space(4);
             typing = false;
             switch (page)
@@ -128,16 +128,36 @@ namespace MafiaSandbox.UI
             if (GUI.Button(new Rect(hb.x - 20, hb.y - 8, hb.width + 40, 20), GUIContent.none, GUIStyle.none)) { if (page == Page.Home) Close(); else page = Page.Home; }
         }
 
+        /// <summary>Phone body: dark bezel, gradient wallpaper, notch, signal / battery glyphs in the status bar.</summary>
+        void DrawPhoneBody(Rect r)
+        {
+            GUI.color = new Color(0.02f, 0.02f, 0.03f, 1f); GUI.Box(new Rect(r.x - 8, r.y - 8, r.width + 16, r.height + 16), GUIContent.none, UiSkin.PanelSolid);
+            GUI.color = new Color(0.45f, 0.47f, 0.52f, 0.9f); GUI.DrawTexture(new Rect(r.xMax + 7, r.y + 90, 2, 46), UiSkin.White);   // side button
+            var scr = new Rect(r.x + 2, r.y + 2, r.width - 4, r.height - 4);
+            const int n = 28; Color top = new Color(0.10f, 0.13f, 0.26f), bot = new Color(0.30f, 0.12f, 0.28f);
+            for (int i = 0; i < n; i++) { GUI.color = Color.Lerp(top, bot, i / (n - 1f)); GUI.DrawTexture(new Rect(scr.x, scr.y + 10 + i * (scr.height - 20) / n, scr.width, (scr.height - 20) / n + 1f), UiSkin.White); }
+            GUI.color = top; GUI.DrawTexture(new Rect(scr.x + 6, scr.y, scr.width - 12, 12), UiSkin.White); GUI.color = bot; GUI.DrawTexture(new Rect(scr.x + 6, scr.yMax - 12, scr.width - 12, 12), UiSkin.White);
+            GUI.color = Color.black; GUI.Box(new Rect(r.center.x - 40, r.y + 8, 80, 18), GUIContent.none, UiSkin.Chip);   // notch
+            GUI.color = new Color(1f, 1f, 1f, 0.9f);
+            for (int b = 0; b < 4; b++) GUI.DrawTexture(new Rect(r.xMax - 82 + b * 5, r.y + 24 - b * 2f - 3f, 3f, 3f + b * 2f), UiSkin.White);   // signal
+            GUI.DrawTexture(new Rect(r.xMax - 54, r.y + 17, 24, 11), UiSkin.White); GUI.color = new Color(0.1f, 0.12f, 0.2f); GUI.DrawTexture(new Rect(r.xMax - 53, r.y + 18, 22, 9), UiSkin.White);
+            GUI.color = UiSkin.Green; GUI.DrawTexture(new Rect(r.xMax - 53, r.y + 18, 22, 9), UiSkin.White); GUI.color = Color.white; GUI.DrawTexture(new Rect(r.xMax - 30, r.y + 20, 2, 5), UiSkin.White);
+            GUI.color = Color.white;
+        }
+
         void Home(Rect inner)
         {
             GUILayout.Space(10);
-            GUILayout.Label(Clock(), new GUIStyle(UiSkin.Big) { fontSize = 44 });
+            GUILayout.Label(Clock(), new GUIStyle(UiSkin.Big) { fontSize = 52 });
+            var dnH = MafiaSandbox.World.DayNightCycle.I; if (dnH) GUILayout.Label($"Day {dnH.Day}", new GUIStyle(UiSkin.Center) { fontSize = 13 });
             GUILayout.Label($"<b>{PlayerAppearance.PlayerName}</b>   ·   ${EconomyManager.I?.cash ?? 0}", new GUIStyle(UiSkin.Center) { fontSize = 14 });
             GUILayout.Space(30);
             GUILayout.BeginHorizontal(); GUILayout.FlexibleSpace();
             if (Icon("Messages", new Color(0.3f, 0.78f, 0.4f), "MSG", Unread)) page = Page.Messages;
             if (Icon("Contacts", new Color(0.3f, 0.55f, 0.95f), "CT", 0)) page = Page.Contacts;
             if (Icon("Missions", new Color(0.95f, 0.7f, 0.2f), "MIS", 0)) page = Page.Missions;
+            GUILayout.FlexibleSpace(); GUILayout.EndHorizontal(); GUILayout.Space(14);
+            GUILayout.BeginHorizontal(); GUILayout.FlexibleSpace();
             if (Icon("Jobs", new Color(0.85f, 0.35f, 0.35f), "JOB", 0)) page = Page.Jobs;
             if (Icon("Settings", new Color(0.55f, 0.58f, 0.66f), "SET", 0)) page = Page.Settings;
             GUILayout.FlexibleSpace(); GUILayout.EndHorizontal();

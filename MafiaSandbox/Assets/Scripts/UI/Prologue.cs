@@ -416,7 +416,7 @@ namespace MafiaSandbox.UI
             }
             if (!string.IsNullOrEmpty(objective) && !Cinematic)
             {
-                var r = new Rect(W - 330, 150, 310, 62); GUI.color = new Color(0.06f, 0.08f, 0.12f, 0.85f); GUI.DrawTexture(r, UiSkin.White); GUI.color = Color.white;
+                var r = new Rect(W - 396, 172, 384, 62); GUI.color = new Color(0.06f, 0.08f, 0.12f, 0.85f); GUI.DrawTexture(r, UiSkin.White); GUI.color = Color.white;
                 var h1 = new GUIStyle(UiSkin.Small) { fontSize = 11 }; h1.normal.textColor = UiSkin.Accent; GUI.Label(new Rect(r.x + 10, r.y + 6, r.width - 20, 18), "PROLOGUE", h1);
                 var h2 = new GUIStyle(UiSkin.Big) { fontSize = 15, wordWrap = true }; h2.normal.textColor = Color.white; GUI.Label(new Rect(r.x + 10, r.y + 24, r.width - 20, 36), objective, h2);
             }

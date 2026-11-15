@@ -27,7 +27,7 @@ namespace MafiaSandbox.UI
             ("Shanty camp (bridge)", 44f, 1f, Mathf.PI / 2f, false), ("Bridge deck", 50f, -30f, 0f, false), ("Overpass", -14f, -25f, -Mathf.PI / 2f, false), ("Tunnel entrance", 0f, 78f, 0f, true), ("Tunnel end", 0f, 112f, Mathf.PI, true),
             ("Plateau lookout", 22f, 92f, Mathf.PI, false), ("Plateau road", -30f, 100f, Mathf.PI / 2f, false), ("Behind the camp (E)", 72f, 2f, -Mathf.PI / 2f, false), ("Car park (SE)", 62f, -58f, Mathf.PI, false), ("Ramp (W)", -50f, 60f, 0f, false),
         };
-        static readonly (string label, float t)[] Times = { ("Flow", -1f), ("Morning", 8f), ("Noon", 13f), ("Evening", 18.5f), ("Night", 23f) };
+        static readonly (string label, float t)[] Times = { ("Flow", -1f), ("Dawn", 4.95f), ("Morning", 8f), ("Noon", 13f), ("Evening", 18.5f) };
         string[] clips; Vector2 scrollLoc, scrollClip; string showcase;
 
         void Awake() { I = this; }

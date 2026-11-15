@@ -109,12 +109,12 @@ namespace MafiaSandbox.Npc
             for (int i = 0; i < n; i++)
             {
                 Vector3 spot; string pose; Vector3 face;
-                if (seats.Count > 0) { int si = Random.Range(0, seats.Count); spot = seats[si]; seats.RemoveAt(si); pose = "Talk"; face = spot + (center - spot).normalized * 0.8f; }
+                if (seats.Count > 0) { int si = Random.Range(0, seats.Count); spot = seats[si]; seats.RemoveAt(si); pose = "Sit"; face = spot + (center - spot).normalized * 0.8f; }
                 else if (bi.kind == "bank") { Vector3 toDoor = (bi.door - bi.counter).normalized; spot = bi.counter + toDoor * (2.2f + i * 1.1f); pose = "Idle"; face = bi.counter; }
                 else if (shelves.Count > 0) { int si = Random.Range(0, shelves.Count); var sh = shelves[si]; shelves.RemoveAt(si); Vector3 inward = (center - sh); inward.y = 0f; spot = sh + inward.normalized * 0.9f; spot.y = bi.footprint.min.y; pose = "Idle"; face = sh; }
                 else { spot = center + new Vector3(Random.Range(-1.5f, 1.5f), 0f, Random.Range(-1.5f, 1.5f)); pose = "Idle"; face = bi.counter; }
                 var c = Loiterer(bi, spot, pose, bi.kind == "bank" ? "Customer" : bi.kind == "cafe" || bi.kind == "restaurant" ? "Guest" : "Shopper", face);
-                if (c != null && pose == "Talk") { if (lastTalker) { c.partner = lastTalker; lastTalker.partner = c; lastTalker = null; } else lastTalker = c; }
+                if (c != null && pose == "Sit") { if (lastTalker) { c.partner = lastTalker; lastTalker.partner = c; lastTalker = null; } else lastTalker = c; }
             }
         }
 
@@ -133,6 +133,7 @@ namespace MafiaSandbox.Npc
         {
             var hp = spot; hp.y = bi.footprint.min.y;
             var c = Spawn<CamperBrain>(Pick(prefix), hp, Mathf.Atan2(face.x - hp.x, face.z - hp.z) * Mathf.Rad2Deg);
+            if (pose == "Sit") { var ag0 = c.GetComponent<NavMeshAgent>(); Vector3 fl = new Vector3(hp.x, hp.y, hp.z); if (c.transform.position.y > hp.y + 0.3f && NavMesh.SamplePosition(fl, out var fh, 0.8f, NavMesh.AllAreas) && fh.position.y < hp.y + 0.3f && ag0) ag0.Warp(fh.position); }
             c.homeSpot = c.transform.position; c.pose = pose; c.fire = face; c.displayName = name; c.walkSpeed = 1.6f;
             return c;
         }

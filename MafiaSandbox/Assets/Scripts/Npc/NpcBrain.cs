@@ -87,13 +87,16 @@ namespace MafiaSandbox.Npc
         void OnHitInternal(CharacterBody b, string zone, Vector3 point) { if (!b.Dead) OnHit(zone, point); }
         void OnDeathInternal(CharacterBody b, string by)
         {
-            State = "dead"; respawnT = 14f;
+            State = "dead"; respawnT = 1e9f;   // the dead stay dead until the next morning (ReviveAll, when the player sleeps)
             if (agent.enabled) { agent.isStopped = true; agent.enabled = false; }
             if (capsule) capsule.enabled = false;
             ShowGun(false);
             WorldEvents.OnCharacterDied?.Invoke(b, by);
             OnDied(by);
         }
+
+        /// <summary>Morning after sleeping: everybody who died during the day comes back.</summary>
+        public static void ReviveAll() { foreach (var n in FindObjectsByType<NpcBrain>(FindObjectsSortMode.None)) if (n && n.Dead && n.displayName != "Joshua") n.respawnT = 0f; }
 
         protected void SetState(string s) { if (State != s) { State = s; stateT = 0f; } }
 

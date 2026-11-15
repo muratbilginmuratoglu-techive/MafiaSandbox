@@ -129,7 +129,7 @@ namespace MafiaSandbox.World
             Vector3 front = new Vector3(station.x, station.y, station.z + halfZ);
             Box(plaza, "FlagPole", front + new Vector3(halfX - 1.0f, 3.5f, 2.2f), new Vector3(0.12f, 7f, 0.12f), steel, false, false, false, PrimitiveType.Cylinder);
             Box(plaza, "Flag", front + new Vector3(halfX - 1.0f + 0.75f, 6.5f, 2.2f), new Vector3(1.4f, 0.9f, 0.04f), new Color(0.15f, 0.25f, 0.6f), false);
-            Box(plaza, "OldRoofSign", front + new Vector3(0f, 4.9f, -0.5f), new Vector3(5.4f, 1.1f, 0.25f), blue, false); Text(plaza, "POLICE STATION", front + new Vector3(0f, 4.9f, -0.3f), 0.14f, Color.white, 180f);
+            Box(plaza, "OldRoofSign", front + new Vector3(0f, 4.9f, -0.5f), new Vector3(5.4f, 1.1f, 0.25f), blue, false); Text(plaza, "POLICE STATION", front + new Vector3(0f, 4.9f, -0.3f), LabelUtil.Fit("POLICE STATION", 0.14f, 5.0f), Color.white, 180f);
             Box(plaza, "OldBeaconRed", front + new Vector3(-0.4f, 4.55f, -1.4f), new Vector3(0.5f, 0.3f, 0.4f), red, false, false, true); Box(plaza, "OldBeaconBlue", front + new Vector3(0.4f, 4.55f, -1.4f), new Vector3(0.5f, 0.3f, 0.4f), new Color(0.2f, 0.4f, 1f), false, false, true);
             Box(plaza, "OldBlueBand", front + new Vector3(0f, 3.4f, 0.17f), new Vector3(halfX * 2f + 0.3f, 0.45f, 0.06f), blue, false);
             for (int i = 0; i < 5; i++) Box(plaza, "Bollard", front + new Vector3(-halfX - 9f + 0.4f + i * 3.1f, 0.4f, 3.4f), new Vector3(0.25f, 0.8f, 0.25f), new Color(0.9f, 0.85f, 0.2f), true, false, false, PrimitiveType.Cylinder);

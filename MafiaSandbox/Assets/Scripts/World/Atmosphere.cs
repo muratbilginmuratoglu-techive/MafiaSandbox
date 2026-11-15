@@ -99,7 +99,12 @@ namespace MafiaSandbox.World
             weatherT -= dt; if (weatherT <= 0f) { weatherT = weatherChangeEvery * (0.6f + Random.value * 0.8f); float r = Random.value; SetWeather(r < 0.55f ? WeatherKind.Clear : r < 0.85f ? WeatherKind.Rain : WeatherKind.Snow); }
             // precipitation follows the camera
             Vector3 top = cam.transform.position + Vector3.up * 7f + cam.transform.forward * 8f; if (rain) rain.transform.position = top; if (snow) snow.transform.position = top;
-            if (rainLoop) rainLoop.volume = Mathf.MoveTowards(rainLoop.volume, weather == WeatherKind.Rain ? 0.25f : 0f, dt * 0.3f);
+            // no rain or snow indoors (shops, houses, hospital, police annex): stop emitting, and the rain loop gets muffled
+            var gmI = MafiaSandbox.Core.GameManager.I; Vector3 plyPos = gmI && gmI.player ? gmI.player.transform.position : cam.transform.position;
+            bool indoors = BuildingInfo.At(plyPos) != null || Hospital.Inside(plyPos) || PoliceAnnex.Inside(plyPos) || BuildingInfo.At(cam.transform.position) != null || Hospital.Inside(cam.transform.position) || PoliceAnnex.Inside(cam.transform.position);
+            if (rain) { var em = rain.emission; em.enabled = !indoors; if (indoors && rain.particleCount > 0) rain.Clear(); }
+            if (snow) { var em = snow.emission; em.enabled = !indoors; if (indoors && snow.particleCount > 0) snow.Clear(); }
+            if (rainLoop) rainLoop.volume = Mathf.MoveTowards(rainLoop.volume, weather == WeatherKind.Rain ? (indoors ? 0.06f : 0.25f) : 0f, dt * 0.3f);
             // fog and sun mood
             var dn = DayNightCycle.I; float night = dn ? (dn.IsNight ? 1f : 0f) : 0f;
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;

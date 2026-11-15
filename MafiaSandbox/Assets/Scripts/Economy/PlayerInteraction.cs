@@ -10,7 +10,7 @@ namespace MafiaSandbox.Economy
     /// <summary>F / G interactions on foot: take or buy items (G = steal), trade at a counter, search a body. Also builds the prompt text.</summary>
     public class PlayerInteraction : MonoBehaviour
     {
-        public enum Kind { None, Item, Counter, Body, Civilian, Crew, Arms, Stash, Lab, Bed, OldStash }
+        public enum Kind { None, Item, Counter, Body, Civilian, Crew, Arms, Stash, Lab, Bed, OldStash, Ask }
         public Kind TargetKind { get; private set; }
         public Pickable TargetItem { get; private set; }
         public Shop TargetShop { get; private set; }
@@ -54,9 +54,10 @@ namespace MafiaSandbox.Economy
             {
                 if (!cb || cb.Dead || cb == body || cb.isPlayer || (cb.transform.position - pp).sqrMagnitude > 7.5f) continue;
                 var nb = cb.GetComponent<Npc.NpcBrain>(); bool arms = nb is Factions.FactionBrain; bool civ = nb is Npc.CivilianBrain && nb.State != "flee" && nb.State != "hide" && nb.State != "tohide"; bool crew = nb is Gang.CrewBrain;
-                if (!civ && !crew && !arms) continue;
+                bool ask = QuestManager.I && QuestManager.I.GuestAskable(nb);
+                if (!civ && !crew && !arms && !ask) continue;
                 Vector3 to = cb.transform.position - pp; to.y = 0f; float d = to.magnitude; to.Normalize(); if (d > 0.1f && Vector3.Dot(to, f) < 0.2f) continue;
-                float score = d - 1.5f - Vector3.Dot(to, f) * 0.6f; if (score < best) { best = score; TargetKind = crew ? Kind.Crew : arms ? Kind.Arms : Kind.Civilian; TargetItem = null; TargetShop = null; TargetBody = cb; TargetNpc = nb; }
+                float score = d - 1.5f - Vector3.Dot(to, f) * 0.6f; if (score < best) { best = score; TargetKind = ask ? Kind.Ask : crew ? Kind.Crew : arms ? Kind.Arms : Kind.Civilian; TargetItem = null; TargetShop = null; TargetBody = cb; TargetNpc = nb; }
             }
             if (Stash.I && TargetKind == Kind.None && (Stash.I.Pos - pp).sqrMagnitude < 2.4f * 2.4f) { TargetKind = Kind.Stash; }
             if (OldStash.I && OldStash.I.Active && TargetKind == Kind.None && (OldStash.I.Pos - pp).sqrMagnitude < 2.4f * 2.4f) TargetKind = Kind.OldStash;
@@ -64,11 +65,12 @@ namespace MafiaSandbox.Economy
             switch (TargetKind)
             {
                 case Kind.Civilian: { var cm = Gang.CrewManager.I; Prompt = cm ? $"F  Recruit {TargetNpc.displayName} (${cm.RecruitCost})    X  Offer product" : ""; break; }
+                case Kind.Ask: Prompt = $"F  Ask {TargetNpc.displayName} about Joshua"; break;
                 case Kind.Arms: Prompt = $"X  Sell guns to {TargetNpc.displayName}"; break;
                 case Kind.Stash: Prompt = "F  Open your stash"; break;
                 case Kind.Lab: Prompt = $"F  {Career.StationNames[HomeLab.I.stations[LabStation].kind]}: work    B  move it"; break;
                 case Kind.OldStash: Prompt = "F  Pry up the loose floorboards"; break;
-                case Kind.Bed: Prompt = HomeLab.CanSleepNow ? "F  Sleep until morning" : "F  Bed (sleep after 19:30)"; break;
+                case Kind.Bed: Prompt = HomeLab.CanSleepNow ? "F  Sleep, save and start the next day" : "F  Bed (sleep after 19:30)"; break;
                 case Kind.Crew: Prompt = $"F  Crew: {TargetNpc.displayName}"; break;
                 case Kind.Item:
                     {
@@ -79,7 +81,7 @@ namespace MafiaSandbox.Economy
                         else Prompt = $"F  Buy: {pk.def.name} ${b.BuyPrice(pk.id)}    G  Steal";
                         break;
                     }
-                case Kind.Counter: Prompt = TargetShop.kind == "bank" ? "F  Bank: talk to the teller" : $"F  {TargetShop.label}: trade" + (Gang.CrewManager.Eligible(TargetShop) ? "    X  Protection / buy" : ""); break;
+                case Kind.Counter: Prompt = QuestManager.I && QuestManager.I.CashierAskable(TargetShop) ? "F  Ask the cashier about Joshua" : TargetShop.kind == "bank" ? "F  Bank: talk to the teller" : $"F  {TargetShop.label}: trade" + (Gang.CrewManager.Eligible(TargetShop) ? "    X  Protection / buy" : ""); break;
                 case Kind.Body: Prompt = $"F  Search body: {NameOf(TargetBody)}"; break;
             }
         }
@@ -91,7 +93,8 @@ namespace MafiaSandbox.Economy
             switch (TargetKind)
             {
                 case Kind.Item: eco.TakeItem(TargetItem, steal); if (anim) anim.PlayUpper("Take"); break;
-                case Kind.Counter: if (!steal) { if (TargetShop.kind == "bank") GameManager.I.Say("Teller: We don't deal with your kind here. The vault is at the back… not that you'd dare."); else GameUI.I?.OpenShop(TargetShop); } break;
+                case Kind.Ask: if (!steal) QuestManager.I?.Ask(true); break;
+                case Kind.Counter: if (!steal) { if (QuestManager.I && QuestManager.I.CashierAskable(TargetShop)) QuestManager.I.Ask(false); else if (TargetShop.kind == "bank") GameManager.I.Say("Teller: We don't deal with your kind here. The vault is at the back… not that you'd dare."); else GameUI.I?.OpenShop(TargetShop); } break;
                 case Kind.Civilian: if (!steal) Gang.CrewManager.I?.TryRecruit((Npc.CivilianBrain)TargetNpc); break;
                 case Kind.Stash: if (!steal) StashPanel.I?.Open(); break;
                 case Kind.Lab: if (!steal) ProductionPanel.I?.Open(HomeLab.I.stations[LabStation].kind); break;

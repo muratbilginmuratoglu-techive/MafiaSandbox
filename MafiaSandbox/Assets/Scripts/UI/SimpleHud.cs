@@ -45,7 +45,7 @@ namespace MafiaSandbox.UI
 
             // bottom-left: vitals panel to the right of the minimap
             float hp = body ? Mathf.Clamp01(body.hp / (float)body.maxHp) : 1f; var vit = Vitals.I; var eco = EconomyManager.I;
-            float px = 214f, py = H - 112f; var panel = new Rect(px, py, 286, 100); UiSkin.DrawPanel(panel);
+            float px = Minimap.MiniRight, py = H - 112f; var panel = new Rect(px, py, 286, 100); UiSkin.DrawPanel(panel);
             void Bar(float y, string name, float v, Color c, string tail = null)
             {
                 GUI.Label(new Rect(px + 12, y - 3, 72, 18), name, UiSkin.H2);
@@ -83,7 +83,7 @@ namespace MafiaSandbox.UI
             {
                 int hh = Mathf.FloorToInt(dn.timeOfDay), mm = Mathf.FloorToInt((dn.timeOfDay - hh) * 60f);
                 string wx = atmo ? (atmo.weather == MafiaSandbox.World.Atmosphere.WeatherKind.Rain ? "  ☂ rain" : atmo.weather == MafiaSandbox.World.Atmosphere.WeatherKind.Snow ? "  ❄ snow" : "  ☀") : "";
-                UiSkin.DrawChip(new Rect(W / 2f - 70, 12, 140, 26), $"<b>{hh:00}:{mm:00}</b>{wx}");
+                UiSkin.DrawChip(new Rect(W / 2f - 120, 12, 240, 28), dn.Frozen ? $"<b>{hh:00}:{mm:00}</b>  ·  DAY {dn.Day}  ·  <color=#ff6a5a>SLEEP</color>" : $"<b>{hh:00}:{mm:00}</b>  ·  DAY {dn.Day}{wx}");
             }
 
             // interaction prompt

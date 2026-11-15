@@ -26,21 +26,57 @@ namespace MafiaSandbox.UI
         public string Coach { get; private set; }
         public Vector3? CurrentTarget { get; private set; }
         int beganIdx = -1, dealsBase; bool introPosted; CharacterBody joshua;
-        /// <summary>Joshua, who sold the family's address: stands outside a restaurant. Killing and searching him pays for the new start.</summary>
+        // ---- Joshua: found by asking around (cafe cashier, then a guest); he smokes at the playground every night
+        public static bool AskedCashier, AskedGuest;
+        Quest qAskCashier, qAskGuest, qPark;
+        public bool CashierAskable(Shop sh) => started && qAskCashier != null && !AllDone && Quests[Index] == qAskCashier && !AskedCashier && sh != null && sh.kind == "cafe";
+        public bool GuestAskable(Npc.NpcBrain nb)
+        {
+            if (!started || qAskGuest == null || AllDone || Quests[Index] != qAskGuest || AskedGuest || !(nb is Npc.CamperBrain) || nb.displayName != "Guest") return false;
+            var eco = EconomyManager.I; if (!eco) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == "cafe") { var f = s.info.footprint; var p = nb.transform.position; return p.x > f.min.x - 1f && p.x < f.max.x + 1f && p.z > f.min.z - 1f && p.z < f.max.z + 1f; }
+            return false;
+        }
+        public void Ask(bool guest)
+        {
+            if (!guest) { AskedCashier = true; GameManager.I.Say("Cashier: Joshua? Never heard the name. Ask the people in here, somebody always knows."); }
+            else { AskedGuest = true; GameManager.I.Say("Guest: Joshua... skinny guy, always scared? Goes out to the playground every night to smoke where his wife can't see."); PhonePanel.Post("jeremy", "Every night at the playground, alone, with a cigarette. That's where you get him. Go after dark (20:00) and look for the glowing ember."); }
+        }
+        Vector3 ParkPos()
+        {
+            var g = GameObject.Find("Oyun_Parki"); Vector3 p = g ? g.transform.position : Data.Coords.ToUnity(25f, 0f, 32f);
+            if (UnityEngine.AI.NavMesh.SamplePosition(p + new Vector3(2.5f, 0f, 0f), out var h, 5f, UnityEngine.AI.NavMesh.AllAreas)) p = h.position; return p;
+        }
+        static bool NightNow { get { var d = DayNightCycle.I; return d && (d.timeOfDay >= 20f || d.timeOfDay < 5.5f); } }
+        /// <summary>Joshua exists only at night, at the playground, until he is dead.</summary>
+        void TendJoshua()
+        {
+            bool want = qPark != null && Quests[Index] == qPark && NightNow && !Career.StashTaken;
+            if (want && (!joshua)) SpawnJoshua();
+            else if (!want && joshua && !joshua.Dead) { Destroy(joshua.gameObject); joshua = null; }
+        }
         void SpawnJoshua()
         {
-            if (joshua || Career.StashTaken) return; var eco = EconomyManager.I; var gm = GameManager.I;
-            var sp = FindAnyObjectByType<Npc.NpcSpawner>(); if (!sp || sp.prefabs == null || sp.prefabs.Length == 0 || !eco) return;
-            BuildingInfo spot = null; foreach (var kind in new[] { "restaurant", "cafe", "market" }) { foreach (var s in eco.shops) if (s.info && s.info.kind == kind) { spot = s.info; break; } if (spot) break; }
-            Vector3 pos = spot ? spot.door + (spot.door - spot.footprint.center).normalized * 2.5f : gm.homePosition + new Vector3(30f, 0f, 0f); pos.y = spot ? spot.door.y : pos.y;
-            GameObject prefab = null; foreach (var p in sp.prefabs) if (p && p.name.StartsWith("Vatandas_07")) prefab = p; if (!prefab) prefab = sp.prefabs[0];
+            if (joshua || Career.StashTaken) return; var gm = GameManager.I;
+            var sp = FindAnyObjectByType<Npc.NpcSpawner>(); if (!sp || sp.prefabs == null || sp.prefabs.Length == 0) return;
+            Vector3 pos = ParkPos();
+            GameObject prefab = null; foreach (var pf in sp.prefabs) if (pf && pf.name.StartsWith("Vatandas_07")) prefab = pf; if (!prefab) prefab = sp.prefabs[0];
             var c = sp.Spawn<Npc.CamperBrain>(prefab, pos, 0f); c.homeSpot = c.transform.position; c.pose = "Idle"; c.displayName = "Joshua"; c.fire = pos + Vector3.forward * 5f; c.walkSpeed = 1.5f;
             joshua = c.GetComponent<CharacterBody>();
+            // what marks him out: a glowing cigarette, a red ember light and a gold arrow bobbing over his head
+           
+            var cig = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(cig.GetComponent<Collider>()); cig.name = "Cigarette"; cig.transform.SetParent(c.transform, false); cig.transform.localPosition = new Vector3(0.08f, 1.55f, 0.28f); cig.transform.localScale = new Vector3(0.025f, 0.025f, 0.1f);
+            var cm = new Material(Shader.Find("Standard")); cm.color = new Color(1f, 0.35f, 0.1f); cm.EnableKeyword("_EMISSION"); cm.SetColor("_EmissionColor", new Color(3f, 0.8f, 0.2f)); cig.GetComponent<Renderer>().sharedMaterial = cm;
+            var lg = new GameObject("Ember"); lg.transform.SetParent(c.transform, false); lg.transform.localPosition = new Vector3(0.08f, 1.55f, 0.35f); var li = lg.AddComponent<Light>(); li.color = new Color(1f, 0.45f, 0.15f); li.range = 4f; li.intensity = 1.6f;
+            var ar = new GameObject("MarkerArrow"); ar.transform.SetParent(c.transform, false); ar.transform.localPosition = new Vector3(0f, 2.6f, 0f);
+            var tm = ar.AddComponent<TextMesh>(); tm.text = "▼\nJOSHUA"; tm.fontSize = 64; tm.characterSize = 0.06f; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.color = new Color(1f, 0.82f, 0.15f);
+            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; var lm = new Material(Shader.Find("Sprites/Default")); lm.mainTexture = f.material.mainTexture; ar.GetComponent<MeshRenderer>().sharedMaterial = lm; }
+            ar.AddComponent<MarkerBob>();
         }
+        class MarkerBob : MonoBehaviour { Vector3 b; void Start() { b = transform.localPosition; } void Update() { transform.localPosition = b + Vector3.up * Mathf.Sin(Time.time * 3f) * 0.08f; var cam = Camera.main; if (cam) transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position, Vector3.up); } }
         public readonly List<Quest> Quests = new List<Quest>();
         public int Index { get; private set; }
         public bool AllDone => Index >= Quests.Count;
-        const string Key = "ms_quest_idx_v5";
+        const string Key = "ms_quest_idx_v6";
 
         int crewKills; bool heatSeen, started, phoneSeen; float doneFlash; string doneText; GameObject beacon; PlayerController pc; float startT = -1f;
 
@@ -85,7 +121,9 @@ namespace MafiaSandbox.UI
             Vector3? StationPos() { if (!HomeLab.I || !Career.Has) return null; foreach (var st in HomeLab.I.stations) if (st.kind == C()) return st.pos; return null; }
             string StName() => Career.Has ? Career.StationNames[C()].ToLower() : "workstation";
             // ACT 0 - AFTERMATH: three years in a coma, the family is gone. Money from the old stash starts a new trade at home.
-            Quests.Add(new Quest { title = "0. Settle the score", desc = "Jeremy says Joshua sold your family's address. Find him (gold marker on the map), take him down and search the body (F) for the money he was paid.", tip = "Fists, the knife (4) or the bat (5). If a cop sees it, they will chase you. Joshua runs when he's hurt.", reward = 0, begin = SpawnJoshua, target = () => joshua && !Career.StashTaken ? joshua.transform.position : (Vector3?)null, done = () => Career.StashTaken, sal = null });
+            Quests.Add(qAskCashier = new Quest { title = "0. Ask the cafe", desc = "Nobody knows where Joshua went. Start at the Cafe: walk up to the counter and ask the cashier (F).", tip = "Gold marker = the Cafe. The cashier stands behind the counter.", reward = 0, target = () => Career.StashTaken ? null : Door("cafe"), done = () => AskedCashier || Career.StashTaken, sal = null });
+            Quests.Add(qAskGuest = new Quest { title = "0. Ask around", desc = "The cashier shrugs. Ask one of the people sitting in the Cafe about Joshua (walk up, press F).", tip = "Guests sit at the tables. Try the ones who look like regulars.", reward = 0, target = () => Career.StashTaken ? null : Door("cafe"), done = () => AskedGuest || Career.StashTaken, sal = null });
+            Quests.Add(qPark = new Quest { title = "0. Settle the score", descF = () => NightNow ? "Joshua is at the playground, smoking: look for the glowing ember and the gold arrow. Take him down and search the body (F) for the money he was paid." : "Joshua only goes out to the playground at night. Come back after 20:00 (or sleep: F at your bed after 19:30). Then take him down and search the body (F).", tip = "Fists, the knife (4) or the bat (5). If a cop sees it, they will chase you. He runs when he's hurt.", reward = 0, target = () => Career.StashTaken ? null : ParkPos(), done = () => Career.StashTaken, sal = null });
             Quests.Add(new Quest { title = "0. Choose your trade", desc = "A menu asks how you will make a living: bootleg alcohol, drugs or arms. Read the steps and choose one.", tip = "It decides what you buy, what you make at home and who you sell to.", reward = 0, begin = () => CareerPanel.I?.Open(), done = () => Career.Has, sal = "jeremy|Joshua paid for what he did. Now that money has to work. What are you going to do with it? Think hard, it decides everything." });
             Quests.Add(new Quest { title = "0. Shopping run", descF = ShopDesc, tip = "Walk into the shop and press F at the counter. Gold marker = next stop.", reward = 100, target = ShopTarget, done = ShopDone, sal = null });
             Quests.Add(new Quest { title = "0. Set up at home", descF = () => $"Go home. Inside the house press B, walk to where you want your {StName()}, rotate with Q/E and press F to place it.", tip = "Leave space around it. It can't go near the bed, door, stash or furniture. Press B next to it later to move it.", reward = 100, target = () => gm.homePosition, done = () => Career.Has && HomeLab.I && HomeLab.I.CountStations(C()) > 0, sal = "jeremy|Good. Now bring it all home and put it where you can work. Press B inside the house." });
@@ -122,7 +160,8 @@ namespace MafiaSandbox.UI
             if (doneFlash > 0f) doneFlash -= Time.deltaTime;
             if (AllDone) { SetBeacon(null); CurrentTarget = null; Coach = null; if (Waypoints.I) Waypoints.I.QuestTarget = null; return; }
             var q = Quests[Index];
-            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Joshua is the one who sold your family out. He hangs around the restaurants. Find him, and take back what he was paid. Open the map (M) to see where."); }
+            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Joshua is the one who sold your family out. Nobody has seen him in daylight. Start at the Cafe and ask around, I\u2019ll text you when you know more. Check the map (M)."); }
+            TendJoshua();
             if (beganIdx != Index) { beganIdx = Index; q.begin?.Invoke(); }
             if (q.done != null && q.done())
             {
@@ -166,20 +205,31 @@ namespace MafiaSandbox.UI
             float W = Screen.width;
             if (AllDone) return;
             var q = Quests[Index];
-            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 }; var tipSt = new GUIStyle(wrap) { fontSize = 11 }; tipSt.normal.textColor = new Color(1f, 0.85f, 0.35f);
-            string dsc = DescOf(q), tip = TipOf(q); float dh = wrap.CalcHeight(new GUIContent(dsc), 294f), th = string.IsNullOrEmpty(tip) ? 0f : tipSt.CalcHeight(new GUIContent(tip), 294f) + 4f;
-            var r = new Rect(W - 330, 172, 318, 56 + dh + th + 8f); PanelBottom = r.yMax;
+            const float PW = 384f, IN = PW - 34f;
+            var wrap = new GUIStyle(UiSkin.Label) { wordWrap = true, fontSize = 14 }; wrap.normal.textColor = new Color(0.82f, 0.85f, 0.92f);
+            var tipSt = new GUIStyle(wrap) { fontSize = 13 }; tipSt.normal.textColor = new Color(1f, 0.86f, 0.4f);
+            var titleSt = new GUIStyle(UiSkin.Title) { fontSize = 20, wordWrap = true };
+            string dsc = DescOf(q), tip = TipOf(q);
+            float tH = titleSt.CalcHeight(new GUIContent(q.title), IN), dh = wrap.CalcHeight(new GUIContent(dsc), IN), th = string.IsNullOrEmpty(tip) ? 0f : tipSt.CalcHeight(new GUIContent(tip), IN - 16f) + 14f;
+            var r = new Rect(W - PW - 12, 172, PW, 58f + tH + dh + th + 14f); PanelBottom = r.yMax;
             UiSkin.DrawPanel(r);
-            GUI.Label(new Rect(r.x + 12, r.y + 6, r.width - 24, 20), $"MISSION {Index + 1}/{Quests.Count}", UiSkin.H2);
-            GUI.Label(new Rect(r.x + 12, r.y + 22, r.width - 24, 22), "<b>" + q.title + "</b>", UiSkin.Label);
-            GUI.Label(new Rect(r.x + 12, r.y + 46, r.width - 24, dh), dsc, wrap);
-            if (th > 0f) GUI.Label(new Rect(r.x + 12, r.y + 48 + dh, r.width - 24, th), tip, tipSt);
+            GUI.color = UiSkin.Accent; GUI.DrawTexture(new Rect(r.x + 8, r.y + 12, 4, r.height - 24), UiSkin.White); GUI.color = Color.white;   // accent stripe
+            float x = r.x + 22, y = r.y + 10;
+            GUI.Label(new Rect(x, y, 150, 18), $"MISSION {Index + 1} / {Quests.Count}", UiSkin.H2);
+            UiSkin.DrawBar(new Rect(x, y + 20, IN - 120f, 6), (Index) / (float)Quests.Count, UiSkin.Accent);
+            GUI.Label(new Rect(x, y + 30, IN, tH), q.title, titleSt);
+            GUI.Label(new Rect(x, y + 34 + tH, IN, dh), dsc, wrap);
+            if (th > 0f)
+            {
+                var tb = new Rect(x - 4, y + 38 + tH + dh, IN + 4, th); GUI.color = new Color(1f, 0.8f, 0.2f, 0.12f); GUI.DrawTexture(tb, UiSkin.White); GUI.color = Color.white;
+                GUI.Label(new Rect(tb.x + 8, tb.y + 6, tb.width - 16, th - 8), tip, tipSt);
+            }
             var tp = q.target != null ? q.target() : null;
             if (tp.HasValue)
             {
                 var cam = Camera.main; Vector3 d = tp.Value - pc.transform.position; d.y = 0f;
-                string dir = ""; if (cam) { Vector3 f = cam.transform.forward; f.y = 0f; float ang = Vector3.SignedAngle(f, d, Vector3.up); dir = Mathf.Abs(ang) < 40f ? "ahead" : Mathf.Abs(ang) > 140f ? "behind you" : ang > 0f ? "to your right" : "to your left"; }
-                UiSkin.DrawChip(new Rect(r.xMax - 150, r.y + 4, 140, 20), $"{d.magnitude:0} m  ·  {dir}", UiSkin.Accent);
+                string dir = ""; if (cam) { Vector3 f = cam.transform.forward; f.y = 0f; float ang = Vector3.SignedAngle(f, d, Vector3.up); dir = Mathf.Abs(ang) < 40f ? "ahead" : Mathf.Abs(ang) > 140f ? "behind" : ang > 0f ? "right" : "left"; }
+                UiSkin.DrawChip(new Rect(r.xMax - 132, r.y + 8, 120, 24), $"{d.magnitude:0} m · {dir}", UiSkin.Accent);
             }
         }
     }

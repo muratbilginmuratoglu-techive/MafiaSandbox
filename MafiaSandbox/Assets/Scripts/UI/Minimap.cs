@@ -18,7 +18,9 @@ namespace MafiaSandbox.UI
     public class Minimap : MonoBehaviour
     {
         public float worldMinX = -100f, worldMaxX = 100f, worldMinZ = -140f, worldMaxZ = 140f;
-        const int TexSize = 512;
+        const int TexSize = 1024;
+        /// <summary>Right edge of the mini map on screen, so the HUD can sit next to it.</summary>
+        public static float MiniRight = 214f;
         Texture2D map, dot; Color32[] px;
         static readonly Dictionary<string, Color> KindCol = new Dictionary<string, Color>
         {
@@ -110,10 +112,11 @@ namespace MafiaSandbox.UI
 
         void DrawMini(GameManager gm)
         {
-            float H = Screen.height; const float S = 190f; float radiusM = 55f;
-            var r = new Rect(12, H - 12 - S - 20, S, S);
+            float H = Screen.height; float S = Mathf.Clamp(H * 0.4f, 190f, 380f); float radiusM = 55f;
+            var r = new Rect(14, H - 14 - S - 22, S, S); MiniRight = r.xMax + 14f;
             Vector3 p = gm.player.transform.position; Vector2 c = ToPx(p); float half = radiusM * PxPerM;
-            UiSkin.DrawPanel(new Rect(r.x - 5, r.y - 5, S + 10, S + 10));
+            // no panel behind the turning map: a fixed frame and a soft shadow instead
+            GUI.color = new Color(0f, 0f, 0f, 0.35f); GUI.DrawTexture(new Rect(r.x - 3, r.y - 1, S + 6, S + 6), dot); GUI.color = Color.white;
             // heading-up: the map turns with the camera, so "up" on the minimap is always where you are looking
             var cam = Camera.main; float camYaw = cam ? cam.transform.eulerAngles.y : gm.player.transform.eulerAngles.y; float A = -camYaw * Mathf.Deg2Rad, ca = Mathf.Cos(A), sa = Mathf.Sin(A);
             float scale = S / (2f * radiusM); var mid = new Vector2(S / 2f, S / 2f);
@@ -151,16 +154,26 @@ namespace MafiaSandbox.UI
                 var np = mid + new Vector2(0f * ca - (-(S / 2f - 10f)) * sa, 0f * sa + (-(S / 2f - 10f)) * ca); GUI.Label(new Rect(np.x - 8, np.y - 8, 16, 16), "N", nl);
             }
             GUI.EndGroup();
+            // frame
+            GUI.color = new Color(1f, 0.78f, 0.25f, 0.9f); float fw = 2f;
+            GUI.DrawTexture(new Rect(r.x - fw, r.y - fw, S + 2 * fw, fw), dot); GUI.DrawTexture(new Rect(r.x - fw, r.yMax, S + 2 * fw, fw), dot);
+            GUI.DrawTexture(new Rect(r.x - fw, r.y, fw, S), dot); GUI.DrawTexture(new Rect(r.xMax, r.y, fw, S), dot);
             GUI.color = Color.white;
             GUI.Label(new Rect(r.x, r.yMax + 6, S, 16), "M map   ·   I backpack", UiSkin.Small);
         }
 
         void DrawBig(GameManager gm)
         {
-            float W = Screen.width, H = Screen.height; float S = Mathf.Min(H - 60f, 700f);
-            var r = new Rect(W / 2f - S / 2f - 90, H / 2f - S / 2f, S, S);
+            float W = Screen.width, H = Screen.height; float S = Mathf.Max(300f, Mathf.Min(H - 56f, W - 290f));
+            var r = new Rect((W - (S + 232f)) / 2f, H / 2f - S / 2f, S, S);
             GUI.color = new Color(0, 0, 0, 0.75f); GUI.DrawTexture(new Rect(0, 0, W, H), dot); GUI.color = Color.white;
             UiSkin.DrawPanel(new Rect(r.x - 8, r.y - 8, S + 16, S + 16), true); GUI.DrawTexture(r, map);
+            // faint 50 m grid and a compass tag
+            GUI.color = new Color(1f, 1f, 1f, 0.07f);
+            for (float gx = Mathf.Ceil(worldMinX / 50f) * 50f; gx < worldMaxX; gx += 50f) GUI.DrawTexture(new Rect(r.x + (gx - worldMinX) / (worldMaxX - worldMinX) * S - 0.5f, r.y, 1f, S), dot);
+            for (float gz = Mathf.Ceil(worldMinZ / 50f) * 50f; gz < worldMaxZ; gz += 50f) GUI.DrawTexture(new Rect(r.x, r.yMax - (gz - worldMinZ) / (worldMaxZ - worldMinZ) * S - 0.5f, S, 1f), dot);
+            GUI.color = Color.white; var nst = new GUIStyle(UiSkin.H2) { alignment = TextAnchor.MiddleCenter, fontSize = 13 }; nst.normal.textColor = UiSkin.Accent;
+            UiSkin.DrawChip(new Rect(r.x + 8, r.y + 8, 56, 22), "▲ N", UiSkin.Accent);
             float sx = S / (worldMaxX - worldMinX), sz = S / (worldMaxZ - worldMinZ);
             Vector2 Sp(Vector3 w) => new Vector2(r.x + (w.x - worldMinX) * sx, r.yMax - (w.z - worldMinZ) * sz);
             void Dot(Vector3 w, Color col, float sz2) { var s = Sp(w); GUI.color = col; GUI.DrawTexture(new Rect(s.x - sz2 / 2, s.y - sz2 / 2, sz2, sz2), dot); }
@@ -203,7 +216,7 @@ namespace MafiaSandbox.UI
             legend += "\n◆ Mission target (gold route)\n◆ Your pins (cyan route)\nLeft-click: drop / remove a pin\nRight-click: clear all pins\n\n";
             var fm = FactionManager.I; if (fm) foreach (var f in FactionDefs.All) legend += $"■ {f.name}: {FactionManager.Standing(fm.Rep(f))}\n";
             legend += "\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
-            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 210, 470), legend, box);
+            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 210, 470f), legend, box);
             // coloured squares for the legend rows
             int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 28, r.y + 46 + i * 17f, 10, 10), dot); i++; }
             GUI.color = Color.white;
