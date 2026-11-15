@@ -8,7 +8,7 @@ namespace MafiaSandbox.Economy
         public const int None = -1, Moonshine = 0, Drugs = 1, Arms = 2;
         public static readonly string[] Names = { "Bootleg alcohol", "Drugs", "Arms dealing" };
         public static readonly string[] KitIds = { "KitStill", "KitLab", "KitBench" };
-        public static readonly string[] KitShop = { "pawn", "pharmacy", "gun" };
+        public static readonly string[] KitShop = { "gun", "market", "gun" };
         public static readonly string[] StarterRecipe = { "moon", "weed", "gun" };
         public static readonly string[] StarterProduct = { "Moonshine", "Weed", "Guns" };
         public static readonly string[] StationNames = { "Copper still", "Chemistry table", "Gunsmith bench" };
@@ -17,7 +17,7 @@ namespace MafiaSandbox.Economy
         {
             new[] { ("Corn", 2, "market"), ("Sugar", 2, "market"), ("Yeast", 1, "market") },
             new[] { ("Seeds", 2, "market"), ("PlantFood", 1, "market") },
-            new[] { ("MetalParts", 3, "pawn"), ("Gunpowder", 1, "gun") },
+            new[] { ("MetalParts", 3, "gun"), ("Gunpowder", 1, "gun") },
         };
         const string KChosen = "ms_career_v2", KStash = "ms_joshua_v1", KCollect = "ms_collects_v2";
         static int chosen = -2; static int stash = -1; static int collects = -1;

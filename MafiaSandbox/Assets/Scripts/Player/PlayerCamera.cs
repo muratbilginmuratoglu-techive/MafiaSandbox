@@ -8,6 +8,11 @@ namespace MafiaSandbox.Player
     /// </summary>
     public class PlayerCamera : MonoBehaviour
     {
+        /// <summary>
+        /// Everything on screen looks this many times bigger (characters, props, buildings): a uniformly scaled world seen from the
+        /// same distance is the same picture as the unscaled world seen from 1/ViewScale of that distance. 1 = original look.
+        /// </summary>
+        public static float ViewScale = 1.5f;
         public Transform target;                 // player root
         public Vector3 pivotOffset = new Vector3(0f, 1.6f, 0f);
         public float distance = 4.5f;
@@ -86,7 +91,7 @@ namespace MafiaSandbox.Player
             var rot = Quaternion.Euler(pitch - kick, yaw + kickYaw, 0f);
             // indoors the camera body stays slightly above the player (walls/ceiling/floor), but the view can still tilt up freely
             var posRot = indoor ? Quaternion.Euler(Mathf.Max(pitch, 6f) - kick, yaw + kickYaw, 0f) : rot;
-            Vector3 pivot = target.position + pivotOffset;
+            Vector3 pivot = target.position + pivotOffset / ViewScale;
 
             if (FirstPerson)
             {
@@ -96,10 +101,10 @@ namespace MafiaSandbox.Player
                 return;
             }
 
-            Vector3 desired = pivot + posRot * new Vector3(curShoulder, 0f, -curDist);
+            Vector3 desired = pivot + posRot * new Vector3(curShoulder, 0f, -curDist) / ViewScale;
             Vector3 dir = desired - pivot; float len = dir.magnitude;
             bool squeezed = false;
-            if (Physics.SphereCast(pivot, 0.22f, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(pivot, 0.22f / ViewScale, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.distance < (indoor ? 0.45f : 0.6f)) { squeezed = true; desired = pivot + posRot * new Vector3(0f, 0.05f, 0.15f); }   // back to a wall (shop interiors): go first-person for the moment
                 else desired = pivot + dir / len * Mathf.Max(0.35f, hit.distance - 0.08f);
@@ -111,11 +116,11 @@ namespace MafiaSandbox.Player
         void FollowVehicle()
         {
             var rot = Quaternion.Euler(pitch, yaw, 0f);
-            Vector3 pivot = vehicleTarget.position + Vector3.up * 1.2f;
-            Vector3 desired = pivot + rot * new Vector3(0f, vehicleHeight * 0.35f, -vehicleDistance) + Vector3.up * (vehicleHeight * 0.4f);
+            Vector3 pivot = vehicleTarget.position + Vector3.up * (1.2f / ViewScale);
+            Vector3 desired = pivot + rot * new Vector3(0f, vehicleHeight * 0.35f, -vehicleDistance) / ViewScale + Vector3.up * (vehicleHeight * 0.4f / ViewScale);
             Vector3 dir = desired - pivot; float len = dir.magnitude;
-            if (Physics.SphereCast(pivot, 0.3f, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
-                desired = pivot + dir / len * Mathf.Max(1f, hit.distance - 0.1f);
+            if (Physics.SphereCast(pivot, 0.3f / ViewScale, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
+                desired = pivot + dir / len * Mathf.Max(1f / ViewScale, hit.distance - 0.1f);
             transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-10f * Time.deltaTime));
             transform.rotation = Quaternion.LookRotation(pivot - transform.position, Vector3.up);
         }

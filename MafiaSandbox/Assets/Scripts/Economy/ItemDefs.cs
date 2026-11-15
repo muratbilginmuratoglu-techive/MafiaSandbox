@@ -41,12 +41,14 @@ namespace MafiaSandbox.Economy
 
             ShopDef S(string kind, string title, string[] stock, string[] shelf, int r0, int r1, string[] buys) { var d = new ShopDef { title = title, stock = stock, shelf = shelf, registerMin = r0, registerMax = r1, buysKinds = buys }; Shops[kind] = d; return d; }
             string[] N = new string[0];
-            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Corn", "Sugar", "Yeast", "Seeds", "PlantFood" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Kola" }, 60, 180, new[] { "food" });
-            var gun = S("gun", "Gun Shop", new[] { "Gunpowder", "KitBench" }, new[] { "Mermi", "Mermi" }, 300, 900, new[] { "misc" });
+            // the trimmed map has no pharmacy: the market carries its medicine and chemistry stock too
+            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Corn", "Sugar", "Yeast", "Seeds", "PlantFood", "Ilac", "ColdMed", "Solvent", "Precursor", "KitLab" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Ilac" }, 60, 180, new[] { "food", "med" });
+            // ... and no pawn shop: the gun dealer fences goods and sells the metal parts and the still kit
+            var gun = S("gun", "Gun Shop", new[] { "Gunpowder", "KitBench", "MetalParts", "KitStill" }, new[] { "Mermi", "Mermi", "Saat", "Kulaklik" }, 300, 900, new[] { "misc", "valuable", "contraband", "food", "med" }); gun.fence = true;
             gun.weapons = new Dictionary<WeaponKind, int> { { WeaponKind.Rifle, 2400 }, { WeaponKind.Shotgun, 1800 }, { WeaponKind.Revolver, 900 }, { WeaponKind.Bat, 40 } };
             S("pawn", "Pawn Shop", new[] { "Saat", "Kulaklik", "MetalParts", "KitStill" }, new[] { "Saat", "Kulaklik", "Laptop", "Tablo", "Telefon" }, 200, 600, new[] { "valuable", "misc", "contraband", "food", "med" }).fence = true;
             S("cafe", "Cafe", new[] { "Kahve", "Burger" }, new[] { "Kahve" }, 50, 160, N);
-            S("restaurant", "Restaurant", new[] { "Burger", "Sarap", "Kola" }, new[] { "Burger" }, 120, 400, N);
+            S("restaurant", "Restaurant", new[] { "Burger", "Sarap", "Kola", "Kahve" }, new[] { "Burger", "Kahve" }, 120, 400, N);
             S("pharmacy", "Pharmacy", new[] { "Ilac", "ColdMed", "Solvent", "Precursor", "KitLab" }, new[] { "Ilac", "Ilac" }, 150, 400, new[] { "med" });
             S("jeweler", "Jeweler", new[] { "Saat", "Mucevher" }, new[] { "Mucevher", "Altin", "Saat", "Mucevher", "Saat" }, 800, 2000, new[] { "valuable" });
             S("bank", "Bank", N, N, 3000, 6000, N).vault = new[] { "Altin", "Altin", "Altin", "Para" };

@@ -23,14 +23,14 @@ namespace MafiaSandbox.UI
         static readonly string[] Steps =
         {
             "1. Buy a copper still at the PAWN SHOP\n2. Buy corn, sugar, yeast at the MARKET\n3. Place the still in your house (B)\n4. Brew, wait, collect\n5. Sell on the street (X)",
-            "1. Buy a chemistry table at the PHARMACY\n2. Buy seeds and plant food at the MARKET\n3. Place the table in your house (B)\n4. Grow, wait, collect\n5. Sell on the street (X)",
+            "1. Buy a chemistry table at the MARKET\n2. Buy seeds and plant food at the MARKET\n3. Place the table in your house (B)\n4. Grow, wait, collect\n5. Sell on the street (X)",
             "1. Buy a gunsmith bench at the GUN SHOP\n2. Buy metal parts at the PAWN SHOP and gunpowder at the GUN SHOP\n3. Place the bench in your house (B)\n4. Assemble, wait, collect\n5. Sell to gang members (X)",
         };
         static readonly string[] Jer =
         {
-            "Moonshine, huh. Dad always said a still pays for itself in a week. Pawn shop has the copper, the market has the corn. Put it together at home.",
-            "Weed is the safest way in. Get a table at the pharmacy, seeds at the market, grow it at home. Watch for cops when you sell.",
-            "Guns. Brave. Bench at the gun shop, parts at the pawn shop and gun shop. Gang boys are your buyers, so keep your head down.",
+            "Moonshine, huh. Dad always said a still pays for itself in a week. The gun shop has the copper, the market has the corn. Put it together at home.",
+            "Weed is the safest way in. Get a table and seeds at the market, grow it at home. Watch for cops when you sell.",
+            "Guns. Brave. Bench at the gun shop, parts at the gun shop. Gang boys are your buyers, so keep your head down.",
         };
 
         void OnGUI()

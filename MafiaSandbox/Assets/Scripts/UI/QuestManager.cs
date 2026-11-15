@@ -26,14 +26,14 @@ namespace MafiaSandbox.UI
         public string Coach { get; private set; }
         public Vector3? CurrentTarget { get; private set; }
         int beganIdx = -1, dealsBase; bool introPosted; CharacterBody joshua;
-        // ---- Joshua: found by asking around (cafe cashier, then a guest); he smokes at the playground every night
+        // ---- Joshua: found by asking around (restaurant cashier, then a guest); he smokes at the playground every night
         public static bool AskedCashier, AskedGuest;
         Quest qAskCashier, qAskGuest, qPark;
-        public bool CashierAskable(Shop sh) => started && qAskCashier != null && !AllDone && Quests[Index] == qAskCashier && !AskedCashier && sh != null && sh.kind == "cafe";
+        public bool CashierAskable(Shop sh) => started && qAskCashier != null && !AllDone && Quests[Index] == qAskCashier && !AskedCashier && sh != null && sh.kind == "restaurant";
         public bool GuestAskable(Npc.NpcBrain nb)
         {
             if (!started || qAskGuest == null || AllDone || Quests[Index] != qAskGuest || AskedGuest || !(nb is Npc.CamperBrain) || nb.displayName != "Guest") return false;
-            var eco = EconomyManager.I; if (!eco) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == "cafe") { var f = s.info.footprint; var p = nb.transform.position; return p.x > f.min.x - 1f && p.x < f.max.x + 1f && p.z > f.min.z - 1f && p.z < f.max.z + 1f; }
+            var eco = EconomyManager.I; if (!eco) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == "restaurant") { var f = s.info.footprint; var p = nb.transform.position; return p.x > f.min.x - 1f && p.x < f.max.x + 1f && p.z > f.min.z - 1f && p.z < f.max.z + 1f; }
             return false;
         }
         public void Ask(bool guest)
@@ -121,8 +121,8 @@ namespace MafiaSandbox.UI
             Vector3? StationPos() { if (!HomeLab.I || !Career.Has) return null; foreach (var st in HomeLab.I.stations) if (st.kind == C()) return st.pos; return null; }
             string StName() => Career.Has ? Career.StationNames[C()].ToLower() : "workstation";
             // ACT 0 - AFTERMATH: three years in a coma, the family is gone. Money from the old stash starts a new trade at home.
-            Quests.Add(qAskCashier = new Quest { title = "0. Ask the cafe", desc = "Nobody knows where Joshua went. Start at the Cafe: walk up to the counter and ask the cashier (F).", tip = "Gold marker = the Cafe. The cashier stands behind the counter.", reward = 0, target = () => Career.StashTaken ? null : Door("cafe"), done = () => AskedCashier || Career.StashTaken, sal = null });
-            Quests.Add(qAskGuest = new Quest { title = "0. Ask around", desc = "The cashier shrugs. Ask one of the people sitting in the Cafe about Joshua (walk up, press F).", tip = "Guests sit at the tables. Try the ones who look like regulars.", reward = 0, target = () => Career.StashTaken ? null : Door("cafe"), done = () => AskedGuest || Career.StashTaken, sal = null });
+            Quests.Add(qAskCashier = new Quest { title = "0. Ask the restaurant", desc = "Nobody knows where Joshua went. Start at the Restaurant: walk up to the counter and ask the cashier (F).", tip = "Gold marker = the Restaurant. The cashier stands behind the counter.", reward = 0, target = () => Career.StashTaken ? null : Door("restaurant"), done = () => AskedCashier || Career.StashTaken, sal = null });
+            Quests.Add(qAskGuest = new Quest { title = "0. Ask around", desc = "The cashier shrugs. Ask one of the people sitting in the Restaurant about Joshua (walk up, press F).", tip = "Guests sit at the tables. Try the ones who look like regulars.", reward = 0, target = () => Career.StashTaken ? null : Door("restaurant"), done = () => AskedGuest || Career.StashTaken, sal = null });
             Quests.Add(qPark = new Quest { title = "0. Settle the score", descF = () => NightNow ? "Joshua is at the playground, smoking: look for the glowing ember and the gold arrow. Take him down and search the body (F) for the money he was paid." : "Joshua only goes out to the playground at night. Come back after 20:00 (or sleep: F at your bed after 19:30). Then take him down and search the body (F).", tip = "Fists, the knife (4) or the bat (5). If a cop sees it, they will chase you. He runs when he's hurt.", reward = 0, target = () => Career.StashTaken ? null : ParkPos(), done = () => Career.StashTaken, sal = null });
             Quests.Add(new Quest { title = "0. Choose your trade", desc = "A menu asks how you will make a living: bootleg alcohol, drugs or arms. Read the steps and choose one.", tip = "It decides what you buy, what you make at home and who you sell to.", reward = 0, begin = () => CareerPanel.I?.Open(), done = () => Career.Has, sal = "jeremy|Joshua paid for what he did. Now that money has to work. What are you going to do with it? Think hard, it decides everything." });
             Quests.Add(new Quest { title = "0. Shopping run", descF = ShopDesc, tip = "Walk into the shop and press F at the counter. Gold marker = next stop.", reward = 100, target = ShopTarget, done = ShopDone, sal = null });
@@ -160,7 +160,7 @@ namespace MafiaSandbox.UI
             if (doneFlash > 0f) doneFlash -= Time.deltaTime;
             if (AllDone) { SetBeacon(null); CurrentTarget = null; Coach = null; if (Waypoints.I) Waypoints.I.QuestTarget = null; return; }
             var q = Quests[Index];
-            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Joshua is the one who sold your family out. Nobody has seen him in daylight. Start at the Cafe and ask around, I\u2019ll text you when you know more. Check the map (M)."); }
+            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Joshua is the one who sold your family out. Nobody has seen him in daylight. Start at the Restaurant and ask around, I\u2019ll text you when you know more. Check the map (M)."); }
             TendJoshua();
             if (beganIdx != Index) { beganIdx = Index; q.begin?.Invoke(); }
             if (q.done != null && q.done())

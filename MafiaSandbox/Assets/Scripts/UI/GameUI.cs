@@ -11,7 +11,7 @@ namespace MafiaSandbox.UI
 {
     /// <summary>
     /// IMGUI windows: backpack (I) and the shop counter (F at a counter): buy list with stock and live prices, weapons
-    /// at the gun shop, sell list for what the shop buys (the pawn shop fences stolen goods). Opening a window frees the
+    /// at the gun shop, sell list for what the shop buys (the gun shop fences stolen goods). Opening a window frees the
     /// cursor and locks movement; Esc / Tab closes.
     /// </summary>
     public class GameUI : MonoBehaviour
@@ -111,7 +111,7 @@ namespace MafiaSandbox.UI
             GUI.Box(r, GUIContent.none, win);
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
             GUILayout.BeginHorizontal(); GUILayout.Label("Backpack", title); GUILayout.FlexibleSpace(); GUILayout.Label($"${eco.cash}", new GUIStyle(title) { normal = { textColor = new Color(0.56f, 0.9f, 0.6f) } }); GUILayout.EndHorizontal();
-            GUILayout.Label("I / Esc closes · Shift+Drop drops the whole stack · valuables and product are safest in your home stash · stolen goods only sell at the pawn shop", dim);
+            GUILayout.Label("I / Esc closes · Shift+Drop drops the whole stack · valuables and product are safest in your home stash · stolen goods only sell at the gun shop", dim);
             int units = 0, worth = 0, hot = 0; foreach (var i2 in eco.inv) { var d2 = Items.Get(i2.id); units += i2.qty; worth += i2.qty * d2.value; if (i2.stolen) hot += i2.qty * d2.value; }
             GUILayout.Label($"{units} items  ·  worth ~${worth}" + (hot > 0 ? $"  ·  stolen ~${hot}" : "") + (Stash.I ? $"  ·  stash {Stash.I.Units} (at home)" : ""), dim);
             GUILayout.BeginHorizontal();

@@ -22,8 +22,8 @@ namespace MafiaSandbox.UI
         // prototype coordinates (x, z, yaw radians) — same list as the HTML version, plus the crews' HQs
         static readonly (string name, float x, float z, float yaw, bool low)[] Locations =
         {
-            ("Home (NW plateau)", -60f, 112f, Mathf.PI / 2f, false), ("Town square", 25f, 32f, Mathf.PI, false), ("Downtown (market, cafe…)", -26f, -4f, 0f, false), ("Bank", -25f, 4f, 0f, false),
-            ("Police station", -25f, 46f, Mathf.PI, false), ("Construction site (S)", 25f, -104f, 0f, false), ("Warehouses (SW)", -25f, -104f, 0f, false), ("Scrapyard (SE)", 64f, -104f, 0f, false),
+            ("Home (NW plateau)", -60f, 112f, Mathf.PI / 2f, false), ("Town square", 25f, 32f, Mathf.PI, false), ("Downtown (market, restaurant)", -26f, -4f, 0f, false),
+            ("Police station", -25f, 46f, Mathf.PI, false), ("Construction site (S)", 25f, -104f, 0f, false),
             ("Shanty camp (bridge)", 44f, 1f, Mathf.PI / 2f, false), ("Bridge deck", 50f, -30f, 0f, false), ("Overpass", -14f, -25f, -Mathf.PI / 2f, false), ("Tunnel entrance", 0f, 78f, 0f, true), ("Tunnel end", 0f, 112f, Mathf.PI, true),
             ("Plateau lookout", 22f, 92f, Mathf.PI, false), ("Plateau road", -30f, 100f, Mathf.PI / 2f, false), ("Behind the camp (E)", 72f, 2f, -Mathf.PI / 2f, false), ("Car park (SE)", 62f, -58f, Mathf.PI, false), ("Ramp (W)", -50f, 60f, 0f, false),
         };

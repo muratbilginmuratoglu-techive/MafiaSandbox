@@ -23,7 +23,7 @@ namespace MafiaSandbox.Gang
         void Awake() { I = this; }
 
         List<Shop> Venues() { var l = new List<Shop>(); if (EconomyManager.I) foreach (var s in EconomyManager.I.shops) if (CrewManager.Eligible(s) || s.kind == "bank") l.Add(s); return l; }
-        Shop Pawn() { if (EconomyManager.I) foreach (var s in EconomyManager.I.shops) if (s.kind == "pawn") return s; return null; }
+        Shop Pawn() { if (EconomyManager.I) foreach (var s in EconomyManager.I.shops) if (s.kind == "gun") return s; return null; }
 
         void Refresh()
         {
