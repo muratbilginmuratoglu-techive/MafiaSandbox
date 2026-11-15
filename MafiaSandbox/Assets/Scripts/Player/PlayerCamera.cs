@@ -78,13 +78,14 @@ namespace MafiaSandbox.Player
             // indoors (shop / house footprint): tighter camera, slightly from above, so the walls and the low ceiling don't squeeze it
             bool indoor = target && !vehicleTarget && (MafiaSandbox.World.BuildingInfo.At(target.position) != null || MafiaSandbox.World.Hospital.Inside(target.position));
             Indoors = indoor;
-            if (indoor && pitch < 6f) pitch = Mathf.MoveTowards(pitch, 6f, 60f * dt);
             curDist = Mathf.Lerp(curDist, Aiming ? aimDistance : indoor ? indoorDistance : distance, 1f - Mathf.Exp(-12f * dt));
             curShoulder = Mathf.Lerp(curShoulder, Aiming ? aimShoulder : shoulder, 1f - Mathf.Exp(-12f * dt));
             if (vehicleTarget) { FollowVehicle(); return; }
             if (!target) return;
 
             var rot = Quaternion.Euler(pitch - kick, yaw + kickYaw, 0f);
+            // indoors the camera body stays slightly above the player (walls/ceiling/floor), but the view can still tilt up freely
+            var posRot = indoor ? Quaternion.Euler(Mathf.Max(pitch, 6f) - kick, yaw + kickYaw, 0f) : rot;
             Vector3 pivot = target.position + pivotOffset;
 
             if (FirstPerson)
@@ -95,12 +96,12 @@ namespace MafiaSandbox.Player
                 return;
             }
 
-            Vector3 desired = pivot + rot * new Vector3(curShoulder, 0f, -curDist);
+            Vector3 desired = pivot + posRot * new Vector3(curShoulder, 0f, -curDist);
             Vector3 dir = desired - pivot; float len = dir.magnitude;
             bool squeezed = false;
             if (Physics.SphereCast(pivot, 0.22f, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
             {
-                if (hit.distance < (indoor ? 0.45f : 0.6f)) { squeezed = true; desired = pivot + rot * new Vector3(0f, 0.05f, 0.15f); }   // back to a wall (shop interiors): go first-person for the moment
+                if (hit.distance < (indoor ? 0.45f : 0.6f)) { squeezed = true; desired = pivot + posRot * new Vector3(0f, 0.05f, 0.15f); }   // back to a wall (shop interiors): go first-person for the moment
                 else desired = pivot + dir / len * Mathf.Max(0.35f, hit.distance - 0.08f);
             }
             if (squeezed != wasSqueezed) { wasSqueezed = squeezed; if (targetRenderers != null) foreach (var r in targetRenderers) r.shadowCastingMode = squeezed ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On; }

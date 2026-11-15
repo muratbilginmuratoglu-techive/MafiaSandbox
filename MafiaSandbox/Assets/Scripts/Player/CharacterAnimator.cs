@@ -16,14 +16,20 @@ namespace MafiaSandbox.Player
 
         Animation anim;
         Transform spine;
-        string upperClip; float upperT;
+        string upperClip; float upperT, upperDur; Transform hips, spine1, spine2, head;
         readonly System.Collections.Generic.HashSet<string> mixed = new System.Collections.Generic.HashSet<string>();
 
         void Awake()
         {
             anim = GetComponentInChildren<Animation>();
             if (anim == null) { Debug.LogWarning($"{name}: no Legacy Animation component found. Run MafiaSandbox ▸ Setup and reimport the character.", this); return; }
-            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name.EndsWith("Spine1")) { spine = t; break; }
+            foreach (var t in GetComponentsInChildren<Transform>())
+            {
+                if (t.name.EndsWith("Spine1")) { spine = t; spine1 = t; }
+                else if (t.name.EndsWith("Spine2")) spine2 = t;
+                else if (t.name.EndsWith("Hips")) hips = t;
+                else if (t.name.EndsWith("Head")) head = t;
+            }
             foreach (AnimationState st in anim)
             {
                 st.wrapMode = IsOneShot(st.name) ? WrapMode.Once : WrapMode.Loop;
@@ -70,11 +76,41 @@ namespace MafiaSandbox.Player
             st.layer = 1; st.speed = speed; st.time = 0f; st.wrapMode = WrapMode.Once;
             if (spine && mixed.Add(clip)) st.AddMixingTransform(spine, true);
             anim.CrossFade(clip, 0.06f, PlayMode.StopSameLayer);
-            upperClip = clip; upperT = st.length / Mathf.Max(0.01f, speed);
+            upperClip = clip; upperDur = upperT = st.length / Mathf.Max(0.01f, speed);
             return st.length / Mathf.Max(0.01f, speed);
         }
 
         public bool UpperBusy => upperT > 0f;
+
+        static float S(float p, float a, float b) { float x = Mathf.Clamp01((p - a) / (b - a)); return x * x * (3f - 2f * x); }
+
+        /// <summary>
+        /// The authored swing clips only move the arms. On top of them the whole torso winds up, whips through and follows through
+        /// (world-axis twists, so it doesn't depend on the rig's bone axes): bat = full-body sweep, knife = quick lunge with the shoulder behind it.
+        /// </summary>
+        void LateUpdate()
+        {
+            if (upperT <= 0f || upperClip == null || !spine1) return;
+            bool bat = upperClip == "Bat_Attack", knife = upperClip == "Knife_Attack"; if (!bat && !knife) return;
+            float p = Mathf.Clamp01(1f - upperT / Mathf.Max(0.01f, upperDur)); float yaw, lean, hipShift = 0f, headYaw;
+            if (bat)
+            {
+                float back = S(p, 0f, 0.3f), sw = S(p, 0.3f, 0.55f), rec = S(p, 0.72f, 1f);
+                yaw = Mathf.Lerp(Mathf.Lerp(0f, 30f, back), -48f, sw) * (1f - rec);
+                lean = Mathf.Lerp(Mathf.Lerp(0f, -7f, back), 14f, sw) * (1f - rec);
+                hipShift = 0.05f * sw * (1f - rec); headYaw = -yaw * 0.5f;
+            }
+            else
+            {
+                float pull = S(p, 0f, 0.25f) * (1f - S(p, 0.25f, 0.5f)), th = S(p, 0.25f, 0.5f) * (1f - S(p, 0.55f, 1f));
+                yaw = 12f * pull - 20f * th; lean = -4f * pull + 20f * th; hipShift = 0.12f * th; headYaw = -yaw * 0.6f;
+            }
+            Vector3 up = transform.up, right = transform.right;
+            if (hips) { hips.rotation = Quaternion.AngleAxis(yaw * 0.25f, up) * hips.rotation; hips.position += transform.forward * hipShift - up * (hipShift * 0.4f); }
+            spine1.rotation = Quaternion.AngleAxis(yaw * 0.5f, up) * Quaternion.AngleAxis(lean * 0.5f, right) * spine1.rotation;
+            if (spine2) spine2.rotation = Quaternion.AngleAxis(yaw * 0.4f, up) * Quaternion.AngleAxis(lean * 0.5f, right) * spine2.rotation;
+            if (head) head.rotation = Quaternion.AngleAxis(headYaw * 0.5f, up) * head.rotation;
+        }
 
         void Update()
         {
