@@ -49,6 +49,7 @@ namespace MafiaSandbox.Economy
         {
             n = Mathf.Min(n, it.qty); if (n <= 0) return; EconomyManager.I.AddItem(it.id, n, it.stolen); it.qty -= n; if (it.qty <= 0) items.Remove(it); Save();
         }
+        public void SavePublic() => Save();
         void Save() { var sb = new StringBuilder(); foreach (var i in items) sb.Append(i.id).Append(':').Append(i.qty).Append(':').Append(i.stolen ? 1 : 0).Append(';'); PlayerPrefs.SetString(Key, sb.ToString()); PlayerPrefs.Save(); }
         void Load()
         {

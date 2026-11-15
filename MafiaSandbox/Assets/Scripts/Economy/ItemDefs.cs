@@ -33,17 +33,20 @@ namespace MafiaSandbox.Economy
             I("TV", "Television", 700, "valuable"); I("Tablo", "Painting", 550, "valuable"); I("Mermi", "Ammo box", 40, "misc");
             I("Paket", "Suspicious package", 650, "contraband"); I("Telsiz", "Police radio", 220, "misc"); I("Kelepce", "Handcuffs", 40, "misc");
             I("Sigara", "Cigarettes", 8, "misc"); I("Anahtar", "Keychain", 3, "misc"); I("Burger", "Burger", 8, "food", 30); I("Kahve", "Coffee", 4, "food", 6);
-            I("Weed", "Weed baggie", 45, "drug"); I("Pills", "Pills", 110, "drug"); I("Powder", "White powder", 240, "drug"); I("Guns", "Smuggled pistols", 340, "arms"); I("Rifles", "Assault rifles", 950, "arms");
+            I("Weed", "Weed baggie", 45, "drug"); I("Pills", "Pills", 110, "drug"); I("Powder", "White powder", 240, "drug"); I("Guns", "Smuggled pistols", 340, "arms"); I("Rifles", "Assault rifles", 950, "arms"); I("Moonshine", "Moonshine", 70, "drug");
+            I("Corn", "Corn mash", 6, "material"); I("Sugar", "Sugar sack", 5, "material"); I("Yeast", "Yeast", 8, "material"); I("Seeds", "Plant seeds", 14, "material"); I("PlantFood", "Plant food", 9, "material");
+            I("ColdMed", "Cold medicine", 22, "material"); I("Solvent", "Chemical solvent", 18, "material"); I("Precursor", "Chemical precursor", 120, "material");
+            I("MetalParts", "Machined metal parts", 55, "material"); I("Gunpowder", "Gunpowder", 40, "material");
 
             ShopDef S(string kind, string title, string[] stock, string[] shelf, int r0, int r1, string[] buys) { var d = new ShopDef { title = title, stock = stock, shelf = shelf, registerMin = r0, registerMax = r1, buysKinds = buys }; Shops[kind] = d; return d; }
             string[] N = new string[0];
-            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Kola" }, 60, 180, new[] { "food" });
-            var gun = S("gun", "Gun Shop", N, new[] { "Mermi", "Mermi" }, 300, 900, new[] { "misc" });
+            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Corn", "Sugar", "Yeast", "Seeds", "PlantFood" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Kola" }, 60, 180, new[] { "food" });
+            var gun = S("gun", "Gun Shop", new[] { "Gunpowder" }, new[] { "Mermi", "Mermi" }, 300, 900, new[] { "misc" });
             gun.weapons = new Dictionary<WeaponKind, int> { { WeaponKind.Rifle, 2400 }, { WeaponKind.Shotgun, 1800 }, { WeaponKind.Revolver, 900 }, { WeaponKind.Bat, 40 } };
-            S("pawn", "Pawn Shop", new[] { "Saat", "Kulaklik" }, new[] { "Saat", "Kulaklik", "Laptop", "Tablo", "Telefon" }, 200, 600, new[] { "valuable", "misc", "contraband", "food", "med" }).fence = true;
+            S("pawn", "Pawn Shop", new[] { "Saat", "Kulaklik", "MetalParts" }, new[] { "Saat", "Kulaklik", "Laptop", "Tablo", "Telefon" }, 200, 600, new[] { "valuable", "misc", "contraband", "food", "med" }).fence = true;
             S("cafe", "Cafe", new[] { "Kahve", "Burger" }, new[] { "Kahve" }, 50, 160, N);
             S("restaurant", "Restaurant", new[] { "Burger", "Sarap", "Kola" }, new[] { "Burger" }, 120, 400, N);
-            S("pharmacy", "Pharmacy", new[] { "Ilac" }, new[] { "Ilac", "Ilac" }, 150, 400, new[] { "med" });
+            S("pharmacy", "Pharmacy", new[] { "Ilac", "ColdMed", "Solvent", "Precursor" }, new[] { "Ilac", "Ilac" }, 150, 400, new[] { "med" });
             S("jeweler", "Jeweler", new[] { "Saat", "Mucevher" }, new[] { "Mucevher", "Altin", "Saat", "Mucevher", "Saat" }, 800, 2000, new[] { "valuable" });
             S("bank", "Bank", N, N, 3000, 6000, N).vault = new[] { "Altin", "Altin", "Altin", "Para" };
             S("barber", "Barber", N, new[] { "Sigara" }, 40, 150, N);

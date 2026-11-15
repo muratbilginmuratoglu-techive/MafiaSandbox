@@ -29,11 +29,12 @@ namespace MafiaSandbox.Gang
         void Awake() { I = this; DebtPaid = PlayerPrefs.GetInt("ms_debt_paid_v1", 0); }
 
         // ------------------------------------------------------------------ products
-        public static readonly string[] Products = { "Weed", "Pills", "Powder", "Guns", "Rifles" };   // 0-2 drugs (sold to civilians), 3-4 arms (sold to gang members)
-        static readonly int[] Wholesale = { 20, 55, 120, 180, 500 }; static readonly int[] Street = { 45, 110, 240, 340, 950 }; static readonly int[] UnlockRank = { 0, 1, 2, 2, 3 };
+        public static readonly string[] Products = { "Weed", "Pills", "Powder", "Guns", "Rifles", "Moonshine" };   // 0-2 drugs (sold to civilians), 3-4 arms (sold to gang members)
+        static readonly int[] Wholesale = { 20, 55, 120, 180, 500, 25 }; static readonly int[] Street = { 45, 110, 240, 340, 950, 70 }; static readonly int[] UnlockRank = { 0, 1, 2, 2, 3, 0 };
         /// <summary>Market mood per product (0.7..1.4): drifts every shift, shifts both what Sal charges and what the street pays.</summary>
-        public readonly float[] Mood = { 1f, 1f, 1f, 1f, 1f };
-        public static bool IsArms(int i) => i >= 3;
+        public readonly float[] Mood = { 1f, 1f, 1f, 1f, 1f, 1f };
+        public static bool IsArms(int i) => i == 3 || i == 4;
+        public static int UnlockAt(int i) => UnlockRank[i];
         public int WholeNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Wholesale[i] * Mood[i]));
         public int StreetNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Street[i] * Mood[i]));
         public string Trend(int i) => Mood[i] > 1.12f ? "▲ hot" : Mood[i] < 0.9f ? "▼ slow" : "steady";
@@ -56,7 +57,8 @@ namespace MafiaSandbox.Gang
             for (int k = 0; k < n; k++) { var it = eco.inv.Find(x => x.id == id); if (it == null) break; it.qty--; if (it.qty <= 0) eco.inv.Remove(it); }
             return true;
         }
-        int BestProduct() { for (int i = 2; i >= 0; i--) if (Unlocked(i) && Stock(i) > 0) return i; return -1; }
+        static readonly int[] SaleOrder = { 2, 1, 5, 0 };   // best first: powder, pills, moonshine, weed
+        int BestProduct() { foreach (int i in SaleOrder) if (Unlocked(i) && Stock(i) > 0) return i; return -1; }
 
         /// <summary>Offer something to a civilian: who is buying, how much, and who might be watching.</summary>
         public void Deal(CivilianBrain c)
@@ -70,7 +72,7 @@ namespace MafiaSandbox.Gang
             if (Random.value < chance)
             {
                 int price = Mathf.RoundToInt(StreetNow(p) * Random.Range(0.85f, 1.3f) * (Shop.IsNight ? 1.1f : 1f)); Take(Products[p]); eco.cash += price; Deals++;
-                gm.Say($"Sold {Items.Get(Products[p]).name} for ${price}"); Respect.Add(p == 0 ? 3 : p == 1 ? 6 : 12); Sfx.At("click", pp);
+                gm.Say($"Sold {Items.Get(Products[p]).name} for ${price}"); Respect.Add(p == 0 || p == 5 ? 3 : p == 1 ? 6 : 12); Sfx.At("click", pp);
             }
             else
             {
@@ -181,9 +183,9 @@ namespace MafiaSandbox.Gang
         void Update()
         {
             var dn = DayNightCycle.I; if (!dn || !GameManager.I || !GameManager.I.player) return;
-            int shift = Mathf.FloorToInt(dn.timeOfDay / 6f);
+            int shift = Mathf.FloorToInt(dn.TotalHours / 6f);
             if (lastShift < 0) lastShift = shift;
-            if (shift != lastShift) { lastShift = shift; Payout(); }
+            if (shift > lastShift) { int n = Mathf.Min(8, shift - lastShift); lastShift = shift; for (int k = 0; k < n; k++) Payout(); }
         }
 
         void Payout()

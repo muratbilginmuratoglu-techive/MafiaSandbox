@@ -13,6 +13,10 @@ namespace MafiaSandbox.World
         public AnimationCurve sunIntensity = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         Light sun;
+        public int Day = 1;
+        public float TotalHours => (Day - 1) * 24f + timeOfDay;
+        /// <summary>Jump forward to the given clock hour (next day if it is already past).</summary>
+        public void SkipTo(float hour) { if (hour <= timeOfDay) Day++; timeOfDay = hour; }
 
         void Reset() { BuildDefaults(); }
         void Awake()
@@ -32,7 +36,12 @@ namespace MafiaSandbox.World
 
         void Update()
         {
-            if (!paused) timeOfDay = (timeOfDay + hoursPerRealSecond * Time.deltaTime) % 24f;
+            if (!paused)
+            {
+                // daylight (06-20, 14 h) lasts 10 real minutes and so does the night (20-06, 10 h)
+                float rate = (IsNight ? 10f : 14f) / 600f * (hoursPerRealSecond * 60f);
+                timeOfDay += rate * Time.deltaTime; if (timeOfDay >= 24f) { timeOfDay -= 24f; Day++; }
+            }
             float t = timeOfDay / 24f;
             // sun elevation: -90 at midnight, +90 at noon-ish
             float elev = Mathf.Sin((t - 0.25f) * Mathf.PI * 2f) * 75f;

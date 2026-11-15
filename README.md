@@ -94,3 +94,9 @@ alınır, `Build City Scene` tekrar çalıştırılır. Prop'lar değişirse `bu
 - Cars knock over lamps, signs, traffic lights, fences, bins, hydrants, bus stops, etc.
 - Home stash chest (F at home): safe storage, saved between launches. Backpack has tabs, sort, Shift+Drop for stacks.
 - Arms trade: order pistols/rifles from Sal (K ▸ Supplies), sell with X to friendly gang members. Market prices drift every shift.
+
+## Home production, bootleg & sleep
+- Day/night: 10 real minutes of daylight (06-20), 10 of night (20-06). At night the streets thin out (far pedestrians/traffic are switched off).
+- Home: **bed** (F, after 19:30) skips to 07:00, heals, runs venue/dealer shift payouts and finishes batches; **workbench** (F) brews Moonshine, grows Weed, presses Pills, cooks Powder and builds Pistols/Rifles. Each recipe has a tiny puzzle (timing, heat control, sequence memory, blueprint assembly); your score changes the yield.
+- Ingredients: market (corn, sugar, yeast, seeds, plant food), pharmacy (cold medicine, solvent, precursor), pawn shop (metal parts), gun shop (gunpowder). Ingredients are taken from backpack and stash.
+- Moonshine sells to civilians with X like other product; guns sell to friendly gang members.

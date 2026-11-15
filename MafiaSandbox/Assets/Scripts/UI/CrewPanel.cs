@@ -100,7 +100,7 @@ namespace MafiaSandbox.UI
             {
                 bool un = CrewManager.Unlocked(i);
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{Items.Get(CrewManager.Products[i]).name}  ·  buy ${cm.WholeNow(i)}  ·  street ~${cm.StreetNow(i)} {cm.Trend(i)}  ·  you have {cm.Stock(i)}" + (un ? "" : $"   (needs {Respect.Ranks[Mathf.Min(5, i < 3 ? i : i - 1)]})"), un ? UiSkin.Label : UiSkin.LabelDim, GUILayout.Width(470));
+                GUILayout.Label($"{Items.Get(CrewManager.Products[i]).name}  ·  buy ${cm.WholeNow(i)}  ·  street ~${cm.StreetNow(i)} {cm.Trend(i)}  ·  you have {cm.Stock(i)}" + (un ? "" : $"   (needs {Respect.Ranks[Mathf.Min(5, CrewManager.UnlockAt(i))]})"), un ? UiSkin.Label : UiSkin.LabelDim, GUILayout.Width(470));
                 GUI.enabled = un; if (GUILayout.Button("Order 1", UiSkin.Button)) cm.Order(i, 1); if (GUILayout.Button("Order 5", UiSkin.Button)) cm.Order(i, 5); GUI.enabled = true;
                 GUILayout.EndHorizontal();
             }
@@ -120,6 +120,8 @@ namespace MafiaSandbox.UI
             { "Bank & jeweller vaults", "Gold bars and jewellery. Highest payout, highest heat." },
             { "Fence stolen goods", "Sell loot at the pawn shop (stolen goods fetch less)." },
             { "Street dealing", "Order from Sal (K ▸ Supplies), sell with X. Pills at Hustler, powder at Enforcer. Prices swing every shift." },
+            { "Bootleg liquor", "Brew moonshine at home (workbench), sell it to civilians with X. Cheap to make, easy money." },
+            { "Home production", "Buy ingredients, cook weed, pills, powder and pistols at your workbench (small puzzles raise the yield)." },
             { "Arms trade", "Order pistols (Enforcer) and rifles (Capo) from Sal, sell to friendly gang members with X." },
             { "Protection racket", "Bring armed crew to a shop and lean on the owner (X at the counter)." },
             { "Own venues", "Buy shops outright (Hustler+). They pay every shift." },
@@ -130,7 +132,7 @@ namespace MafiaSandbox.UI
         };
         void TabHustles()
         {
-            GUILayout.Label("13 WAYS TO MAKE MONEY", UiSkin.H2);
+            GUILayout.Label("15 WAYS TO MAKE MONEY", UiSkin.H2);
             for (int i = 0; i < Hustle.GetLength(0); i++) { GUILayout.Label($"<b>{i + 1}. {Hustle[i, 0]}</b>", UiSkin.Label); GUILayout.Label(Hustle[i, 1], UiSkin.LabelDim); GUILayout.Space(2); }
         }
 

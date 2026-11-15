@@ -35,7 +35,7 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
-            if (Input.GetKeyDown(KeyCode.P) && !(GameUI.I && (GameUI.I.MapOpen)) && !CharacterCreator.IsOpen && !PhonePanel.IsOpen && !IntroCinematic.Playing && !CrewPanel.IsOpen && !StashPanel.IsOpen) Open = !Open;
+            if (Input.GetKeyDown(KeyCode.P) && !(GameUI.I && (GameUI.I.MapOpen)) && !CharacterCreator.IsOpen && !PhonePanel.IsOpen && !IntroCinematic.Playing && !CrewPanel.IsOpen && !StashPanel.IsOpen && !ProductionPanel.IsOpen && !HomeLab.Sleeping) Open = !Open;
             if (Input.GetKeyDown(KeyCode.Escape) && Open) Open = false;
         }
 

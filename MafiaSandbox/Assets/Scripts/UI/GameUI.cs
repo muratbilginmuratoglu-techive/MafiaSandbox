@@ -17,7 +17,7 @@ namespace MafiaSandbox.UI
     public class GameUI : MonoBehaviour
     {
         public static GameUI I { get; private set; }
-        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen;
+        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen || ProductionPanel.IsOpen || HomeLab.Sleeping;
         bool invOpen, mapOpen; Shop shop; CharacterBody loot; Vector2 scrollA, scrollB;
         GUIStyle win, title, row, dim, btn, price, head;
         PlayerController pc;
@@ -27,11 +27,11 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return; if (!pc) pc = gm.player;
-            if (CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen) { ApplyLock(); return; }
+            if (CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen || ProductionPanel.IsOpen || HomeLab.Sleeping) { ApplyLock(); return; }
             bool dead = gm.player.GetComponent<CharacterBody>()?.Dead ?? false;
             if (Input.GetKeyDown(KeyCode.I)) { if (shop != null) CloseAll(); else if (!dead) { invOpen = !invOpen; mapOpen = false; } }
             if (Input.GetKeyDown(KeyCode.M)) { if (mapOpen) CloseAll(); else if (!dead) { mapOpen = true; invOpen = false; shop = null; } }
-            if (Input.GetKeyDown(KeyCode.Escape) && Blocking && !PhonePanel.IsOpen && !CrewPanel.IsOpen && !StashPanel.IsOpen) CloseAll();
+            if (Input.GetKeyDown(KeyCode.Escape) && Blocking && !PhonePanel.IsOpen && !CrewPanel.IsOpen && !StashPanel.IsOpen && !ProductionPanel.IsOpen && !HomeLab.Sleeping) CloseAll();
             if (dead && Blocking) CloseAll();
             if (shop != null && Vector3.Distance(gm.player.transform.position, shop.info.counter) > 4f) CloseAll();
             if (loot != null && (!loot || Vector3.Distance(gm.player.transform.position, loot.transform.position) > 4f)) CloseAll();
