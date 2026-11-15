@@ -108,7 +108,7 @@ namespace MafiaSandbox.UI
             if (sp && prefab) { jer = sp.Spawn<JeremyBrain>(prefab, hosp.jeremyStart, hosp.yaw + 180f); jer.displayName = "Jeremy"; }
             Cam(hosp.W(7.6f, 2.5f, -6.3f), hosp.W(-2f, 1.2f, -2f), true);
             if (jer) { jer.WalkTo(hosp.jeremyTalk); lookTarget = jer.transform; }
-            float wt = 0f; while (jer && !jer.Done && wt < 28f) { wt += Time.unscaledDeltaTime; yield return null; }
+            float wt = 0f; while (jer && !jer.Done && wt < 9f) { wt += Time.unscaledDeltaTime; if (Input.GetKeyDown(KeyCode.Space)) break; yield return null; }
             if (jer && !jer.Done) { var ag0 = jer.GetComponent<NavMeshAgent>(); Debug.LogWarning($"[Prologue] Jeremy did not arrive: pos {jer.transform.position} onNavMesh {ag0.isOnNavMesh} hasPath {ag0.hasPath} status {ag0.pathStatus} target {hosp.jeremyTalk} start {hosp.jeremyStart}"); var ag = jer.GetComponent<NavMeshAgent>(); if (ag && NavMesh.SamplePosition(hosp.jeremyTalk, out var nh, 4f, NavMesh.AllAreas)) ag.Warp(nh.position); }
             if (jer) { jer.Halt(); jer.Face(hosp.bedFeet); }
             var bedLook = new GameObject("bedLook").transform; bedLook.position = hosp.bedFeet; Destroy(bedLook.gameObject, 600f);
