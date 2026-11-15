@@ -23,7 +23,7 @@ namespace MafiaSandbox.UI
         public readonly List<Quest> Quests = new List<Quest>();
         public int Index { get; private set; }
         public bool AllDone => Index >= Quests.Count;
-        const string Key = "ms_quest_idx_v2";
+        const string Key = "ms_quest_idx_v3";
 
         int crewKills; bool heatSeen, started, phoneSeen; float doneFlash; string doneText; GameObject beacon; PlayerController pc; float startT = -1f;
 
@@ -43,8 +43,17 @@ namespace MafiaSandbox.UI
             var vi = pc.GetComponent<VehicleInteraction>();
             var cm = Gang.CrewManager.I;
             Vector3? Moretti() => mor != null ? mor.HqUnity : (Vector3?)null;
+            // ACT 0 - AFTERMATH: three years in a coma, the family is gone, Jeremy is the only one left.
+            Vector3? JerSpot() => gm.homePosition;
+            bool InHouse() { if (!eco || eco.homeShop == null || !eco.homeShop.info || !pc) return false; var f = eco.homeShop.info.footprint; var p = pc.transform.position; return p.x > f.min.x && p.x < f.max.x && p.z > f.min.z && p.z < f.max.z; }
+            bool slept = false;
+            Quests.Add(new Quest { title = "0. What is left", desc = "Walk into the ruined house. Look around.", reward = 0, target = JerSpot, done = () => InHouse(), sal = null });
+            Quests.Add(new Quest { title = "0. Jeremy's number", desc = "Press T and read Jeremy's message.", reward = 25, done = () => PhonePanel.IsOpen, sal = "jeremy|I know it's a lot. The house is yours, nobody else wants it. Sleep, eat, get your legs back. I'll text you when I've got something." });
+            Quests.Add(new Quest { title = "0. Get your legs back", desc = "Sleep a night in your own bed (inside the house, press F at the bed after 19:30).", reward = 75, done = () => { if (HomeLab.Sleeping) slept = true; return slept && !HomeLab.Sleeping; }, sal = "jeremy|Three years in bed, you need real sleep. The bed in the house still works." });
+            Quests.Add(new Quest { title = "0. Three years of news", desc = "Press T and check Jeremy's message about the war.", reward = 25, done = () => PhonePanel.IsOpen, sal = "jeremy|You want to know who did it? Two families, Morettis and Kaplans, shot up the whole street. Nobody was arrested. Sal knows more. He is the only one who talks." });
+            Quests.Add(new Quest { title = "0. Pay your respects", desc = "Be at the ruined house after dark (20:00 to 05:00).", reward = 50, target = JerSpot, done = () => { var d = DayNightCycle.I; return InHouse() && d && (d.timeOfDay >= 20f || d.timeOfDay < 5f); }, sal = "jeremy|Go home after dark and spend a quiet minute with them. Then call Sal, he is waiting." });
             // ACT I - STREET RAT: your uncle Enzo died owing Sal $6000. Sal fronts you product so you can work it off.
-            Quests.Add(new Quest { title = "I. A message from Sal", desc = "Press T to open your phone.", reward = 50, done = () => PhonePanel.IsOpen, sal = null });
+            Quests.Add(new Quest { title = "I. A message from Sal", desc = "Press T to open your phone.", reward = 50, done = () => PhonePanel.IsOpen, sal = "sal|Heard you woke up. Good. We should talk, kid. Check your phone." });
             Quests.Add(new Quest { title = "I. Wheels", desc = "Get behind the wheel of any car (walk up, press E).", reward = 100, done = () => vi && vi.Current, sal = "Your uncle Enzo left you his debt: $6000. I'm a reasonable man. Work it off. First: get yourself some wheels." });
             Quests.Add(new Quest { title = "I. The starter pack", desc = "Order weed from Sal: K ▸ Supplies. Have 3 baggies in your backpack.", reward = 100, done = () => cm && cm.Stock(0) >= 3 || (cm && cm.Deals >= 1), sal = "Here's the deal: I front you product, you sell it on the street. Open your organisation menu (K) and order some weed." });
             Quests.Add(new Quest { title = "I. First sales", desc = "Sell 3 baggies: walk up to a civilian and press X. Do it where cops can't see.", reward = 150, done = () => cm && cm.Deals >= 3, sal = "Walk up to people, press X. Watch for cops. Witnesses talk, but only a cop who sees you can arrest you." });
@@ -66,7 +75,7 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return; pc = gm.player;
-            if (IntroCinematic.Playing || CharacterCreator.IsOpen) return;
+            if (IntroCinematic.Playing || Prologue.Active || CharacterCreator.IsOpen) return;
             if (!started) { started = true; Build(); startT = Time.time; }
             if (Time.time - startT < 6f) return;   // let the welcome text land first
             if (doneFlash > 0f) doneFlash -= Time.deltaTime;
@@ -79,7 +88,7 @@ namespace MafiaSandbox.UI
                 doneText = q.title; doneFlash = 3f;
                 Index++; PlayerPrefs.SetInt(Key, Index); PlayerPrefs.Save(); heatSeen = false; crewKills = 0;
                 if (AllDone) { gm.Banner("THE CITY IS YOURS", "You're somebody in Port City now.", 5f); PhonePanel.Post("sal", $"{PlayerAppearance.PlayerName}, you did well. There's more work coming. Stay sharp."); }
-                else { var n = Quests[Index]; if (!string.IsNullOrEmpty(n.sal)) PhonePanel.Post("sal", n.sal); }
+                else { var n = Quests[Index]; if (!string.IsNullOrEmpty(n.sal)) { int bar = n.sal.IndexOf('|'); if (bar > 0) PhonePanel.Post(n.sal.Substring(0, bar), n.sal.Substring(bar + 1)); else PhonePanel.Post("sal", n.sal); } }
             }
             SetBeacon(q.target != null ? q.target() : null);
         }
@@ -106,7 +115,7 @@ namespace MafiaSandbox.UI
 
         void OnGUI()
         {
-            if (!started || IntroCinematic.Playing || CharacterCreator.IsOpen || !pc) return;
+            if (!started || IntroCinematic.Playing || Prologue.Active || CharacterCreator.IsOpen || !pc) return;
             float W = Screen.width;
             if (AllDone) return;
             var q = Quests[Index]; var r = new Rect(W - 330, 112, 318, 92);

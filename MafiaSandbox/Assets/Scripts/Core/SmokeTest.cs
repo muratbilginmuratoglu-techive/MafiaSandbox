@@ -37,6 +37,11 @@ namespace MafiaSandbox.Core
             Check("CrewManager", CrewManager.I); Check("JobManager", JobManager.I); Check("HomeLab", HomeLab.I); Check("Stash", Stash.I); Check("ProductionPanel", ProductionPanel.I); Check("CrewPanel", CrewPanel.I);
             Check("StashPanel", StashPanel.I); Check("BreakableProps", BreakableProps.I); Check("QuestManager", QuestManager.I); Check("PhonePanel", PhonePanel.I); Check("NightLife", FindAnyObjectByType<NightLife>());
             Check("Police OFF default", WantedSystem.PoliceOff); yield return null;
+            var hs = Hospital.I; Check("Hospital built", hs);
+            if (hs) { log.AppendLine("  hospital @ " + hs.transform.position + " yaw " + hs.yaw + ", " + Vector3.Distance(hs.transform.position, gm.homePosition).ToString("0") + " m from home");
+                foreach (var (nm, pos) in new[] { ("hospital stand", hs.standPos), ("hospital jeremyTalk", hs.jeremyTalk), ("hospital doorOut", hs.doorOut), ("hospital jeremyStart", hs.jeremyStart) })
+                    Check(nm + " on navmesh", NavMesh.SamplePosition(pos, out var hn, 1.5f, NavMesh.AllAreas), pos.ToString()); }
+            Check("Prologue component", Prologue.I);
             // 2. home props placement
             var lab = HomeLab.I; Check("HomeLab built", lab && lab.Ready);
             if (lab && lab.Ready)

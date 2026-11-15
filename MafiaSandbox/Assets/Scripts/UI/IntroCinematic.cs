@@ -12,7 +12,7 @@ namespace MafiaSandbox.UI
     public class IntroCinematic : MonoBehaviour
     {
         public static IntroCinematic I { get; private set; }
-        public static bool Playing => I && I.playing;
+        public static bool Playing => (I && I.playing) || Prologue.Cinematic;
         public bool enabledAtStart = true;
         bool playing; float t; int shot; float shotT;
         PlayerController pc; PlayerCamera cam; Camera camera;
@@ -33,12 +33,18 @@ namespace MafiaSandbox.UI
             Vector3 ps = gm.policeStationPos != Vector3.zero ? gm.policeStationPos : home + Vector3.forward * 50f;
             shots = new[]
             {
-                new Shot { a = home + new Vector3(40, 55, 40), b = home + new Vector3(-25, 30, 15), look = home + Vector3.up * 2f, dur = 7f, text = "<b>PORT CITY</b>\nThree families. Four crews. One law nobody respects." },
+                new Shot { a = home + new Vector3(40, 55, 40), b = home + new Vector3(-25, 30, 15), look = home + Vector3.up * 2f, dur = 7f, text = "<b>PORT CITY</b>\nThree years ago, the families went to war." },
                 new Shot { a = mh + new Vector3(34, 36, 34), b = mh + new Vector3(-8, 20, 26), look = mh + Vector3.up * 3f, dur = 5.5f, text = "The Morettis hold the west side." },
                 new Shot { a = kh + new Vector3(-34, 36, 34), b = kh + new Vector3(8, 20, 26), look = kh + Vector3.up * 3f, dur = 5.5f, text = "The Kaplans hold the east." },
                 new Shot { a = ps + new Vector3(-20, 14, 20), b = ps + new Vector3(10, 8, 12), look = ps + Vector3.up * 3f, dur = 5.5f, text = "And the police take their cut from both." },
-                new Shot { a = home + new Vector3(9, 3.5f, 9), b = home + new Vector3(4, 2.2f, 5), look = home + Vector3.up * 1.3f, dur = 8f, text = "You? An empty pocket and a derelict house.\nTime to make a name for yourself." },
+                new Shot { a = home + new Vector3(9, 3.5f, 9), b = home + new Vector3(4, 2.2f, 5), look = home + Vector3.up * 1.3f, dur = 8f, text = "Your family was caught in the middle.\nYou went under, and nobody came home." },
             };
+            if (MafiaSandbox.World.Hospital.I)
+            {
+                var hp = MafiaSandbox.World.Hospital.I.transform.position; var hs = new System.Collections.Generic.List<Shot>(shots);
+                hs.Add(new Shot { a = hp + new Vector3(-22, 14, 26), b = hp + new Vector3(-10, 8, 20), look = hp + Vector3.up * 3f, dur = 6f, text = "Three years later, you open your eyes." });
+                shots = hs.ToArray();
+            }
             playing = true; shot = 0; shotT = 0f; t = 0f;
             cam.enabled = false; pc.InputLocked = true; Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
         }

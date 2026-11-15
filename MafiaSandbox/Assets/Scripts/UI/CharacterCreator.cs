@@ -55,12 +55,14 @@ namespace MafiaSandbox.UI
             if (cam) { cam.enabled = camWasEnabled; cam.SetYaw(pc.transform.eulerAngles.y); }
             if (camera) camera.fieldOfView = oldFov;
             pc.InputLocked = false;   // GameUI.ApplyLock re-locks the cursor when Blocking ends
-            if (save) GameManager.I?.Say(midGame ? $"Looking good, {look.name}." : $"Welcome to town, {look.name}. Press H for controls, T for your phone.");
+            if (save && !midGame && Prologue.I && MafiaSandbox.World.Hospital.I) Prologue.I.Begin();
+            else if (save) GameManager.I?.Say(midGame ? $"Looking good, {look.name}." : $"Welcome to town, {look.name}. Press H for controls, T for your phone.");
         }
 
         void Update()
         {
             if (!Open || !pc || !camera) return;
+            if (Input.GetKeyDown(KeyCode.F10)) { Finish(true); return; }   // dev shortcut: start without clicking
             float dt = Time.unscaledDeltaTime;
             zoomT = Mathf.MoveTowards(zoomT, zoomGoal, dt * 2.5f); float k = Mathf.SmoothStep(0f, 1f, zoomT);
             // frame the character: full body or face close-up, shifted so the character sits right of the panel

@@ -253,6 +253,7 @@ namespace MafiaSandbox.EditorTools
                 var lo = Coords.ToUnityXZ(b.min[0], b.min[1]); var hi = Coords.ToUnityXZ(b.max[0], b.max[1]);
                 var fl = Vector3.Min(lo, hi); var fh = Vector3.Max(lo, hi); fh.y = center.y + Mathf.Abs(b.size != null && b.size.Length > 2 ? b.size[2] : 3.5f);
                 bi.footprint = new Bounds((fl + fh) * 0.5f, fh - fl);
+                Interiors.Furnish(go.transform, b, b.kind);
             }
 
             // --- road & pedestrian graphs
@@ -337,6 +338,22 @@ namespace MafiaSandbox.EditorTools
             foreach (var p in city.props) if (p.name == "Insaat_Bina") spawner.gangCenter = Coords.ToUnity(p.pos);
             if (spawner.gangCenter == Vector3.zero) spawner.gangCenter = Coords.ToUnity(25f, 0f, -104f);
 
+            // --- hospital: a clear lot facing a road (props / loose colliders on it are removed), built before the navmesh bake
+            {
+                var bl = new List<Bounds>(); foreach (var b2 in bRoot.GetComponentsInChildren<BuildingInfo>()) bl.Add(b2.footprint);
+                var clear = new List<Collider>();
+                if (MafiaSandbox.World.Hospital.FindSite(graph, homePos, bl, out var hp, out var hyaw, clear))
+                {
+                    var hrot = Quaternion.Euler(0f, hyaw, 0f); var hinv = Quaternion.Inverse(hrot);
+                    foreach (var c in clear) if (c) Object.DestroyImmediate(c.gameObject);
+                    var kill = new List<GameObject>(); foreach (Transform t in propsRoot) { var l = hinv * (t.position - hp); if (Mathf.Abs(l.x) < 10.8f && l.z > -8.2f && l.z < 13.8f) kill.Add(t.gameObject); }
+                    foreach (var k in kill) Object.DestroyImmediate(k);
+                    MafiaSandbox.World.Hospital.Build(world, hp, hyaw);
+                    Debug.Log($"[MafiaSandbox] Hospital at {hp} yaw {hyaw:0}, {Vector3.Distance(hp, homePos):0} m from home; cleared {kill.Count} props.");
+                }
+                else Debug.LogWarning("[MafiaSandbox] No clear lot found for the hospital.");
+            }
+
             // --- navmesh: baked from the physics colliders on the Default layer (ground/roads/bridges mesh + wall boxes); vehicles carve at runtime
             var navGo = new GameObject("NavMesh"); navGo.transform.SetParent(world, false);
             // road surfaces get NavMesh area 3 ("Road"): pedestrians pay a high cost there (NpcBrain), so routes follow the
@@ -382,7 +399,7 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>(); gm.gameObject.AddComponent<IntroCinematic>(); gm.gameObject.AddComponent<CharacterCreator>(); gm.gameObject.AddComponent<QuestManager>(); gm.gameObject.AddComponent<PhonePanel>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.CrewManager>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.JobManager>(); gm.gameObject.AddComponent<CrewPanel>(); gm.gameObject.AddComponent<MafiaSandbox.Economy.Stash>(); gm.gameObject.AddComponent<StashPanel>(); gm.gameObject.AddComponent<MafiaSandbox.Economy.HomeLab>(); gm.gameObject.AddComponent<ProductionPanel>(); gm.gameObject.AddComponent<MafiaSandbox.World.NightLife>(); gm.gameObject.AddComponent<SmokeTest>(); gm.gameObject.AddComponent<MafiaSandbox.World.BreakableProps>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<Prologue>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>(); gm.gameObject.AddComponent<IntroCinematic>(); gm.gameObject.AddComponent<CharacterCreator>(); gm.gameObject.AddComponent<QuestManager>(); gm.gameObject.AddComponent<PhonePanel>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.CrewManager>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.JobManager>(); gm.gameObject.AddComponent<CrewPanel>(); gm.gameObject.AddComponent<MafiaSandbox.Economy.Stash>(); gm.gameObject.AddComponent<StashPanel>(); gm.gameObject.AddComponent<MafiaSandbox.Economy.HomeLab>(); gm.gameObject.AddComponent<ProductionPanel>(); gm.gameObject.AddComponent<MafiaSandbox.World.NightLife>(); gm.gameObject.AddComponent<SmokeTest>(); gm.gameObject.AddComponent<MafiaSandbox.World.BreakableProps>();
             var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();

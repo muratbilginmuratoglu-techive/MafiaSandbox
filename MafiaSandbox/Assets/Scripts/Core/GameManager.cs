@@ -16,7 +16,7 @@ namespace MafiaSandbox.Core
         public PlayerController player;
         public PlayerCamera playerCamera;
         public VehicleController playerCar;
-        public Vector3 homePosition;
+        public Vector3 homePosition; int dbgBuilding = -1;
         public float homeYaw;
         public Vector3 policeStationPos;
 
@@ -47,7 +47,7 @@ namespace MafiaSandbox.Core
         {
             if (player) { playerBody = player.GetComponent<CharacterBody>(); if (playerBody) { playerBody.OnDeath += OnPlayerDeath; playerBody.OnHit += (b, z, p) => PlayerHurt(); } }
             WorldEvents.OnCharacterDied += OnSomeoneDied;
-            Say("Ready. Home sweet derelict home. Press H for controls.");
+            if (!MafiaSandbox.World.Hospital.I) Say("Ready. Home sweet derelict home. Press H for controls.");
         }
 
         static string NameOf(CharacterBody b) { var n = b.GetComponent<NpcBrain>(); return n ? n.displayName : b.name; }
@@ -118,6 +118,13 @@ namespace MafiaSandbox.Core
                     float yaw = Mathf.Atan2(-toDoor.x, -toDoor.z) * Mathf.Rad2Deg;
                     player.Teleport(p, yaw); if (playerCamera) playerCamera.SetYaw(yaw); Say($"Debug: {bi.label}");
                 }
+            }
+            if (Input.GetKeyDown(KeyCode.F9) && player && BuildingInfo.All.Count > 0)   // dev: hop to the next building's doorway
+            {
+                dbgBuilding = (dbgBuilding + 1) % BuildingInfo.All.Count; var bi = BuildingInfo.All[dbgBuilding]; var c = bi.footprint.center; c.y = bi.door.y;
+                var inward = c - bi.door; inward.y = 0f; inward = inward.sqrMagnitude < 0.01f ? Vector3.forward : inward.normalized;
+                player.Teleport(bi.door + inward * 1.6f, Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg); if (playerCamera) playerCamera.SetYaw(Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg);
+                Say($"[F9] {bi.kind}: {bi.label}");
             }
             if (Input.GetKeyDown(KeyCode.F3)) { var sb = new System.Text.StringBuilder("[Traffic]\n"); if (player) sb.Append("PLAYER @").Append(player.transform.position.ToString("F2")).Append(" home=").Append(homePosition.ToString("F2")).Append(" station=").Append(policeStationPos.ToString("F1")).Append('\n'); foreach (var d in FindObjectsByType<MafiaSandbox.Vehicles.TrafficDriver>(FindObjectsSortMode.None)) sb.Append(d.name).Append(" @").Append(d.transform.position.ToString("F1")).Append(" yaw").Append(d.transform.eulerAngles.y.ToString("F0")).Append("  ").Append(d.State).Append("  rbv").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().RbVelocity.magnitude.ToString("F1")).Append(" contact(").Append((Time.time - d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContactT).ToString("F0")).Append("s ago) ").Append(d.GetComponent<MafiaSandbox.Vehicles.VehicleController>().LastContact).Append('\n'); foreach (var pv in FindObjectsByType<MafiaSandbox.Vehicles.VehicleController>(FindObjectsSortMode.None)) if (pv.isPlayerCar) sb.Append("PLAYER CAR ").Append(pv.name).Append(" @").Append(pv.transform.position.ToString("F2")).Append(" yaw").Append(pv.transform.eulerAngles.y.ToString("F0")).Append(" speed").Append(pv.Speed.ToString("F1")).Append(" rbv").Append(pv.RbVelocity.ToString("F2")).Append(" controlled=").Append(pv.Controlled).Append(" contact(").Append((Time.time - pv.LastContactT).ToString("F0")).Append("s ago) ").Append(pv.LastContact).Append(" ground=").Append(pv.DebugGround).Append('\n');
                 System.IO.File.WriteAllText(System.IO.Path.Combine(Application.dataPath, "..", "traffic_dump.txt"), sb.ToString()); Debug.Log(sb.ToString()); }   // F3: dump traffic state to the console

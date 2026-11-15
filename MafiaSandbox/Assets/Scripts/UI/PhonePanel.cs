@@ -43,7 +43,7 @@ namespace MafiaSandbox.UI
             if (built) return; built = true;
             string Num(string s) { int h = 0; foreach (var ch in s) h = h * 31 + ch; return "555-" + (Mathf.Abs(h) % 9000 + 1000); }
             Contact Add(string id, string name, string role, string kind, Color col, FactionDef f = null, Shop sh = null) { var c = new Contact { id = id, name = name, role = role, kind = kind, color = col, number = Num(id), faction = f, shop = sh }; contacts.Add(c); return c; }
-            mom = Add("mom", "Mom", "Family", "mom", new Color(0.95f, 0.55f, 0.65f));
+            mom = Add("jeremy", "Jeremy", "Old friend", "mom", new Color(0.55f, 0.75f, 0.95f));
             sal = Add("sal", "Sal \"The Fixer\"", "Knows people", "fixer", UiSkin.Accent);
             police = Add("police", "Police Station", "Emergency", "police", UiSkin.Blue);
             foreach (var f in FactionDefs.All) Add(f.id, f.name, f.kind == FactionKind.Mafia ? "Family" : "Gang", "crew", f.color, f);
@@ -214,7 +214,7 @@ namespace MafiaSandbox.UI
             GUILayout.EndHorizontal();
         }
 
-        static string[] QuickReplies(Contact c) => c.kind == "shop" ? new[] { "Are you open?", "Got any deals?" } : c.kind == "crew" ? new[] { "Just passing", "Back off" } : c.kind == "police" ? new[] { "Wrong number", "Any news?" } : c.kind == "fixer" ? new[] { "Any heat?", "Need a favour" } : new[] { "I'm fine", "Love you" };
+        static string[] QuickReplies(Contact c) => c.kind == "shop" ? new[] { "Are you open?", "Got any deals?" } : c.kind == "crew" ? new[] { "Just passing", "Back off" } : c.kind == "police" ? new[] { "Wrong number", "Any news?" } : c.kind == "fixer" ? new[] { "Any heat?", "Need a favour" } : new[] { "I'm fine", "Thanks, Jeremy" };
 
         void Send(Conversation cv, string text)
         {
@@ -227,7 +227,7 @@ namespace MafiaSandbox.UI
             string me = PlayerAppearance.PlayerName; int wl = WantedSystem.I ? WantedSystem.I.Level : 0;
             switch (c.kind)
             {
-                case "mom": return Pick($"Eat something, {me}.", "Call your mother more often.", "Be careful out there. This city eats people.", "I made soup. Come by.");
+                case "mom": return Pick($"You eating, {me}? Don't forget to eat.", "Three years you were gone. I'm not losing you again.", "Be careful out there. This city eats people.", "Need a place to crash, my couch is yours.");
                 case "fixer": return wl > 0 ? $"Heat is {new string('★', wl)} right now. Stay off the main roads and wait it out." : Pick("Quiet at the moment. Enjoy it.", "Nothing on my radar. Check back later.", "I hear the crews are tense lately. Mind your manners.");
                 case "police": return wl > 0 ? "We know who this is. Turn yourself in." : Pick("This line is for emergencies only.", "Nothing to report. Don't call here again.", "Station's quiet. Keep it that way.");
                 case "crew": { float rep = FactionManager.I ? FactionManager.I.Rep(c.faction) : 0f; string st = FactionManager.Standing(rep); return st == "hostile" ? "You've got nerve texting us. Don't come around." : st == "unfriendly" ? "We're watching you. Keep your distance." : st == "neutral" ? Pick("We don't know you. Don't make us.", "Stay out of our business, we stay out of yours.") : "You're alright with us. Come by anytime."; }
@@ -242,7 +242,7 @@ namespace MafiaSandbox.UI
         {
             Header("Contacts", Page.Home);
             scrollList = GUILayout.BeginScrollView(scrollList);
-            string[] groups = { "mom", "fixer", "police", "crew", "shop" }; string[] names = { "FAMILY", "FRIENDS", "EMERGENCY", "CREWS", "SHOPS" };
+            string[] groups = { "mom", "fixer", "police", "crew", "shop" }; string[] names = { "OLD FRIEND", "FIXER", "EMERGENCY", "CREWS", "SHOPS" };
             for (int g = 0; g < groups.Length; g++)
             {
                 bool any = false;
