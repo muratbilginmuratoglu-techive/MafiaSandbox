@@ -29,10 +29,11 @@ namespace MafiaSandbox.UI
 
         void Awake() { I = this; }
 
+        float beganAt, cinSince;
         public void Begin()
         {
             if (Active) return; hosp = Hospital.I; var gm = GameManager.I; if (!hosp || !gm || !gm.player) return;
-            run = StartCoroutine(Run());
+            beganAt = cinSince = Time.unscaledTime; run = StartCoroutine(Run());
         }
 
         void Update()
@@ -40,7 +41,11 @@ namespace MafiaSandbox.UI
             if (Active) { var dn0 = DayNightCycle.I; if (dn0) dn0.timeOfDay = 8.6f; }   // time stands still while the story plays
             if (!Active) { if (Input.GetKeyDown(KeyCode.F7) && !CharacterCreator.IsOpen && !IntroCinematic.Playing) Begin(); return; }
             if (Input.GetKeyDown(KeyCode.F8) && objective != null && car && pc) { pc.Teleport(car.transform.position + car.transform.right * -2.2f, hosp.yaw); Debug.Log("[Prologue] F8 teleport to car " + car.transform.position); }   // dev: jump to the car
-            if (Input.GetKeyDown(KeyCode.Backspace)) { if (run != null) StopCoroutine(run); StopAllCoroutines(); Cleanup(); }
+            if (Time.timeScale < 0.01f) Time.timeScale = 1f;   // nothing in the story may freeze time
+            if (!Cinematic) cinSince = Time.unscaledTime;
+            bool stuck = Cinematic && Time.unscaledTime - cinSince > 100f;   // a cutscene that never ends must not trap the player
+            if (stuck) Debug.LogWarning("[Prologue] cutscene watchdog: skipping the prologue");
+            if (stuck || Input.GetKeyDown(KeyCode.Backspace)) { if (run != null) StopCoroutine(run); StopAllCoroutines(); Cleanup(); }
         }
 
         void LateUpdate()
@@ -55,14 +60,14 @@ namespace MafiaSandbox.UI
 
         // ------------------------------------------------------------------ helpers
         IEnumerator FadeTo(float a, float d) { float s = fade, t = 0f; while (t < d) { t += Time.unscaledDeltaTime; fade = Mathf.Lerp(s, a, Mathf.SmoothStep(0f, 1f, t / d)); yield return null; } fade = a; }
-        IEnumerator Wait(float s) { float t = 0f; while (t < s) { t += Time.deltaTime; yield return null; } }
+        IEnumerator Wait(float s) { float t = 0f; while (t < s) { t += Time.unscaledDeltaTime; yield return null; } }
         void Cam(Vector3 pos, Vector3 look, bool snap = false, Transform target = null) { camPos = pos; camLook = look; lookTarget = target; camOn = true; if (snap) camSnap = true; }
         IEnumerator Line(string who, string text, Transform look = null)
         {
             subWho = who; subText = text; subUntil = float.MaxValue; if (look) { lookTarget = look; }
             if (who == "Jeremy" && jer) jer.Talk(true);
             float t = 0f, auto = 3.2f + text.Length * 0.045f;
-            while (true) { t += Time.deltaTime; if (t > 0.7f && (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetMouseButtonDown(0))) break; if (t > auto) break; yield return null; }
+            while (true) { t += Time.unscaledDeltaTime; if (t > 0.7f && (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetMouseButtonDown(0))) break; if (t > auto) break; yield return null; }
             if (jer) jer.Talk(false); subText = null; subUntil = 0f; yield return Wait(0.25f);
         }
         void Sub(string who, string text, float secs) { subWho = who; subText = text; subUntil = Time.unscaledTime + secs; }
@@ -103,7 +108,7 @@ namespace MafiaSandbox.UI
             if (sp && prefab) { jer = sp.Spawn<JeremyBrain>(prefab, hosp.jeremyStart, hosp.yaw + 180f); jer.displayName = "Jeremy"; }
             Cam(hosp.W(7.6f, 2.5f, -6.3f), hosp.W(-2f, 1.2f, -2f), true);
             if (jer) { jer.WalkTo(hosp.jeremyTalk); lookTarget = jer.transform; }
-            float wt = 0f; while (jer && !jer.Done && wt < 28f) { wt += Time.deltaTime; yield return null; }
+            float wt = 0f; while (jer && !jer.Done && wt < 28f) { wt += Time.unscaledDeltaTime; yield return null; }
             if (jer && !jer.Done) { var ag0 = jer.GetComponent<NavMeshAgent>(); Debug.LogWarning($"[Prologue] Jeremy did not arrive: pos {jer.transform.position} onNavMesh {ag0.isOnNavMesh} hasPath {ag0.hasPath} status {ag0.pathStatus} target {hosp.jeremyTalk} start {hosp.jeremyStart}"); var ag = jer.GetComponent<NavMeshAgent>(); if (ag && NavMesh.SamplePosition(hosp.jeremyTalk, out var nh, 4f, NavMesh.AllAreas)) ag.Warp(nh.position); }
             if (jer) { jer.Halt(); jer.Face(hosp.bedFeet); }
             var bedLook = new GameObject("bedLook").transform; bedLook.position = hosp.bedFeet; Destroy(bedLook.gameObject, 600f);
