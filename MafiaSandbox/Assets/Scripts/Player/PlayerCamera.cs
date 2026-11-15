@@ -13,6 +13,8 @@ namespace MafiaSandbox.Player
         /// same distance is the same picture as the unscaled world seen from 1/ViewScale of that distance. 1 = original look.
         /// </summary>
         public static float ViewScale = 1.5f;
+        /// <summary>While aiming the camera comes in less than the free view does (1 = fully scaled, ViewScale = not at all).</summary>
+        static float AimBackoff => Mathf.Sqrt(ViewScale);
         public Transform target;                 // player root
         public Vector3 pivotOffset = new Vector3(0f, 1.6f, 0f);
         public float distance = 4.5f;
@@ -83,7 +85,7 @@ namespace MafiaSandbox.Player
             // indoors (shop / house footprint): tighter camera, slightly from above, so the walls and the low ceiling don't squeeze it
             bool indoor = target && !vehicleTarget && (MafiaSandbox.World.BuildingInfo.At(target.position) != null || MafiaSandbox.World.Hospital.Inside(target.position) || MafiaSandbox.World.PoliceAnnex.Inside(target.position));
             Indoors = indoor;
-            curDist = Mathf.Lerp(curDist, Aiming ? aimDistance : indoor ? indoorDistance : distance, 1f - Mathf.Exp(-12f * dt));
+            curDist = Mathf.Lerp(curDist, Aiming ? aimDistance * AimBackoff : indoor ? indoorDistance : distance, 1f - Mathf.Exp(-12f * dt));
             curShoulder = Mathf.Lerp(curShoulder, Aiming ? aimShoulder : shoulder, 1f - Mathf.Exp(-12f * dt));
             if (vehicleTarget) { FollowVehicle(); return; }
             if (!target) return;
@@ -91,7 +93,7 @@ namespace MafiaSandbox.Player
             var rot = Quaternion.Euler(pitch - kick, yaw + kickYaw, 0f);
             // indoors the camera body stays slightly above the player (walls/ceiling/floor), but the view can still tilt up freely
             var posRot = indoor ? Quaternion.Euler(Mathf.Max(pitch, 6f) - kick, yaw + kickYaw, 0f) : rot;
-            Vector3 pivot = target.position + pivotOffset / ViewScale;
+            Vector3 pivot = target.position + pivotOffset;
 
             if (FirstPerson)
             {
@@ -116,7 +118,7 @@ namespace MafiaSandbox.Player
         void FollowVehicle()
         {
             var rot = Quaternion.Euler(pitch, yaw, 0f);
-            Vector3 pivot = vehicleTarget.position + Vector3.up * (1.2f / ViewScale);
+            Vector3 pivot = vehicleTarget.position + Vector3.up * 1.2f;
             Vector3 desired = pivot + rot * new Vector3(0f, vehicleHeight * 0.35f, -vehicleDistance) / ViewScale + Vector3.up * (vehicleHeight * 0.4f / ViewScale);
             Vector3 dir = desired - pivot; float len = dir.magnitude;
             if (Physics.SphereCast(pivot, 0.3f / ViewScale, dir / len, out var hit, len, collisionMask, QueryTriggerInteraction.Ignore))
