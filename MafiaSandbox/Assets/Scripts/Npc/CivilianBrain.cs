@@ -35,7 +35,7 @@ namespace MafiaSandbox.Npc
         }
 
         protected override void OnHit(string zone, Vector3 point) { StartFlee(point); scared = 1f; }
-        public override void Honk(Vector3 carPos, Vector3 carForward) { if (State == "dead" || dummy) return; if (State == "flee" || State == "hide" || State == "tohide") base.Honk(carPos, carForward); else StartFlee(carPos); }
+        public override void Honk(Vector3 carPos, Vector3 carForward) { if (State == "dead" || dummy) return; if (!OnRoad() && State != "flee" && State != "hide" && State != "tohide") { lookAt = carPos; return; } if (State == "flee" || State == "hide" || State == "tohide") base.Honk(carPos, carForward); else StartFlee(carPos); }
 
         void StartFlee(Vector3 from)
         {
@@ -63,7 +63,7 @@ namespace MafiaSandbox.Npc
             reactT -= 0.05f; bodyMemo -= 0.05f; if (reactT > 0f) return; reactT = Random.Range(0.25f, 0.4f);
             var pos = transform.position;
             // 1. cars: get out of the way (and glance back at reckless drivers)
-            if (State != "flee" && State != "tohide" && State != "hide" && State != "dodge")
+            if (State != "flee" && State != "tohide" && State != "hide" && State != "dodge" && OnRoad())   // on the pavement they simply stand: nobody throws themselves into the road
                 foreach (var v in VehicleController.All)
                 {
                     if (!v || Mathf.Abs(v.Speed) < 2.5f) continue; Vector3 rel = pos - v.transform.position; rel.y = 0f; float d = rel.magnitude; if (d > 11f) continue;
@@ -71,7 +71,8 @@ namespace MafiaSandbox.Npc
                     float lat = Vector3.Dot(v.transform.right, rel); if (Mathf.Abs(lat) > 2.6f) continue;                     // not in its lane
                     Vector3 side = v.transform.right * (lat >= 0f ? 1f : -1f);
                     bool fast = Mathf.Abs(v.Speed) > 9f;
-                    if (GoTo(pos + side * (fast ? 3.6f : 2.4f) + dir * 0.5f, fast ? runSpeed : walkSpeed * 1.5f)) { SetState("dodge"); scared = Mathf.Max(scared, fast ? 0.4f : 0f); if (fast && Random.value < 0.5f) { lookAt = null; } }
+                    Vector3 dt2 = pos + side * (fast ? 3.6f : 2.4f) + dir * 0.5f; if (OffRoadPoint(dt2, 12f, out var safeP)) dt2 = safeP;
+                    if (GoTo(dt2, fast ? runSpeed : walkSpeed * 1.5f)) { SetState("dodge"); scared = Mathf.Max(scared, fast ? 0.4f : 0f); if (fast && Random.value < 0.5f) { lookAt = null; } }
                     return;
                 }
             // 2. dead bodies nearby
@@ -170,6 +171,9 @@ namespace MafiaSandbox.Npc
                     break;
             }
             scared = Mathf.Max(0f, scared - 0.2f * 0.05f);
+            // never loiter on the carriageway: if a calm NPC is standing still on the road, walk to the nearest pavement
+            if ((State == "wait" || State == "chat" || State == "watch" || State == "look" || State == "handsup" || State == "cautious" || State == "wander") && !Moving && OnRoad() && OffRoadPoint(transform.position, 14f, out var pave))
+            { idleClip = "Idle"; if (GoTo(pave, walkSpeed * 1.3f)) SetState("cautious"); }
             React();
 
             // medics look for work

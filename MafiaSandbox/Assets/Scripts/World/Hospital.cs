@@ -103,7 +103,7 @@ namespace MafiaSandbox.World
         {
             var g = new GameObject("Label_" + text); g.transform.SetParent(transform, false); g.transform.localPosition = lp; g.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.fontSize = 64; tm.characterSize = size; tm.color = col;
-            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; g.GetComponent<MeshRenderer>().sharedMaterial = f.material; }
+            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; var lm = new Material(Shader.Find("Sprites/Default")); lm.mainTexture = f.material.mainTexture; g.GetComponent<MeshRenderer>().sharedMaterial = lm; }   // depth-tested (the stock text shader draws through walls)
         }
 
         /// <summary>Doctor's wing behind the ward (doctor's office left, treatment room right), plus the signs that make the lobby read as a check-in.</summary>
@@ -113,9 +113,9 @@ namespace MafiaSandbox.World
             float zb = -6.825f - EXT + 0.25f;   // inner face of the back wall
             // signs
             Box("CheckInBoard", new Vector3(-8.62f, 2.45f, 3.6f), new Vector3(0.06f, 0.55f, 3.0f), blueSign, false); Label("CHECK-IN", new Vector3(-8.57f, 2.45f, 3.6f), 0.12f, Color.white, 270f);
-            Box("DoctorBoard", new Vector3(-7.8f, 2.95f, -6.62f), new Vector3(1.5f, 0.4f, 0.04f), green, false, false, true); Label("DOCTOR", new Vector3(-7.8f, 2.95f, -6.65f), 0.07f, Color.white);
-            Box("TreatBoard", new Vector3(7.6f, 2.95f, -6.62f), new Vector3(1.9f, 0.4f, 0.04f), green, false, false, true); Label("TREATMENT", new Vector3(7.6f, 2.95f, -6.65f), 0.07f, Color.white);
-            Label("WAITING AREA", new Vector3(6.2f, 2.6f, 6.6f), 0.08f, new Color(0.15f, 0.3f, 0.5f));
+            Box("DoctorBoard", new Vector3(-7.8f, 2.95f, -6.62f), new Vector3(1.5f, 0.4f, 0.04f), green, false, false, true); Label("DOCTOR", new Vector3(-7.8f, 2.95f, -6.58f), 0.07f, Color.white);
+            Box("TreatBoard", new Vector3(7.6f, 2.95f, -6.62f), new Vector3(1.9f, 0.4f, 0.04f), green, false, false, true); Label("TREATMENT", new Vector3(7.6f, 2.95f, -6.58f), 0.07f, Color.white);
+            Label("WAITING AREA", new Vector3(6.2f, 2.6f, 6.62f), 0.08f, new Color(0.15f, 0.3f, 0.5f), 0f);
             // windows on the side walls of the wing
             Box("WindowWingL", new Vector3(-9.02f, 1.9f, -9.3f), new Vector3(0.06f, 1.4f, 2.2f), glass, false); Box("WindowWingR", new Vector3(9.02f, 1.9f, -9.3f), new Vector3(0.06f, 1.4f, 2.2f), glass, false);
             // ---- doctor's office (x -8.65 .. -0.15)

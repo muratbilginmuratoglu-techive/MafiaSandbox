@@ -151,8 +151,102 @@ namespace MafiaSandbox.EditorTools
                 case "police": Police(c); break;
                 default: Shop(c, new[] { Grey, Blue }, false, false); break;
             }
+            Detail(c, kind, b.label);
             Lights(c, kind == "home");
             Debug.Log($"[MafiaSandbox] Interior {b.name}: {c.made} pieces.");
+        }
+
+
+        // ------------------------------------------------------------------ shared detail layer: trim, floor, signs, safety kit, per-kind extras
+        static Material labelMat;
+        static void Sign(Ctx c, string text, Vector3 lp, float size, Color col, float yaw)
+        {
+            var g = new GameObject("Label_" + text); g.transform.SetParent(c.root, false); g.transform.localPosition = lp; g.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.fontSize = 64; tm.characterSize = size; tm.color = col;
+            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; if (!labelMat) { labelMat = new Material(Shader.Find("Sprites/Default")) { name = "InteriorLabel" }; labelMat.mainTexture = f.material.mainTexture; } g.GetComponent<MeshRenderer>().sharedMaterial = labelMat; }
+        }
+        static Transform Cyl(GameObject p, string n, float x, float y, float z, float dia, float h, Color col, bool glow = false)
+        {
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = n; g.transform.SetParent(p.transform, false); g.transform.localPosition = new Vector3(x, y, z); g.transform.localScale = new Vector3(dia, h * 0.5f, dia);
+            Object.DestroyImmediate(g.GetComponent<Collider>()); g.GetComponent<Renderer>().sharedMaterial = M(col, glow); g.isStatic = true; return g.transform;
+        }
+        static Build Fridge() => p => { B(p, "Body", 0f, 0.95f, 0f, 0.8f, 1.9f, 0.7f, White); B(p, "Glass", 0f, 0.95f, 0.355f, 0.7f, 1.7f, 0.02f, Glass); B(p, "Glow", 0f, 0.95f, 0.37f, 0.62f, 1.6f, 0.005f, C(0.8f, 0.95f, 1f), true); for (int i = 0; i < 4; i++) B(p, "Shelf", 0f, 0.35f + i * 0.4f, 0.3f, 0.62f, 0.03f, 0.05f, Steel); };
+        static Build Kitchen() => p => { B(p, "Base", 0f, 0.45f, 0f, 1.8f, 0.9f, 0.6f, White); B(p, "Top", 0f, 0.92f, 0f, 1.84f, 0.05f, 0.64f, C(0.35f, 0.3f, 0.27f)); B(p, "Sink", -0.4f, 0.94f, 0f, 0.6f, 0.04f, 0.4f, Steel); B(p, "Tap", -0.4f, 1.08f, -0.2f, 0.04f, 0.3f, 0.04f, Steel); B(p, "Hob", 0.5f, 0.95f, 0f, 0.55f, 0.02f, 0.45f, Char); B(p, "Cupboard", 0f, 1.9f, -0.2f, 1.8f, 0.6f, 0.3f, Wood); };
+        static Build Tv() => p => { B(p, "Stand", 0f, 0.25f, 0f, 1.3f, 0.5f, 0.45f, DarkWood); B(p, "Body", 0f, 0.95f, 0f, 1.1f, 0.65f, 0.06f, Char); B(p, "Screen", 0f, 0.95f, 0.035f, 1.0f, 0.56f, 0.01f, C(0.12f, 0.2f, 0.28f), true); B(p, "Foot", 0f, 0.55f, 0f, 0.3f, 0.1f, 0.15f, Char); };
+        static Build WineRack() => p => { B(p, "Frame", 0f, 0.9f, 0f, 1.4f, 1.8f, 0.35f, DarkWood); for (int r = 0; r < 5; r++) for (int k = 0; k < 4; k++) B(p, "Bottle", -0.5f + k * 0.33f, 0.3f + r * 0.32f, 0.12f, 0.12f, 0.12f, 0.3f, k % 2 == 0 ? Green * 0.6f : C(0.35f, 0.08f, 0.12f)); };
+        static Build Basket() => p => { for (int i = 0; i < 3; i++) { B(p, "Basket", 0f, 0.12f + i * 0.17f, 0f, 0.45f, 0.16f, 0.32f, Red); B(p, "Handle", 0f, 0.24f + i * 0.17f, 0f, 0.3f, 0.02f, 0.03f, Steel); } };
+        static Build BarberPole() => p => { B(p, "Cap", 0f, 1.55f, 0f, 0.2f, 0.06f, 0.2f, Steel); for (int i = 0; i < 6; i++) B(p, "Stripe", 0f, 0.35f + i * 0.2f, 0f, 0.16f, 0.1f, 0.16f, i % 2 == 0 ? Red : White); B(p, "Glass", 0f, 0.95f, 0f, 0.2f, 1.2f, 0.2f, Glass); };
+        static Build Vault() => p => { B(p, "Frame", 0f, 1.25f, 0f, 2.2f, 2.4f, 0.12f, C(0.25f, 0.27f, 0.3f)); Cyl(p, "Door", 0f, 1.25f, 0.08f, 1.7f, 0.1f, Steel).localRotation = Quaternion.Euler(90f, 0f, 0f); Cyl(p, "Wheel", 0f, 1.25f, 0.16f, 0.6f, 0.06f, Gold).localRotation = Quaternion.Euler(90f, 0f, 0f); B(p, "SpokeA", 0f, 1.25f, 0.2f, 0.7f, 0.06f, 0.04f, Gold); B(p, "SpokeB", 0f, 1.25f, 0.2f, 0.06f, 0.7f, 0.04f, Gold); };
+
+        static void Detail(Ctx c, string kind, string label)
+        {
+            bool house = kind == "house", ruin = kind == "home";
+            Color accent; Color fa, fb;
+            switch (kind)
+            {
+                case "market": accent = Green; fa = C(0.78f, 0.78f, 0.74f); fb = C(0.72f, 0.74f, 0.7f); break;
+                case "cafe": accent = C(0.5f, 0.3f, 0.2f); fa = C(0.55f, 0.4f, 0.28f); fb = C(0.5f, 0.35f, 0.24f); break;
+                case "pharmacy": accent = C(0.2f, 0.6f, 0.5f); fa = C(0.88f, 0.92f, 0.92f); fb = C(0.82f, 0.88f, 0.88f); break;
+                case "gun": accent = C(0.55f, 0.15f, 0.12f); fa = C(0.35f, 0.35f, 0.36f); fb = C(0.3f, 0.3f, 0.31f); break;
+                case "pawn": accent = Gold * 0.8f; fa = C(0.45f, 0.36f, 0.26f); fb = C(0.4f, 0.32f, 0.23f); break;
+                case "restaurant": accent = C(0.5f, 0.12f, 0.16f); fa = C(0.62f, 0.5f, 0.38f); fb = C(0.56f, 0.45f, 0.34f); break;
+                case "jeweler": accent = C(0.4f, 0.22f, 0.55f); fa = C(0.85f, 0.83f, 0.8f); fb = C(0.78f, 0.76f, 0.74f); break;
+                case "barber": accent = Blue; fa = C(0.88f, 0.88f, 0.9f); fb = C(0.2f, 0.2f, 0.24f); break;
+                case "bank": accent = C(0.18f, 0.3f, 0.55f); fa = C(0.75f, 0.74f, 0.7f); fb = C(0.68f, 0.67f, 0.63f); break;
+                case "police": accent = C(0.18f, 0.28f, 0.6f); fa = C(0.6f, 0.62f, 0.66f); fb = C(0.55f, 0.57f, 0.61f); break;
+                default: accent = Cream * 0.8f; fa = C(0.6f, 0.5f, 0.4f); fb = C(0.55f, 0.46f, 0.37f); break;
+            }
+            var g = Pc(c, "Trim", Vector3.zero, Vector3.forward); float W2 = c.hx * 2f, D2 = c.hz * 2f; float gapL = c.doorX - 1.3f, gapR = c.doorX + 1.3f;
+            // skirting boards, crown moulding and a coloured dado band round the walls (the front wall leaves the doorway open)
+            void Around(string n, float y, float hgt, float thick, Color col, bool skipDoor)
+            {
+                B(g, n + "Back", 0f, y, -c.hz + thick * 0.5f, W2, hgt, thick, col);
+                B(g, n + "Left", -c.hx + thick * 0.5f, y, 0f, thick, hgt, D2, col); B(g, n + "Right", c.hx - thick * 0.5f, y, 0f, thick, hgt, D2, col);
+                if (!skipDoor) B(g, n + "Front", 0f, y, c.hz - thick * 0.5f, W2, hgt, thick, col);
+                else { float l0 = -c.hx, l1 = Mathf.Clamp(gapL, -c.hx, c.hx), r0 = Mathf.Clamp(gapR, -c.hx, c.hx), r1 = c.hx; if (l1 - l0 > 0.1f) B(g, n + "FrontL", (l0 + l1) * 0.5f, y, c.hz - thick * 0.5f, l1 - l0, hgt, thick, col); if (r1 - r0 > 0.1f) B(g, n + "FrontR", (r0 + r1) * 0.5f, y, c.hz - thick * 0.5f, r1 - r0, hgt, thick, col); }
+            }
+            if (!ruin) { Around("Skirting", 0.08f, 0.16f, 0.05f, DarkWood * 0.8f, true); Around("Crown", c.H - 0.07f, 0.14f, 0.07f, White * 0.95f, false); if (!house) Around("Dado", 1.05f, 0.1f, 0.025f, accent, true); }
+            // floor: alternating boards / tiles, a border strip, a door mat
+            if (!ruin)
+            {
+                int n = Mathf.Max(2, Mathf.RoundToInt(W2)); float sw = W2 / n;
+                for (int i = 0; i < n; i++) B(g, "FloorStrip", -c.hx + sw * (i + 0.5f), 0.013f, 0f, sw - 0.02f, 0.012f, D2 - 0.1f, i % 2 == 0 ? fa : fb);
+            }
+            // clock, exit sign, fire extinguisher, camera
+            var ck = Pc(c, "Clock", new Vector3(c.hx * 0.45f, 2.5f, -c.hz + 0.04f), Vector3.forward);
+            if (!ruin) { Cyl(ck, "Face", 0f, 0f, 0.02f, 0.46f, 0.04f, White).localRotation = Quaternion.Euler(90f, 0f, 0f); B(ck, "HandH", 0f, 0.06f, 0.05f, 0.025f, 0.13f, 0.01f, Char); B(ck, "HandM", 0.07f, 0f, 0.05f, 0.18f, 0.02f, 0.01f, Char); }
+            if (!ruin)
+            {
+                var ex = Pc(c, "ExitSign", new Vector3(c.doorX, c.H - 0.5f, c.hz - 0.06f), Vector3.back); B(ex, "Box", 0f, 0f, 0f, 0.55f, 0.2f, 0.05f, C(0.1f, 0.6f, 0.25f), true); Sign(c, "EXIT", new Vector3(c.doorX, c.H - 0.5f, c.hz - 0.1f), 0.035f, White, 0f);
+                Wall(c, 2, c.hz - 1.2f, 0.25f, 0.2f, 0.7f, p => { Cyl(p, "Tank", 0f, 0.5f, 0f, 0.16f, 0.42f, Red); Cyl(p, "Neck", 0f, 0.78f, 0f, 0.06f, 0.1f, Steel); B(p, "Hose", 0.07f, 0.65f, 0.04f, 0.03f, 0.2f, 0.03f, Char); }, false, 0.05f, "FireExtinguisher");
+                if (!house) { var cam = Pc(c, "SecurityCamera", new Vector3(c.hx - 0.3f, c.H - 0.35f, -c.hz + 0.3f), new Vector3(-1f, 0f, 1f)); B(cam, "Body", 0f, 0f, 0f, 0.14f, 0.12f, 0.3f, C(0.85f, 0.85f, 0.88f)); B(cam, "Lens", 0f, 0f, 0.16f, 0.08f, 0.08f, 0.03f, Char); B(cam, "Led", 0.04f, 0.04f, 0.14f, 0.02f, 0.02f, 0.02f, C(1f, 0.1f, 0.1f), true); }
+            }
+            // shop sign on the back wall, in the building's name
+            if (!house && !ruin && !string.IsNullOrEmpty(label))
+            {
+                var sb = Pc(c, "TitleBoard", new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.05f), Vector3.forward); B(sb, "Board", 0f, 0f, 0f, Mathf.Min(3.4f, 0.28f * label.Length + 0.8f), 0.55f, 0.06f, accent);
+                Sign(c, label.ToUpperInvariant(), new Vector3(-c.hx * 0.35f, 2.75f, -c.hz + 0.11f), 0.075f, White, 180f);
+            }
+            // per-kind extras
+            switch (kind)
+            {
+                case "house":
+                    Wall(c, 0, -c.hx * 0.45f, 1.8f, 0.6f, 2.2f, Kitchen(), true, 0.15f, "Kitchen"); Wall(c, 0, c.hx * 0.05f, 0.8f, 0.7f, 1.9f, Fridge(), true, 0.15f, "Fridge"); Wall(c, 3, 0f, 1.3f, 0.45f, 1.2f, Tv(), true, 0.2f, "TV");
+                    Flat(c, 0f, 0f, 2.6f, 1.8f, C(0.4f, 0.3f, 0.35f), 0.03f, "LivingRug"); break;
+                case "market": Wall(c, 3, -c.hz * 0.3f, 0.8f, 0.7f, 1.9f, Fridge(), true, 0.2f, "Fridge"); Wall(c, 3, c.hz * 0.2f, 0.8f, 0.7f, 1.9f, Fridge(), true, 0.2f, "Fridge"); Island(c, c.doorX + 1.8f, c.hz - 0.8f, Vector3.back, 0.5f, 0.35f, 0.6f, Basket(), false, 0.05f, "Baskets"); break;
+                case "cafe": case "restaurant":
+                    for (int i = 0; i < 3; i++) { var pl = Pc(c, "PendantLamp", new Vector3(-c.hx * 0.5f + i * c.hx * 0.5f, c.H - 0.8f, 0.3f), Vector3.forward); B(pl, "Cord", 0f, 0.5f, 0f, 0.02f, 0.9f, 0.02f, Char); B(pl, "Shade", 0f, 0f, 0f, 0.4f, 0.22f, 0.4f, C(1f, 0.85f, 0.55f), true); }
+                    Hang(c, 0, c.hx * 0.1f, 1.5f, 1.0f, 1.6f, Char, C(0.18f, 0.2f, 0.18f)); Sign(c, kind == "cafe" ? "TODAY'S MENU" : "CHEF'S MENU", new Vector3(c.hx * 0.1f, 1.9f, -c.hz + 0.1f), 0.04f, White, 180f);
+                    if (kind == "restaurant") Wall(c, 3, 0f, 1.4f, 0.4f, 1.8f, WineRack(), true, 0.2f, "WineRack"); break;
+                case "pharmacy": Wall(c, 3, 0f, 0.8f, 0.7f, 1.9f, Fridge(), true, 0.2f, "MedFridge"); Sign(c, "+", new Vector3(c.hx * 0.45f, 2.2f, -c.hz + 0.08f), 0.2f, C(0.2f, 0.75f, 0.45f), 180f); break;
+                case "barber": Wall(c, 3, -c.hz * 0.4f, 0.3f, 0.3f, 1.6f, BarberPole(), false, 0.15f, "BarberPole"); Wall(c, 3, c.hz * 0.4f, 1.2f, 0.4f, 1.4f, Cabinet(1.2f, 1.2f, White), true, 0.15f, "TowelCabinet"); break;
+                case "bank": Wall(c, 0, c.hx * 0.35f, 2.2f, 0.2f, 2.5f, Vault(), false, 0.05f, "VaultDoor"); Sign(c, "SAFE DEPOSIT", new Vector3(c.hx * 0.35f, 2.85f, -c.hz + 0.1f), 0.04f, Gold, 180f); break;
+                case "police": Wall(c, 3, 0f, 1.2f, 0.3f, 2f, Cabinet(1.2f, 1.8f, Grey), true, 0.2f, "LockerCabinet"); Hang(c, 0, c.hx * 0.1f, 1.6f, 1.0f, 1.7f, Char, C(0.85f, 0.85f, 0.8f)); Sign(c, "MOST WANTED", new Vector3(c.hx * 0.1f, 1.7f, -c.hz + 0.1f), 0.04f, Red, 180f); break;
+                case "gun": Sign(c, "LICENSED DEALER", new Vector3(c.hx * 0.3f, 2.2f, -c.hz + 0.1f), 0.04f, Gold, 180f); break;
+                case "pawn": Sign(c, "WE BUY GOLD", new Vector3(c.hx * 0.3f, 2.2f, -c.hz + 0.1f), 0.045f, Gold, 180f); break;
+                case "jeweler": Sign(c, "DIAMONDS", new Vector3(c.hx * 0.3f, 2.2f, -c.hz + 0.1f), 0.045f, C(0.8f, 0.6f, 1f), 180f); break;
+            }
+            c.made++;
         }
 
         static void Lights(Ctx c, bool ruined)

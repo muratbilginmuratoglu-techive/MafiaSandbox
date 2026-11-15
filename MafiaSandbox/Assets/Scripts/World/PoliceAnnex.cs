@@ -37,7 +37,7 @@ namespace MafiaSandbox.World
         {
             var g = new GameObject("Label_" + text); g.transform.SetParent(parent, false); g.transform.localPosition = lp; g.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.fontSize = 64; tm.characterSize = size; tm.color = col;
-            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; g.GetComponent<MeshRenderer>().sharedMaterial = f.material; }
+            var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); if (f) { tm.font = f; var lm = new Material(Shader.Find("Sprites/Default")); lm.mainTexture = f.material.mainTexture; g.GetComponent<MeshRenderer>().sharedMaterial = lm; }   // depth-tested (the stock text shader draws through walls)
         }
 
         /// <summary>Builds the wing and the plaza props. `station` is the old station's centre (Unity), `halfX` half its width along X, `halfZ` along Z.</summary>
@@ -70,8 +70,8 @@ namespace MafiaSandbox.World
             Box("Step", new Vector3(-1.9f, 0.06f, hd + 0.9f), new Vector3(3f, 0.12f, 1.6f), new Color(0.7f, 0.7f, 0.72f), false);
             // roof sign + beacon on the annex and on the old station
             Box("RoofSignBoard", new Vector3(0, H + 1.1f, hd - 0.4f), new Vector3(5.6f, 1.2f, 0.25f), blue, false);
-            Text(transform, "POLICE", new Vector3(0, H + 1.1f, hd - 0.56f), 0.2f, Color.white, 0f);
-            Text(transform, "BOOKING & HOLDING", new Vector3(-1.9f, 2.55f, hd + 0.2f), 0.045f, Color.white, 0f);
+            Text(transform, "POLICE", new Vector3(0, H + 1.1f, hd - 0.2f), 0.2f, Color.white, 180f);
+            Text(transform, "BOOKING & HOLDING", new Vector3(-1.9f, 2.55f, hd + 0.2f), 0.045f, Color.white, 180f);
             Box("BeaconRed", new Vector3(-0.35f, H + 0.65f, hd - 1.2f), new Vector3(0.5f, 0.35f, 0.4f), red, false, false, true); Box("BeaconBlue", new Vector3(0.35f, H + 0.65f, hd - 1.2f), new Vector3(0.5f, 0.35f, 0.4f), new Color(0.2f, 0.4f, 1f), false, false, true);
             // lights
             for (int i = 0; i < 4; i++) Box("Light", new Vector3(i % 2 == 0 ? -1.8f : 1.8f, H + 0.05f, i < 2 ? 3.2f : -2.4f), new Vector3(1.4f, 0.06f, 0.35f), new Color(1f, 0.98f, 0.9f), false, false, true);
@@ -82,14 +82,14 @@ namespace MafiaSandbox.World
             Box("SergeantChair", new Vector3(-0.3f, 0.45f, 1.1f), new Vector3(0.5f, 0.08f, 0.5f), dark); Box("SergeantChairBack", new Vector3(-0.3f, 0.85f, 0.88f), new Vector3(0.5f, 0.6f, 0.06f), dark, false);
             Box("WantedBoard", new Vector3(-hw + 0.2f, 1.9f, 3.4f), new Vector3(0.06f, 1.2f, 2.0f), new Color(0.35f, 0.25f, 0.15f), false);
             for (int i = 0; i < 4; i++) Box("WantedPoster", new Vector3(-hw + 0.25f, 1.9f + (i % 2) * 0.3f - 0.15f, 2.75f + i * 0.45f), new Vector3(0.03f, 0.35f, 0.3f), paper, false);
-            Text(transform, "WANTED", new Vector3(-hw + 0.27f, 2.35f, 3.4f), 0.05f, red, 90f);
+            Text(transform, "WANTED", new Vector3(-hw + 0.27f, 2.35f, 3.4f), 0.05f, red, 270f);
             Box("WaitBench", new Vector3(-2.9f, 0.3f, 4.8f), new Vector3(2.0f, 0.12f, 0.6f), wood); Box("WaitBenchLegA", new Vector3(-3.7f, 0.15f, 4.8f), new Vector3(0.1f, 0.3f, 0.5f), dark, false); Box("WaitBenchLegB", new Vector3(-2.1f, 0.15f, 4.8f), new Vector3(0.1f, 0.3f, 0.5f), dark, false);
             Box("NoticeBoard", new Vector3(3.0f, 1.8f, hd - 0.2f), new Vector3(1.4f, 0.9f, 0.05f), new Color(0.35f, 0.25f, 0.15f), false);
             Box("Plant", new Vector3(3.7f, 0.5f, 4.9f), new Vector3(0.45f, 0.8f, 0.45f), new Color(0.2f, 0.5f, 0.25f), false, false, false, PrimitiveType.Cylinder);
             Box("WaterCooler", new Vector3(3.7f, 0.55f, 1.2f), new Vector3(0.35f, 1.0f, 0.35f), new Color(0.7f, 0.85f, 0.95f));
             // ---- partition between the office and the back (door gap x -0.6 .. 0.6)
             Box("PartL", new Vector3(-2.45f, cy, 0.0f), new Vector3(3.7f, H, 0.2f), wall, true, true); Box("PartR", new Vector3(2.45f, cy, 0.0f), new Vector3(3.7f, H, 0.2f), wall, true, true); Box("PartLintel", new Vector3(0, 2.95f, 0f), new Vector3(1.2f, 1.0f, 0.2f), wall, true, true);
-            Text(transform, "HOLDING", new Vector3(0, 3.0f, 0.12f), 0.045f, red, 0f);
+            Text(transform, "HOLDING", new Vector3(0, 3.0f, 0.12f), 0.045f, red, 180f);
             // ---- holding cells along the back wall (three 1.6 x 2.4 cells, left side); bars face the corridor at z = -2.9
             float cz = -hd + 1.4f;
             for (int i = 0; i < 3; i++)
@@ -101,7 +101,7 @@ namespace MafiaSandbox.World
                 for (int b = 0; b < 8; b++) Box("Bar", new Vector3(x - 0.7f + b * 0.2f, 1.55f, cz + 1.35f), new Vector3(0.04f, 2.8f, 0.04f), bars, i == 1 && b >= 3 && b <= 4 ? false : true);   // the middle cell's door gap has no collider -> not used, bars stay solid
                 Box("BarTop", new Vector3(x, 2.95f, cz + 1.35f), new Vector3(1.75f, 0.06f, 0.06f), bars, false); Box("BarMid", new Vector3(x, 1.0f, cz + 1.35f), new Vector3(1.75f, 0.05f, 0.05f), bars, false);
             }
-            Text(transform, "CELL 1   CELL 2   CELL 3", new Vector3(-hw + 2.7f, 3.15f, cz + 1.4f), 0.03f, Color.white, 0f);
+            Text(transform, "CELL 1   CELL 2   CELL 3", new Vector3(-hw + 2.7f, 3.15f, cz + 1.4f), 0.03f, Color.white, 180f);
             // ---- interrogation room (right-back corner x 1.4 .. hw, z -hd .. -1.2), door facing the corridor
             Box("InterWallFront", new Vector3(2.75f, cy, -1.2f), new Vector3(2.9f, H, 0.15f), wall, true, true);
             Box("InterWallSide", new Vector3(1.35f, cy, -3.5f), new Vector3(0.15f, H, 4.6f), wall, true, true);
@@ -110,7 +110,7 @@ namespace MafiaSandbox.World
             foreach (float z in new[] { -2.5f, -4.1f }) { Box("InterChair", new Vector3(2.9f, 0.4f, z), new Vector3(0.5f, 0.08f, 0.5f), dark); Box("InterChairBack", new Vector3(2.9f, 0.75f, z + (z > -3.3f ? 0.22f : -0.22f)), new Vector3(0.5f, 0.6f, 0.06f), dark, false); }
             Box("InterLamp", new Vector3(2.9f, 2.4f, -3.3f), new Vector3(0.5f, 0.1f, 0.5f), new Color(1f, 0.95f, 0.8f), false, false, true);
             Box("TwoWayMirror", new Vector3(hw - 0.05f, 1.8f, -3.3f), new Vector3(0.04f, 1.0f, 2.2f), new Color(0.3f, 0.4f, 0.5f), false);
-            Text(transform, "INTERROGATION", new Vector3(2.75f, 3.0f, -1.28f), 0.035f, Color.white, 0f);
+            Text(transform, "INTERROGATION", new Vector3(2.75f, 3.0f, -1.1f), 0.035f, Color.white, 180f);
             // ---- corridor detectives' bullpen (z -1.2 .. -2.8 is the walkway; desks between the partition and the cells)
             foreach (float x in new[] { -2.6f, -0.9f })
             {
@@ -120,16 +120,16 @@ namespace MafiaSandbox.World
             for (int i = 0; i < 4; i++) Box("Locker", new Vector3(hw - 0.4f, 0.95f, 0.8f + i * 0.55f), new Vector3(0.5f, 1.8f, 0.5f), i % 2 == 0 ? steel : new Color(0.5f, 0.55f, 0.65f));
             Box("EvidenceShelf", new Vector3(hw - 0.35f, 1.0f, 4.2f), new Vector3(0.5f, 2.0f, 1.2f), steel);
             Box("EvidenceBox", new Vector3(hw - 0.35f, 1.35f, 4.0f), new Vector3(0.3f, 0.3f, 0.4f), wood, false); Box("EvidenceBox2", new Vector3(hw - 0.35f, 0.75f, 4.4f), new Vector3(0.3f, 0.3f, 0.4f), wood, false);
-            Text(transform, "EVIDENCE", new Vector3(hw - 0.62f, 2.3f, 4.2f), 0.03f, Color.white, 270f);
+            Text(transform, "EVIDENCE", new Vector3(hw - 0.62f, 2.3f, 4.2f), 0.03f, Color.white, 90f);
             Box("ArmoryCage", new Vector3(-hw + 0.5f, 1.0f, -0.9f), new Vector3(0.12f, 2.0f, 1.4f), bars);
-            Text(transform, "ARMORY", new Vector3(-hw + 0.7f, 2.3f, -0.9f), 0.03f, Color.white, 90f);
+            Text(transform, "ARMORY", new Vector3(-hw + 0.7f, 2.3f, -0.9f), 0.03f, Color.white, 270f);
 
             // ---- plaza: flag pole, bollards, roof sign + beacons on the old station, a police-car-coloured shuttle parked in front
             var plaza = new GameObject("PolicePlaza").transform; plaza.SetParent(transform.parent, false);
             Vector3 front = new Vector3(station.x, station.y, station.z + halfZ);
             Box(plaza, "FlagPole", front + new Vector3(halfX - 1.0f, 3.5f, 2.2f), new Vector3(0.12f, 7f, 0.12f), steel, false, false, false, PrimitiveType.Cylinder);
             Box(plaza, "Flag", front + new Vector3(halfX - 1.0f + 0.75f, 6.5f, 2.2f), new Vector3(1.4f, 0.9f, 0.04f), new Color(0.15f, 0.25f, 0.6f), false);
-            Box(plaza, "OldRoofSign", front + new Vector3(0f, 4.9f, -0.5f), new Vector3(5.4f, 1.1f, 0.25f), blue, false); Text(plaza, "POLICE STATION", front + new Vector3(0f, 4.9f, -0.65f), 0.14f, Color.white, 0f);
+            Box(plaza, "OldRoofSign", front + new Vector3(0f, 4.9f, -0.5f), new Vector3(5.4f, 1.1f, 0.25f), blue, false); Text(plaza, "POLICE STATION", front + new Vector3(0f, 4.9f, -0.3f), 0.14f, Color.white, 180f);
             Box(plaza, "OldBeaconRed", front + new Vector3(-0.4f, 4.55f, -1.4f), new Vector3(0.5f, 0.3f, 0.4f), red, false, false, true); Box(plaza, "OldBeaconBlue", front + new Vector3(0.4f, 4.55f, -1.4f), new Vector3(0.5f, 0.3f, 0.4f), new Color(0.2f, 0.4f, 1f), false, false, true);
             Box(plaza, "OldBlueBand", front + new Vector3(0f, 3.4f, 0.17f), new Vector3(halfX * 2f + 0.3f, 0.45f, 0.06f), blue, false);
             for (int i = 0; i < 5; i++) Box(plaza, "Bollard", front + new Vector3(-halfX - 9f + 0.4f + i * 3.1f, 0.4f, 3.4f), new Vector3(0.25f, 0.8f, 0.25f), new Color(0.9f, 0.85f, 0.2f), true, false, false, PrimitiveType.Cylinder);

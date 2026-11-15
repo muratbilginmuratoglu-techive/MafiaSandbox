@@ -57,7 +57,7 @@ namespace MafiaSandbox.Npc
             if (body) { body.OnHit -= OnHitInternal; body.OnDeath -= OnDeathInternal; }
         }
 
-        public const int RoadArea = 3, SidewalkArea = 4; public const float RoadCost = 14f, OpenCost = 5f;   // lawns / yards / interiors cost 5, sidewalks 1, mid-block road 14
+        public const int RoadArea = 3, SidewalkArea = 4; public const float RoadCost = 60f, OpenCost = 5f;   // lawns / yards / interiors cost 5, sidewalks 1, mid-block road 14
 
         protected virtual void Start()
         {
@@ -78,7 +78,8 @@ namespace MafiaSandbox.Npc
             if (dummy || State == "dead" || !agent || !agent.enabled) return;
             Vector3 side = Vector3.Cross(Vector3.up, carForward).normalized; Vector3 rel = transform.position - carPos;
             if (Vector3.Dot(rel, side) < 0f) side = -side;
-            GoTo(transform.position + side * 4f + carForward * 1.5f, runSpeed);
+            Vector3 tgt = transform.position + side * 4f + carForward * 1.5f; if (OffRoadPoint(tgt, 14f, out var safe)) tgt = safe;
+            GoTo(tgt, runSpeed);
         }
         protected virtual void OnDied(string by) { }
         protected virtual Vector3 RespawnPoint() => spawnPos;
@@ -109,7 +110,7 @@ namespace MafiaSandbox.Npc
             {
                 // a carving car (or a ragdoll pile) ate the navmesh under us: hop to the nearest walkable spot instead of freezing
                 offMeshT += dt;
-                if (offMeshT > 0.3f && NavMesh.SamplePosition(transform.position, out var nh, 3f, NavMesh.AllAreas)) { agent.Warp(nh.position); offMeshT = 0f; }
+                if (offMeshT > 0.3f) { Vector3 wp; if (OffRoadPoint(transform.position, 3.5f, out wp) || NavMesh.SamplePosition(transform.position, out var nh, 3f, NavMesh.AllAreas) && (wp = nh.position) == nh.position) { agent.Warp(wp); offMeshT = 0f; } }
             }
             else offMeshT = 0f;
             if (!agent.enabled || !agent.isOnNavMesh) return;
@@ -144,8 +145,21 @@ namespace MafiaSandbox.Npc
             // walking NPCs keep to the sidewalks and cross at the junctions (road area 3 is expensive); anyone running
             // (fleeing, chasing, rushing to a scene) cuts straight across
             bool running = speed >= runSpeed * 0.8f;
+            if (!running && (h.mask & (1 << RoadArea)) != 0 && OffRoadPoint(h.position, 12f, out var offRoad)) h.position = offRoad;   // strollers never aim for the middle of the road
             agent.SetAreaCost(RoadArea, running ? 1f : RoadCost); agent.SetAreaCost(0, running ? 1f : OpenCost); agent.SetAreaCost(SidewalkArea, 1f);
             return agent.SetDestination(h.position);
+        }
+        /// <summary>Is the NPC standing on the carriageway (road area, not a crossing at a junction)?</summary>
+        protected bool OnRoad()
+        {
+            return agent && agent.enabled && NavMesh.SamplePosition(transform.position, out var h, 1.2f, NavMesh.AllAreas) && (h.mask & (1 << RoadArea)) != 0;
+        }
+        /// <summary>Nearest walkable spot that is not carriageway (sidewalk, lawn, junction crossing).</summary>
+        protected bool OffRoadPoint(Vector3 from, float radius, out Vector3 res)
+        {
+            var f = new NavMeshQueryFilter { agentTypeID = agent ? agent.agentTypeID : 0, areaMask = NavMesh.AllAreas & ~(1 << RoadArea) };
+            if (NavMesh.SamplePosition(from, out var h, radius, f)) { res = h.position; return true; }
+            res = from; return false;
         }
         protected void Stop() { if (agent.enabled && agent.isOnNavMesh) { agent.isStopped = true; agent.ResetPath(); } }
         protected bool Arrived(float d = 0.7f) => !agent.pathPending && (!agent.hasPath || agent.remainingDistance <= Mathf.Max(d, agent.stoppingDistance + 0.05f));
@@ -154,7 +168,7 @@ namespace MafiaSandbox.Npc
         protected Vector3 RandomPedNode(Vector3 near, float maxDist)
         {
             if (!graph || graph.pedNodes.Length == 0) return near + Random.insideUnitSphere * 10f;
-            for (int i = 0; i < 12; i++) { var n = graph.pedNodes[Random.Range(0, graph.pedNodes.Length)]; if ((n.pos - near).sqrMagnitude < maxDist * maxDist) return n.pos; }
+            for (int i = 0; i < 16; i++) { var n = graph.pedNodes[Random.Range(0, graph.pedNodes.Length)]; if ((n.pos - near).sqrMagnitude < maxDist * maxDist && !(NavMesh.SamplePosition(n.pos, out var nh, 1.5f, NavMesh.AllAreas) && (nh.mask & (1 << RoadArea)) != 0)) return n.pos; }
             return graph.pedNodes[Random.Range(0, graph.pedNodes.Length)].pos;
         }
 
