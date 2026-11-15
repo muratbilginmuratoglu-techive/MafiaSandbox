@@ -100,3 +100,6 @@ alınır, `Build City Scene` tekrar çalıştırılır. Prop'lar değişirse `bu
 - Home: **bed** (F, after 19:30) skips to 07:00, heals, runs venue/dealer shift payouts and finishes batches; **workbench** (F) brews Moonshine, grows Weed, presses Pills, cooks Powder and builds Pistols/Rifles. Each recipe has a tiny puzzle (timing, heat control, sequence memory, blueprint assembly); your score changes the yield.
 - Ingredients: market (corn, sugar, yeast, seeds, plant food), pharmacy (cold medicine, solvent, precursor), pawn shop (metal parts), gun shop (gunpowder). Ingredients are taken from backpack and stash.
 - Moonshine sells to civilians with X like other product; guns sell to friendly gang members.
+
+## Smoke test
+In play mode press **End**: `SmokeTest` exercises components, home props placement, all production recipes, stash, dealing, crew, venues, jobs, quests, night population and sleep, then runs the sim at 6x for 45 s collecting exceptions. Results go to `smoke_log.txt` next to the Unity project folder.

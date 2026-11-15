@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using MafiaSandbox.Core;
+using MafiaSandbox.World;
 
 namespace MafiaSandbox.Economy
 {
@@ -18,11 +19,23 @@ namespace MafiaSandbox.Economy
         public int Units { get { int n = 0; foreach (var i in items) n += i.qty; return n; } }
         public int Worth { get { int n = 0; foreach (var i in items) n += i.qty * Items.Get(i.id).value; return n; } }
 
+        /// <summary>The home building has no counter (it is 0,0,0): use the room centre, at floor height, instead.</summary>
+        public static Vector3 HomeAnchor(BuildingInfo bi)
+        {
+            if (bi.counter.sqrMagnitude > 1f) return bi.counter;
+            var c = bi.footprint.center; return new Vector3(c.x, bi.door.y, c.z);
+        }
+        /// <summary>Keeps a point inside the building footprint (0.7 m from the walls).</summary>
+        public static Vector3 InHome(BuildingInfo bi, Vector3 p)
+        {
+            var f = bi.footprint; if (f.size.sqrMagnitude < 1f) return p;
+            return new Vector3(Mathf.Clamp(p.x, f.min.x + 0.7f, f.max.x - 0.7f), p.y, Mathf.Clamp(p.z, f.min.z + 0.7f, f.max.z - 0.7f));
+        }
         void Update()
         {
             if (built) return; var eco = EconomyManager.I; var gm = GameManager.I; if (!eco || !gm || eco.homeShop == null) return;
-            var bi = eco.homeShop.info; Vector3 toDoor = bi.door - bi.counter; toDoor.y = 0f; toDoor = toDoor.sqrMagnitude < 0.01f ? Vector3.forward : toDoor.normalized;
-            Pos = bi.counter + toDoor * 1.1f; Pos = new Vector3(Pos.x, bi.counter.y, Pos.z);
+            var bi = eco.homeShop.info; var anc = HomeAnchor(bi); Vector3 toDoor = bi.door - anc; toDoor.y = 0f; toDoor = toDoor.sqrMagnitude < 0.01f ? Vector3.forward : toDoor.normalized;
+            Pos = InHome(bi, anc + toDoor * 1.1f); Pos = new Vector3(Pos.x, anc.y, Pos.z);
             Build(Pos, Mathf.Atan2(toDoor.x, toDoor.z) * Mathf.Rad2Deg); built = true;
         }
 

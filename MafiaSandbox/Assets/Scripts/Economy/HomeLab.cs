@@ -51,6 +51,7 @@ namespace MafiaSandbox.Economy
         {
             if (!Ready) TryBuild();
             var dn = DayNightCycle.I; var gm = GameManager.I;
+            for (int i = 0; i < batches.Length; i++) if (batches[i] == null) batches[i] = new Batch();
             for (int i = 0; i < batches.Length; i++)
                 if (batches[i].state == 1 && dn && dn.TotalHours >= batches[i].readyAt) { batches[i].state = 2; Save(); gm?.Say($"Your batch of {Recipes[i].name} is ready at the workbench."); }
         }
@@ -58,9 +59,9 @@ namespace MafiaSandbox.Economy
         void TryBuild()
         {
             var eco = EconomyManager.I; if (!eco || eco.homeShop == null) return;
-            var bi = eco.homeShop.info; Vector3 toDoor = bi.door - bi.counter; toDoor.y = 0f; toDoor = toDoor.sqrMagnitude < 0.01f ? Vector3.forward : toDoor.normalized;
-            Vector3 right = Vector3.Cross(Vector3.up, toDoor); float y = bi.counter.y; float yaw = Mathf.Atan2(toDoor.x, toDoor.z) * Mathf.Rad2Deg;
-            var lp = bi.counter + toDoor * 1.1f + right * 1.7f; var bp = bi.counter + toDoor * 1.1f - right * 1.9f; lp.y = bp.y = y; LabPos = lp; BedPos = bp;
+            var bi = eco.homeShop.info; var anc = Stash.HomeAnchor(bi); Vector3 toDoor = bi.door - anc; toDoor.y = 0f; toDoor = toDoor.sqrMagnitude < 0.01f ? Vector3.forward : toDoor.normalized;
+            Vector3 right = Vector3.Cross(Vector3.up, toDoor); float y = anc.y; float yaw = Mathf.Atan2(toDoor.x, toDoor.z) * Mathf.Rad2Deg;
+            var lp = Stash.InHome(bi, anc + toDoor * 1.1f + right * 1.7f); var bp = Stash.InHome(bi, anc + toDoor * 1.1f - right * 1.9f); lp.y = bp.y = y; LabPos = lp; BedPos = bp;
             BuildLab(LabPos, yaw); BuildBed(BedPos, yaw); Ready = true;
         }
         GameObject Part(Transform root, string n, Vector3 lp, Vector3 sc, Color c, PrimitiveType t = PrimitiveType.Cube) { var g = GameObject.CreatePrimitive(t); g.name = n; Destroy(g.GetComponent<Collider>()); g.transform.SetParent(root, false); g.transform.localPosition = lp; g.transform.localScale = sc; g.GetComponent<Renderer>().sharedMaterial = M(c); return g; }
