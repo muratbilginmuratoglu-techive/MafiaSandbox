@@ -40,7 +40,7 @@ namespace MafiaSandbox.UI
             var r = new Rect(W / 2f - 450, H / 2f - 250, 900, 500); UiSkin.DrawPanel(r, true);
             GUI.Label(new Rect(r.x + 20, r.y + 12, r.width - 40, 40), "HOW DO YOU MAKE A LIVING?", UiSkin.Title);
             var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 13 }; var stepSt = new GUIStyle(UiSkin.Label) { wordWrap = true, fontSize = 12 };
-            GUI.Label(new Rect(r.x + 20, r.y + 50, r.width - 40, 44), "You have the old stash money. Pick the trade you will build your name on. It decides what you buy, what you make at home and who you sell to. You can branch out later as your rank grows.", wrap);
+            GUI.Label(new Rect(r.x + 20, r.y + 50, r.width - 40, 44), "You have Joshua's blood money. Pick the trade you will build your name on. It decides what you buy, what you make at home and who you sell to. You can branch out later as your rank grows.", wrap);
             for (int i = 0; i < 3; i++)
             {
                 var c = new Rect(r.x + 20 + i * 290, r.y + 104, 270, 380);

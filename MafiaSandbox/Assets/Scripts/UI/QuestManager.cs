@@ -25,18 +25,29 @@ namespace MafiaSandbox.UI
         /// <summary>Hint text for the current mission (shown in the tracker and on the workstation panel).</summary>
         public string Coach { get; private set; }
         public Vector3? CurrentTarget { get; private set; }
-        int beganIdx = -1, dealsBase; bool introPosted;
+        int beganIdx = -1, dealsBase; bool introPosted; CharacterBody joshua;
+        /// <summary>Joshua, who sold the family's address: stands outside a restaurant. Killing and searching him pays for the new start.</summary>
+        void SpawnJoshua()
+        {
+            if (joshua || Career.StashTaken) return; var eco = EconomyManager.I; var gm = GameManager.I;
+            var sp = FindAnyObjectByType<Npc.NpcSpawner>(); if (!sp || sp.prefabs == null || sp.prefabs.Length == 0 || !eco) return;
+            BuildingInfo spot = null; foreach (var kind in new[] { "restaurant", "cafe", "market" }) { foreach (var s in eco.shops) if (s.info && s.info.kind == kind) { spot = s.info; break; } if (spot) break; }
+            Vector3 pos = spot ? spot.door + (spot.door - spot.footprint.center).normalized * 2.5f : gm.homePosition + new Vector3(30f, 0f, 0f); pos.y = spot ? spot.door.y : pos.y;
+            GameObject prefab = null; foreach (var p in sp.prefabs) if (p && p.name.StartsWith("Vatandas_07")) prefab = p; if (!prefab) prefab = sp.prefabs[0];
+            var c = sp.Spawn<Npc.CamperBrain>(prefab, pos, 0f); c.homeSpot = c.transform.position; c.pose = "Idle"; c.displayName = "Joshua"; c.fire = pos + Vector3.forward * 5f; c.walkSpeed = 1.5f;
+            joshua = c.GetComponent<CharacterBody>();
+        }
         public readonly List<Quest> Quests = new List<Quest>();
         public int Index { get; private set; }
         public bool AllDone => Index >= Quests.Count;
-        const string Key = "ms_quest_idx_v4";
+        const string Key = "ms_quest_idx_v5";
 
         int crewKills; bool heatSeen, started, phoneSeen; float doneFlash; string doneText; GameObject beacon; PlayerController pc; float startT = -1f;
 
         void Awake()
         {
             I = this; var g = gameObject;   // make sure the career systems exist even in a scene built before they were added
-            if (!g.GetComponent<OldStash>()) g.AddComponent<OldStash>(); if (!g.GetComponent<HomePlacer>()) g.AddComponent<HomePlacer>();
+            if (!g.GetComponent<HomePlacer>()) g.AddComponent<HomePlacer>();
             if (!g.GetComponent<CareerPanel>()) g.AddComponent<CareerPanel>(); if (!g.GetComponent<Waypoints>()) g.AddComponent<Waypoints>();
         }
         void OnEnable() { WorldEvents.OnCharacterDied += OnDied; }
@@ -74,8 +85,8 @@ namespace MafiaSandbox.UI
             Vector3? StationPos() { if (!HomeLab.I || !Career.Has) return null; foreach (var st in HomeLab.I.stations) if (st.kind == C()) return st.pos; return null; }
             string StName() => Career.Has ? Career.StationNames[C()].ToLower() : "workstation";
             // ACT 0 - AFTERMATH: three years in a coma, the family is gone. Money from the old stash starts a new trade at home.
-            Quests.Add(new Quest { title = "0. The old stash", desc = "Jeremy says your family hid emergency cash under the floorboards at the back of the ruined house. Go inside, find the golden glow and press F.", tip = "A gold marker shows the way on the minimap and the big map (M).", reward = 0, target = () => OldStash.I != null && OldStash.I.Active ? OldStash.I.Pos : gm.homePosition, done = () => Career.StashTaken, sal = null });
-            Quests.Add(new Quest { title = "0. Choose your trade", desc = "A menu asks how you will make a living: bootleg alcohol, drugs or arms. Read the steps and choose one.", tip = "It decides what you buy, what you make at home and who you sell to.", reward = 0, begin = () => CareerPanel.I?.Open(), done = () => Career.Has, sal = "jeremy|You've got money now. What are you going to do with it? Think hard, it decides everything." });
+            Quests.Add(new Quest { title = "0. Settle the score", desc = "Jeremy says Joshua sold your family's address. Find him (gold marker on the map), take him down and search the body (F) for the money he was paid.", tip = "Fists, the knife (4) or the bat (5). If a cop sees it, they will chase you. Joshua runs when he's hurt.", reward = 0, begin = SpawnJoshua, target = () => joshua && !Career.StashTaken ? joshua.transform.position : (Vector3?)null, done = () => Career.StashTaken, sal = null });
+            Quests.Add(new Quest { title = "0. Choose your trade", desc = "A menu asks how you will make a living: bootleg alcohol, drugs or arms. Read the steps and choose one.", tip = "It decides what you buy, what you make at home and who you sell to.", reward = 0, begin = () => CareerPanel.I?.Open(), done = () => Career.Has, sal = "jeremy|Joshua paid for what he did. Now that money has to work. What are you going to do with it? Think hard, it decides everything." });
             Quests.Add(new Quest { title = "0. Shopping run", descF = ShopDesc, tip = "Walk into the shop and press F at the counter. Gold marker = next stop.", reward = 100, target = ShopTarget, done = ShopDone, sal = null });
             Quests.Add(new Quest { title = "0. Set up at home", descF = () => $"Go home. Inside the house press B, walk to where you want your {StName()}, rotate with Q/E and press F to place it.", tip = "Leave space around it. It can't go near the bed, door, stash or furniture. Press B next to it later to move it.", reward = 100, target = () => gm.homePosition, done = () => Career.Has && HomeLab.I && HomeLab.I.CountStations(C()) > 0, sal = "jeremy|Good. Now bring it all home and put it where you can work. Press B inside the house." });
             Quests.Add(new Quest { title = "0. First batch", descF = () => $"Walk up to your {StName()} and press F. Pick the recipe, check the ingredients, press Start and play the little game. Better work means more product.", tip = "Step 1: the recipe is selected. Step 2: ingredients must be full (2/2 etc). Step 3: press Start and play the puzzle.", reward = 50, target = StationPos, done = () => Career.Has && HomeLab.I && (HomeLab.I.batches[Career.RecipeIndex].state >= 1 || Career.Collects >= 1), sal = "jeremy|Time to learn the craft. Don't rush it, a good batch is worth three bad ones." });
@@ -111,7 +122,7 @@ namespace MafiaSandbox.UI
             if (doneFlash > 0f) doneFlash -= Time.deltaTime;
             if (AllDone) { SetBeacon(null); CurrentTarget = null; Coach = null; if (Waypoints.I) Waypoints.I.QuestTarget = null; return; }
             var q = Quests[Index];
-            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Dad hid money under the floorboards, somewhere at the back of the house. Look for the loose boards. It's all that's left."); }
+            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Joshua is the one who sold your family out. He hangs around the restaurants. Find him, and take back what he was paid. Open the map (M) to see where."); }
             if (beganIdx != Index) { beganIdx = Index; q.begin?.Invoke(); }
             if (q.done != null && q.done())
             {

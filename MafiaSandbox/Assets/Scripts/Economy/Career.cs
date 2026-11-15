@@ -19,7 +19,7 @@ namespace MafiaSandbox.Economy
             new[] { ("Seeds", 2, "market"), ("PlantFood", 1, "market") },
             new[] { ("MetalParts", 3, "pawn"), ("Gunpowder", 1, "gun") },
         };
-        const string KChosen = "ms_career_v1", KStash = "ms_oldstash_v1", KCollect = "ms_collects_v1";
+        const string KChosen = "ms_career_v2", KStash = "ms_joshua_v1", KCollect = "ms_collects_v2";
         static int chosen = -2; static int stash = -1; static int collects = -1;
 
         public static int Chosen { get { if (chosen == -2) chosen = PlayerPrefs.GetInt(KChosen, -1); return chosen; } }

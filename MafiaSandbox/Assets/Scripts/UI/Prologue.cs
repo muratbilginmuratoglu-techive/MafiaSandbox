@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using MafiaSandbox.Combat;
 using MafiaSandbox.Core;
 using MafiaSandbox.Economy;
 using MafiaSandbox.Npc;
@@ -97,28 +98,24 @@ namespace MafiaSandbox.UI
             if (model) { model.localRotation = Quaternion.Euler(-90f, 0f, 0f); model.localPosition = Vector3.zero; }
             if (pc.animator) pc.animator.Freeze();
             Cam(hosp.W(-4f, 1.45f, -6.15f), hosp.W(-4f, 3.4f, -2.2f), true);
-            title = "PORT CITY\n<size=70%>three years later</size>";
-            yield return Wait(0.3f); yield return FadeTo(0.55f, 1.6f); title = null;
-            yield return FadeTo(0.95f, 0.5f); yield return FadeTo(0.25f, 1.3f); yield return FadeTo(0.8f, 0.4f); yield return FadeTo(0f, 1.6f);
-            yield return Line("", "A steady beeping. A white ceiling. Your body feels like lead.");
-
+            camera.fieldOfView = 62f;
             // 2. Jeremy
             var sp = FindAnyObjectByType<NpcSpawner>(); GameObject prefab = null;
             if (sp && sp.prefabs != null) foreach (var p in sp.prefabs) if (p && p.name.StartsWith("Vatandas_03")) prefab = p; if (!prefab && sp && sp.prefabs.Length > 0) prefab = sp.prefabs[0];
-            if (sp && prefab) { jer = sp.Spawn<JeremyBrain>(prefab, hosp.jeremyStart, hosp.yaw + 180f); jer.displayName = "Jeremy"; }
-            Cam(hosp.W(7.6f, 2.5f, -6.3f), hosp.W(-2f, 1.2f, -2f), true);
-            if (jer) { jer.WalkTo(hosp.jeremyTalk); lookTarget = jer.transform; }
-            float wt = 0f; while (jer && !jer.Done && wt < 9f) { wt += Time.unscaledDeltaTime; if (Input.GetKeyDown(KeyCode.Space)) break; yield return null; }
-            if (jer && !jer.Done) { var ag0 = jer.GetComponent<NavMeshAgent>(); Debug.LogWarning($"[Prologue] Jeremy did not arrive: pos {jer.transform.position} onNavMesh {ag0.isOnNavMesh} hasPath {ag0.hasPath} status {ag0.pathStatus} target {hosp.jeremyTalk} start {hosp.jeremyStart}"); var ag = jer.GetComponent<NavMeshAgent>(); if (ag && NavMesh.SamplePosition(hosp.jeremyTalk, out var nh, 4f, NavMesh.AllAreas)) ag.Warp(nh.position); }
+            if (sp && prefab) { jer = sp.Spawn<JeremyBrain>(prefab, hosp.jeremyTalk, hosp.yaw); jer.displayName = "Jeremy"; }
+            if (jer) jer.Face(hosp.bedFeet);
             if (jer) { jer.Halt(); jer.Face(hosp.bedFeet); }
             var bedLook = new GameObject("bedLook").transform; bedLook.position = hosp.bedFeet; Destroy(bedLook.gameObject, 600f);
-            Cam(hosp.W(1.2f, 1.9f, -1.0f), hosp.W(-3.2f, 1.2f, -4.6f), false);
+            Cam(hosp.W(1.2f, 1.9f, -1.0f), hosp.W(-3.2f, 1.2f, -4.6f), true);
+            yield return FadeTo(0f, 1.2f);   // eyes open: Jeremy is already there
             yield return Line("Jeremy", "Easy. Easy, don't try to sit up yet. It's me. It's Jeremy.", jer ? jer.transform : null);
             yield return Line("You", "...Jeremy? Where am I? What... what happened?", bedLook);
             yield return Line("Jeremy", "You've been out for three years. The war between the Morettis and the Kaplans... it swallowed half the city.", jer ? jer.transform : null);
             yield return Line("Jeremy", "Your family was caught in the crossfire. I'm sorry. There's no one left. I'm the only one who stayed.", jer ? jer.transform : null);
             yield return Line("You", "...The house?", bedLook);
-            yield return Line("Jeremy", "Burned to the studs. Come on. I'll drive you there. My car's right out front.", jer ? jer.transform : null);
+            yield return Line("Jeremy", "Burned to the studs. And I know who sold them the address. Joshua. He took money to point them at your door.", jer ? jer.transform : null);
+            yield return Line("You", "...Joshua.", bedLook);
+            yield return Line("Jeremy", "He's still around town, spending it. First, let me drive you to the house. My car's right out front.", jer ? jer.transform : null);
 
             // 3. get up and follow him
             yield return FadeTo(1f, 0.6f);
@@ -161,7 +158,7 @@ namespace MafiaSandbox.UI
                 while (s < total - 0.05f)
                 {
                     float remain = total - s; float target = Mathf.Min(11f, Mathf.Max(2.2f, remain * 0.6f)); v = Mathf.MoveTowards(v, target, (v < target ? 4f : 9f) * Time.deltaTime); s = Mathf.Min(total, s + v * Time.deltaTime);
-                    var p = Sample(path, cum, s, out var tan); if (Ground(p, out float gy)) p.y = gy + 0.06f;
+                    var p = Sample(path, cum, s, out var tan); if (RoadGround(p, out float gy)) p.y = gy + 0.06f; tan.y = 0f; if (tan.sqrMagnitude < 0.0001f) tan = car.transform.forward;
                     car.transform.position = p; car.transform.rotation = Quaternion.RotateTowards(car.transform.rotation, Quaternion.LookRotation(tan, Vector3.up), 140f * Time.deltaTime);
                     camPos = car.transform.position - car.transform.forward * 8f + Vector3.up * 3.4f;
                     if (lineIx < lines.Length && s / total >= lines[lineIx].at) { Sub(lines[lineIx].who, lines[lineIx].text, 7f); lineIx++; }
@@ -182,7 +179,7 @@ namespace MafiaSandbox.UI
             yield return FadeTo(0f, 1.2f);
             yield return Line("Jeremy", "This is it. What's left of it.", jer ? jer.transform : null);
             yield return Line("You", "...", null);
-            yield return Line("Jeremy", "Here. It's all I could scrape together. Sal will find you. Be careful who you trust in this town.", jer ? jer.transform : null);
+            yield return Line("Jeremy", "Here. It's all I could scrape together. Joshua hangs around the restaurants. Find him, and take back what he was paid. Be careful who you trust in this town.", jer ? jer.transform : null);
             if (EconomyManager.I) EconomyManager.I.cash += 300; GameManager.I.Say("Jeremy gave you $300.");
             yield return Line("Jeremy", "I'll come by when I can. Don't die on me, alright?", jer ? jer.transform : null);
 
@@ -198,7 +195,7 @@ namespace MafiaSandbox.UI
                 for (int i = path.Count - 1; i >= 0; i--) if (cum[i] >= cut) back.Add(path[i]);
                 var bc = new List<float> { 0f }; float bt = 0f; for (int i = 1; i < back.Count; i++) { bt += Vector3.Distance(back[i - 1], back[i]); bc.Add(bt); }
                 var fix = car.transform.rotation; float s = 0f, v = 0f;
-                while (s < bt - 0.1f && car) { v = Mathf.MoveTowards(v, 7f, 4f * Time.deltaTime); s = Mathf.Min(bt, s + v * Time.deltaTime); var p = Sample(back, bc, s, out _); if (Ground(p, out float gy)) p.y = gy + 0.06f; car.transform.position = p; car.transform.rotation = fix; yield return null; }
+                while (s < bt - 0.1f && car) { v = Mathf.MoveTowards(v, 7f, 4f * Time.deltaTime); s = Mathf.Min(bt, s + v * Time.deltaTime); var p = Sample(back, bc, s, out _); if (RoadGround(p, out float gy)) p.y = gy + 0.06f; car.transform.position = p; car.transform.rotation = fix; yield return null; }
             }
             if (car) Destroy(car.gameObject);
             run = null;
@@ -223,6 +220,13 @@ namespace MafiaSandbox.UI
         }
 
         // ------------------------------------------------------------------ the route: road graph, lane offset, last stretch to the house
+        /// <summary>Road surface right under the car: a short ray from just above it, so roofs, canopies and bridges never lift the car.</summary>
+        static bool RoadGround(Vector3 p, out float y)
+        {
+            foreach (var h in Physics.RaycastAll(p + Vector3.up * 1.2f, Vector3.down, 3.2f, ~0, QueryTriggerInteraction.Ignore))
+            { if (h.collider.GetComponentInParent<VehicleController>() || h.collider.GetComponentInParent<CharacterBody>()) continue; y = h.point.y; return true; }
+            y = p.y; return false;
+        }
         static bool Ground(Vector3 p, out float y)
         {
             if (Physics.Raycast(p + Vector3.up * 6f, Vector3.down, out var h, 14f, ~0, QueryTriggerInteraction.Ignore)) { y = h.point.y; return true; }

@@ -72,7 +72,7 @@ namespace MafiaSandbox.Economy
             BuildBed(BedPos, yaw); LoadStations(); Ready = true;
         }
         GameObject Part(Transform root, string n, Vector3 lp, Vector3 sc, Color c, PrimitiveType t = PrimitiveType.Cube) { var g = GameObject.CreatePrimitive(t); g.name = n; Destroy(g.GetComponent<Collider>()); g.transform.SetParent(root, false); g.transform.localPosition = lp; g.transform.localScale = sc; g.GetComponent<Renderer>().sharedMaterial = M(c); return g; }
-        const string StKey = "ms_stations_v1";
+        const string StKey = "ms_stations_v2";
         void SaveStations() { var sb = new System.Text.StringBuilder(); var ci = System.Globalization.CultureInfo.InvariantCulture; foreach (var st in stations) sb.Append(st.kind).Append(',').Append(st.pos.x.ToString(ci)).Append(',').Append(st.pos.y.ToString(ci)).Append(',').Append(st.pos.z.ToString(ci)).Append(',').Append(st.yaw.ToString(ci)).Append(';'); PlayerPrefs.SetString(StKey, sb.ToString()); PlayerPrefs.Save(); }
         void LoadStations()
         {
