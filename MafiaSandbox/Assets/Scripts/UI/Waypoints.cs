@@ -31,7 +31,7 @@ namespace MafiaSandbox.UI
         }
 
         /// <summary>Route along the streets: snap both ends onto the nearest road edge, Dijkstra over the road graph, then the short hops off the road.</summary>
-        static Vector3[] Path(Vector3 a, Vector3 b)
+        public static Vector3[] Path(Vector3 a, Vector3 b)
         {
             var g = Object.FindAnyObjectByType<MafiaSandbox.World.RoadGraph>(); var n = g != null ? g.roadNodes : null;
             if (n == null || n.Length < 2) return new[] { a, b };

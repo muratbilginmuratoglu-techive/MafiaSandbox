@@ -56,6 +56,8 @@ namespace MafiaSandbox.Vehicles
             foreach (var r in renderers) r.enabled = false;
             foreach (var c in ownColliders) c.enabled = false;
             v.SetControlled(true);
+            // a former traffic car ignores every other AI car; when you drive it, it must hit them like any car
+            foreach (var ov in VehicleController.All) if (ov && ov != v) foreach (var a in v.GetComponentsInChildren<Collider>(true)) foreach (var b in ov.GetComponentsInChildren<Collider>(true)) if (a && b) Physics.IgnoreCollision(a, b, false);
             if (playerCamera) playerCamera.SetVehicle(v.transform);
         }
 
@@ -71,6 +73,7 @@ namespace MafiaSandbox.Vehicles
         {
             var v = Current; Current = null;
             v.SetControlled(false);
+            if (v.GetComponent<TrafficDriver>() && TrafficManager.I) foreach (var d in TrafficManager.I.drivers) if (d && d.gameObject != v.gameObject) foreach (var a in v.GetComponentsInChildren<Collider>(true)) foreach (var b in d.GetComponentsInChildren<Collider>(true)) if (a && b) Physics.IgnoreCollision(a, b, true);
             Vector3 side = -v.transform.right * (v.width * 0.5f + 0.8f);
             Vector3 pos = v.transform.position + side + Vector3.up * 0.2f;
             // make sure we don't pop out inside a wall: fall back to the other side / behind

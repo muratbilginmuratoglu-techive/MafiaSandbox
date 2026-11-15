@@ -98,8 +98,8 @@ namespace MafiaSandbox.UI
             if (!open)
             {
                 if (GameUI.Blocking) return;
-                int u = Unread; if (u > 0) UiSkin.DrawChip(new Rect(W - 190, 12, 178, 24), $"PHONE  T   ·   {u} new", UiSkin.Accent);
-                if (notifyT > 0f && !string.IsNullOrEmpty(notifyText)) { var nr = new Rect(W - 330, 44, 318, 48); UiSkin.DrawPanel(nr); GUI.Label(new Rect(nr.x + 10, nr.y + 6, nr.width - 20, nr.height - 12), "<b>New message</b>\n" + (notifyText.Length > 70 ? notifyText.Substring(0, 70) + "…" : notifyText), UiSkin.Label); }
+                int u = Unread; if (u > 0) UiSkin.DrawChip(new Rect(W - 190, 88, 178, 24), $"PHONE  T   ·   {u} new", UiSkin.Accent);
+                if (notifyT > 0f && !string.IsNullOrEmpty(notifyText)) { var nr = new Rect(W - 330, 116, 318, 48); UiSkin.DrawPanel(nr); GUI.Label(new Rect(nr.x + 10, nr.y + 6, nr.width - 20, nr.height - 12), "<b>New message</b>\n" + (notifyText.Length > 70 ? notifyText.Substring(0, 70) + "…" : notifyText), UiSkin.Label); }
                 return;
             }
             Styles();

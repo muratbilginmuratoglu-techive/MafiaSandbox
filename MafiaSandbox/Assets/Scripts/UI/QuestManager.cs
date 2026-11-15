@@ -158,15 +158,17 @@ namespace MafiaSandbox.UI
             return l;
         }
 
+        public static float PanelBottom = 124f;   // lowest edge of the mission panel (other HUD boxes stack below it)
         void OnGUI()
         {
+            PanelBottom = 124f;
             if (!started || IntroCinematic.Playing || Prologue.Active || CharacterCreator.IsOpen || !pc) return;
             float W = Screen.width;
             if (AllDone) return;
             var q = Quests[Index];
             var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 }; var tipSt = new GUIStyle(wrap) { fontSize = 11 }; tipSt.normal.textColor = new Color(1f, 0.85f, 0.35f);
             string dsc = DescOf(q), tip = TipOf(q); float dh = wrap.CalcHeight(new GUIContent(dsc), 294f), th = string.IsNullOrEmpty(tip) ? 0f : tipSt.CalcHeight(new GUIContent(tip), 294f) + 4f;
-            var r = new Rect(W - 330, 112, 318, 56 + dh + th + 8f);
+            var r = new Rect(W - 330, 172, 318, 56 + dh + th + 8f); PanelBottom = r.yMax;
             UiSkin.DrawPanel(r);
             GUI.Label(new Rect(r.x + 12, r.y + 6, r.width - 24, 20), $"MISSION {Index + 1}/{Quests.Count}", UiSkin.H2);
             GUI.Label(new Rect(r.x + 12, r.y + 22, r.width - 24, 22), "<b>" + q.title + "</b>", UiSkin.Label);

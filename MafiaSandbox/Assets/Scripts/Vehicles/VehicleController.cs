@@ -308,6 +308,15 @@ namespace MafiaSandbox.Vehicles
         void BlockInto(Collision c)
         {
             if (c.collider.GetComponentInParent<MafiaSandbox.Combat.CharacterBody>() || c.collider.GetComponentInParent<MafiaSandbox.World.Animal>()) return;
+            var other = c.collider.GetComponentInParent<VehicleController>();
+            if (other && other != this)
+            {
+                // another car is always a wall (no kerb-lip exemption): stop pushing into it and nudge apart, so nobody drives through traffic
+                Vector3 away = rb.position - other.rb.position; away.y = 0f; if (away.sqrMagnitude < 0.01f) away = -transform.forward; away.Normalize();
+                float inTo = Vector3.Dot(transform.forward * speed, -away);
+                if (inTo > 0f) { speed *= Mathf.Clamp01(1f - Mathf.Abs(Vector3.Dot(transform.forward, -away)) * 1.1f); if (Mathf.Abs(speed) < 0.5f) speed = 0f; planarVel *= 0.3f; }
+                rb.position += away * 0.04f; return;
+            }
             var ct = c.GetContact(0); var n = ct.normal; if (n.y > 0.4f || n.y < -0.55f) return;   // floors / ramps / roofs are not walls
             if (ct.point.y < rb.position.y + 0.62f) return;                                        // kerb lips, ramp edges, speed bumps: roll over them
             n.y = 0f; n.Normalize();
