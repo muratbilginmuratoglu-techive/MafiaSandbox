@@ -35,7 +35,7 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
-            if (Input.GetKeyDown(KeyCode.P) && !(GameUI.I && (GameUI.I.MapOpen)) && !CharacterCreator.IsOpen && !PhonePanel.IsOpen && !IntroCinematic.Playing && !CrewPanel.IsOpen) Open = !Open;
+            if (Input.GetKeyDown(KeyCode.P) && !(GameUI.I && (GameUI.I.MapOpen)) && !CharacterCreator.IsOpen && !PhonePanel.IsOpen && !IntroCinematic.Playing && !CrewPanel.IsOpen && !StashPanel.IsOpen) Open = !Open;
             if (Input.GetKeyDown(KeyCode.Escape) && Open) Open = false;
         }
 
@@ -69,6 +69,7 @@ namespace MafiaSandbox.UI
             GUILayout.Label("WEATHER", UiSkin.H2); GUILayout.BeginHorizontal();
             foreach (Atmosphere.WeatherKind w in System.Enum.GetValues(typeof(Atmosphere.WeatherKind))) { bool on = atmo && atmo.weather == w; if (GUILayout.Toggle(on, w.ToString(), UiSkin.Button) && !on && atmo) atmo.SetWeather(w); }
             GUILayout.EndHorizontal();
+            GUILayout.Label("POLICE", UiSkin.H2); { bool off = WantedSystem.PoliceOff; bool n = GUILayout.Toggle(!off, off ? "Police: OFF (they ignore you)" : "Police: ON", UiSkin.Button); if (n == off) WantedSystem.PoliceOff = !n; }
             var combat = gm.player.GetComponent<PlayerCombat>();
             GUILayout.Label("WEAPON", UiSkin.H2); GUILayout.BeginHorizontal();
             if (combat) for (int i = 0; i < WeaponDef.Order.Length; i++) { var k = WeaponDef.Order[i]; bool on = combat.Weapon.kind == k; if (GUILayout.Toggle(on, $"{i + 1} {WeaponDef.All[k].name}", UiSkin.Button) && !on) { combat.owned[i] = true; combat.Equip(k); } }

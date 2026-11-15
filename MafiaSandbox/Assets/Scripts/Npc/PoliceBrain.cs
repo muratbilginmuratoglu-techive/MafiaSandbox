@@ -49,11 +49,12 @@ namespace MafiaSandbox.Npc
 
         public bool IsIdle => State == "patrol" || State == "standby" || State == "return" || State == "lookaround";
         /// <summary>A shop's silent alarm: go and have a look at its door.</summary>
-        public void Dispatch(Vector3 door, Vector3 threat) { if (!IsIdle) return; investigatePos = door; lastSeen = threat; SetState("investigate"); GoTo(door, runSpeed * 0.9f); }
-        public void Chase() { if (State == "chase" || State == "engage" || State == "arrest") return; lastSeen = Player ? Player.transform.position : lastSeen; StartChase(); }
+        public void Dispatch(Vector3 door, Vector3 threat) { if (!IsIdle || WantedSystem.PoliceOff) return; investigatePos = door; lastSeen = threat; SetState("investigate"); GoTo(door, runSpeed * 0.9f); }
+        public void Chase() { if (WantedSystem.PoliceOff) return; if (State == "chase" || State == "engage" || State == "arrest") return; lastSeen = Player ? Player.transform.position : lastSeen; StartChase(); }
 
         void StartChase()
         {
+            if (WantedSystem.PoliceOff) return;
             if (State != "chase" && State != "engage") GameManager.I?.Say($"{displayName}: POLICE! FREEZE!");
             SetState("chase"); lostT = 0f;
         }

@@ -17,7 +17,7 @@ namespace MafiaSandbox.UI
     public class GameUI : MonoBehaviour
     {
         public static GameUI I { get; private set; }
-        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen;
+        public static bool Blocking => (I && (I.invOpen || I.shop != null || I.mapOpen || I.loot != null)) || (DebugPanel.I && DebugPanel.I.Open) || CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen;
         bool invOpen, mapOpen; Shop shop; CharacterBody loot; Vector2 scrollA, scrollB;
         GUIStyle win, title, row, dim, btn, price, head;
         PlayerController pc;
@@ -27,11 +27,11 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return; if (!pc) pc = gm.player;
-            if (CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen) { ApplyLock(); return; }
+            if (CharacterCreator.IsOpen || PhonePanel.IsOpen || IntroCinematic.Playing || CrewPanel.IsOpen || StashPanel.IsOpen) { ApplyLock(); return; }
             bool dead = gm.player.GetComponent<CharacterBody>()?.Dead ?? false;
             if (Input.GetKeyDown(KeyCode.I)) { if (shop != null) CloseAll(); else if (!dead) { invOpen = !invOpen; mapOpen = false; } }
             if (Input.GetKeyDown(KeyCode.M)) { if (mapOpen) CloseAll(); else if (!dead) { mapOpen = true; invOpen = false; shop = null; } }
-            if (Input.GetKeyDown(KeyCode.Escape) && Blocking && !PhonePanel.IsOpen && !CrewPanel.IsOpen) CloseAll();
+            if (Input.GetKeyDown(KeyCode.Escape) && Blocking && !PhonePanel.IsOpen && !CrewPanel.IsOpen && !StashPanel.IsOpen) CloseAll();
             if (dead && Blocking) CloseAll();
             if (shop != null && Vector3.Distance(gm.player.transform.position, shop.info.counter) > 4f) CloseAll();
             if (loot != null && (!loot || Vector3.Distance(gm.player.transform.position, loot.transform.position) > 4f)) CloseAll();
@@ -101,28 +101,40 @@ namespace MafiaSandbox.UI
             if (takeCash) eco.TakeLoot(loot, null); if (take != null) eco.TakeLoot(loot, take);
         }
 
+        int invTab; bool invSort = true;
+        static readonly string[] InvTabs = { "All", "Food & meds", "Goods", "Drugs", "Arms", "Stolen" };
+        static bool InTab(int tab, InvItem it, ItemDef d) => tab == 0 || (tab == 1 && (d.kind == "food" || d.kind == "med")) || (tab == 2 && d.kind != "food" && d.kind != "med" && d.kind != "drug" && d.kind != "arms") || (tab == 3 && d.kind == "drug") || (tab == 4 && d.kind == "arms") || (tab == 5 && it.stolen);
+
         void DrawInventory(EconomyManager eco, GameManager gm)
         {
             float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 300, H / 2f - 250, 600, 500);
             GUI.Box(r, GUIContent.none, win);
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
             GUILayout.BeginHorizontal(); GUILayout.Label("Backpack", title); GUILayout.FlexibleSpace(); GUILayout.Label($"${eco.cash}", new GUIStyle(title) { normal = { textColor = new Color(0.56f, 0.9f, 0.6f) } }); GUILayout.EndHorizontal();
-            GUILayout.Label("I / Esc closes · food restores hunger & stamina · stolen goods only sell at the pawn shop", dim);
+            GUILayout.Label("I / Esc closes · Shift+Drop drops the whole stack · valuables and product are safest in your home stash · stolen goods only sell at the pawn shop", dim);
+            int units = 0, worth = 0, hot = 0; foreach (var i2 in eco.inv) { var d2 = Items.Get(i2.id); units += i2.qty; worth += i2.qty * d2.value; if (i2.stolen) hot += i2.qty * d2.value; }
+            GUILayout.Label($"{units} items  ·  worth ~${worth}" + (hot > 0 ? $"  ·  stolen ~${hot}" : "") + (Stash.I ? $"  ·  stash {Stash.I.Units} (at home)" : ""), dim);
+            GUILayout.BeginHorizontal();
+            for (int t = 0; t < InvTabs.Length; t++) if (GUILayout.Button(InvTabs[t], invTab == t ? UiSkin.ButtonOn : btn, GUILayout.Height(24))) invTab = t;
+            if (GUILayout.Button(invSort ? "Sort: value" : "Sort: pickup", btn, GUILayout.Width(100), GUILayout.Height(24))) invSort = !invSort;
+            GUILayout.EndHorizontal();
             scrollA = GUILayout.BeginScrollView(scrollA);
             if (eco.inv.Count == 0) GUILayout.Label("Your backpack is empty. Buy from shops, take what's lying around (F) or search bodies.", dim);
             InvItem use = null, drop = null;
-            foreach (var it in eco.inv)
+            var view = new List<InvItem>(eco.inv); if (invSort) view.Sort((a, b) => Items.Get(b.id).value * b.qty - Items.Get(a.id).value * a.qty);
+            bool dropAll = false;
+            foreach (var it in view)
             {
-                var def = Items.Get(it.id);
+                var def = Items.Get(it.id); if (!InTab(invTab, it, def)) continue;
                 GUILayout.BeginHorizontal(GUILayout.Height(28));
                 GUILayout.Label($"{def.name}{(it.qty > 1 ? "  x" + it.qty : "")}{(it.stolen ? "   (stolen)" : "")}", it.stolen ? dim : row, GUILayout.Width(300));
                 GUILayout.Label($"~${def.value}", price, GUILayout.Width(70));
                 if (def.kind == "food" || def.kind == "med") { if (GUILayout.Button(def.kind == "food" ? "Eat" : "Use", btn, GUILayout.Width(52))) use = it; }
                 else GUILayout.Label("", GUILayout.Width(52));
-                if (GUILayout.Button("Drop", btn, GUILayout.Width(52))) drop = it;
+                if (GUILayout.Button(it.qty > 1 && Event.current.shift ? "Drop all" : "Drop", btn, GUILayout.Width(62))) { drop = it; dropAll = Event.current.shift; }
                 GUILayout.EndHorizontal();
             }
-            if (use != null) eco.UseItem(use); if (drop != null) eco.DropItem(drop);
+            if (use != null) eco.UseItem(use); if (drop != null) { int n = dropAll ? drop.qty : 1; for (int k = 0; k < n && eco.inv.Contains(drop); k++) eco.DropItem(drop); }
             GUILayout.EndScrollView();
             var pc = gm.player.GetComponent<PlayerCombat>();
             if (pc) { var owned = new List<string>(); for (int i = 0; i < WeaponDef.Order.Length; i++) if (pc.owned[i]) owned.Add(WeaponDef.All[WeaponDef.Order[i]].name); GUILayout.Label("Weapons: " + string.Join(", ", owned), dim); }

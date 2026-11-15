@@ -217,7 +217,7 @@ namespace MafiaSandbox.EditorTools
                 var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab); go.name = p.name; go.transform.SetParent(propsRoot, false);
                 go.transform.SetPositionAndRotation(Coords.ToUnity(p.pos), Quaternion.Euler(0f, Coords.YawToUnity(p.rotY), 0f));
                 if (Mathf.Abs(p.scale - 1f) > 0.001f) go.transform.localScale = Vector3.one * p.scale;
-                SetStaticRecursive(go, true); placed++;
+                SetStaticRecursive(go, !MafiaSandbox.World.BreakableProps.IsBreakable(p.name)); placed++;
             }
 
             // --- AABB colliders (walls, furniture, fences … exactly what the prototype collided with)
@@ -382,7 +382,7 @@ namespace MafiaSandbox.EditorTools
 
             var gm = new GameObject("GameManager").AddComponent<GameManager>();
             gm.player = pc; gm.playerCamera = cam; gm.playerCar = playerCar; gm.homePosition = homePos; gm.homeYaw = homeYaw; gm.policeStationPos = spawner.policeStation;
-            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>(); gm.gameObject.AddComponent<IntroCinematic>(); gm.gameObject.AddComponent<CharacterCreator>(); gm.gameObject.AddComponent<QuestManager>(); gm.gameObject.AddComponent<PhonePanel>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.CrewManager>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.JobManager>(); gm.gameObject.AddComponent<CrewPanel>();
+            gm.gameObject.AddComponent<SimpleHud>(); gm.gameObject.AddComponent<GameUI>(); var mm = gm.gameObject.AddComponent<Minimap>(); mm.worldMinX = -175f; mm.worldMaxX = 175f; gm.gameObject.AddComponent<MafiaSandbox.Factions.FactionManager>(); gm.gameObject.AddComponent<EmoteWheel>(); gm.gameObject.AddComponent<DebugPanel>(); gm.gameObject.AddComponent<IntroCinematic>(); gm.gameObject.AddComponent<CharacterCreator>(); gm.gameObject.AddComponent<QuestManager>(); gm.gameObject.AddComponent<PhonePanel>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.CrewManager>(); gm.gameObject.AddComponent<MafiaSandbox.Gang.JobManager>(); gm.gameObject.AddComponent<CrewPanel>(); gm.gameObject.AddComponent<MafiaSandbox.Economy.Stash>(); gm.gameObject.AddComponent<StashPanel>(); gm.gameObject.AddComponent<MafiaSandbox.World.BreakableProps>();
             var atmo = new GameObject("Atmosphere"); atmo.AddComponent<Atmosphere>(); atmo.AddComponent<AnimalSpawner>();
             // economy: item prefabs (Esya_*) for shelves, loot and drops
             var eco = new GameObject("Economy").AddComponent<MafiaSandbox.Economy.EconomyManager>();

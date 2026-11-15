@@ -16,15 +16,18 @@ namespace MafiaSandbox.Core
         public float SinceSeen { get; private set; } = 999f;
         public float DecaySeconds = 25f;
 
+        /// <summary>Testing switch: with the police off nobody chases, dispatches or adds stars. Saved; default OFF for now.</summary>
+        public static bool PoliceOff { get => PlayerPrefs.GetInt("ms_police_off_v1", 1) == 1; set { PlayerPrefs.SetInt("ms_police_off_v1", value ? 1 : 0); if (value && I) I.Clear(); } }
         void Awake() { I = this; }
 
         // ---- witness model: stars only come from police who actually SEE a crime; civilians who see one only make you a suspect for a while
         public float SuspectT { get; private set; } int suspectSev; float suspectCheck;
-        public void Suspect(int severity, float seconds = 70f) { suspectSev = Mathf.Max(suspectSev, severity); SuspectT = Mathf.Max(SuspectT, seconds); }
+        public void Suspect(int severity, float seconds = 70f) { if (PoliceOff) return; suspectSev = Mathf.Max(suspectSev, severity); SuspectT = Mathf.Max(SuspectT, seconds); }
 
         /// <summary>A crime at `pos`: if an officer within `range` has a clear view of it, that's `stars` stars; returns whether a cop saw it.</summary>
         public bool CopWitness(Vector3 pos, float range, int stars, string why)
         {
+            if (PoliceOff) return false;
             foreach (var cop in FindObjectsByType<MafiaSandbox.Npc.PoliceBrain>(FindObjectsSortMode.None))
             {
                 if (cop.Dead || Vector3.Distance(cop.transform.position, pos) > range) continue;
@@ -36,6 +39,7 @@ namespace MafiaSandbox.Core
 
         public void Add(int stars, string why)
         {
+            if (PoliceOff) return;
             int before = Level; Level = Mathf.Clamp(Level + stars, 0, 3); SinceSeen = 0f;
             if (Level > before) GameManager.I?.Say($"Wanted {new string('★', Level)} — {why}");
         }
@@ -49,6 +53,7 @@ namespace MafiaSandbox.Core
 
         void Update()
         {
+            if (PoliceOff && (Level > 0 || SuspectT > 0f)) { Clear(); SuspectT = 0f; }
             if (SuspectT > 0f)
             {
                 SuspectT -= Time.deltaTime; suspectCheck -= Time.deltaTime;

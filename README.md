@@ -86,3 +86,11 @@ alınır, `Build City Scene` tekrar çalıştırılır. Prop'lar değişirse `bu
 - Phone ▸ Jobs: smuggling run, chop-shop car delivery, contract hit. Shotgun spread/range widened.
 - Main story: 14 missions in 3 acts (Uncle Enzo's $6000 debt to Sal → crew → turf).
 - 12 ways to earn: see K ▸ Hustles.
+
+## Update: testing helpers, driving, stash
+- Police are **OFF** by default for testing (P debug panel ▸ POLICE toggle; saved).
+- Pedestrians: step out of cars' paths, stare at / flee from bodies, back off with hands up when you aim at them, chat in pairs; each has its own walking speed.
+- Car: hold **Space** while turning at speed to drift (tail swings out, skid marks + tyre smoke).
+- Cars knock over lamps, signs, traffic lights, fences, bins, hydrants, bus stops, etc.
+- Home stash chest (F at home): safe storage, saved between launches. Backpack has tabs, sort, Shift+Drop for stacks.
+- Arms trade: order pistols/rifles from Sal (K ▸ Supplies), sell with X to friendly gang members. Market prices drift every shift.

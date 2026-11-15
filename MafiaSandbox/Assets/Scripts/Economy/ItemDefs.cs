@@ -33,7 +33,7 @@ namespace MafiaSandbox.Economy
             I("TV", "Television", 700, "valuable"); I("Tablo", "Painting", 550, "valuable"); I("Mermi", "Ammo box", 40, "misc");
             I("Paket", "Suspicious package", 650, "contraband"); I("Telsiz", "Police radio", 220, "misc"); I("Kelepce", "Handcuffs", 40, "misc");
             I("Sigara", "Cigarettes", 8, "misc"); I("Anahtar", "Keychain", 3, "misc"); I("Burger", "Burger", 8, "food", 30); I("Kahve", "Coffee", 4, "food", 6);
-            I("Weed", "Weed baggie", 45, "drug"); I("Pills", "Pills", 110, "drug"); I("Powder", "White powder", 240, "drug");
+            I("Weed", "Weed baggie", 45, "drug"); I("Pills", "Pills", 110, "drug"); I("Powder", "White powder", 240, "drug"); I("Guns", "Smuggled pistols", 340, "arms"); I("Rifles", "Assault rifles", 950, "arms");
 
             ShopDef S(string kind, string title, string[] stock, string[] shelf, int r0, int r1, string[] buys) { var d = new ShopDef { title = title, stock = stock, shelf = shelf, registerMin = r0, registerMax = r1, buysKinds = buys }; Shops[kind] = d; return d; }
             string[] N = new string[0];

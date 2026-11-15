@@ -22,7 +22,13 @@ namespace MafiaSandbox.Vehicles
         public float wheelBase = 2.7f;
         public float length = 4.4f, width = 1.8f;
 
+        public static readonly System.Collections.Generic.List<VehicleController> All = new System.Collections.Generic.List<VehicleController>();
+        void OnEnable() { if (!All.Contains(this)) All.Add(this); }
+        void OnDisable() { All.Remove(this); }
         public bool Controlled { get; private set; }
+        public bool Drifting { get; private set; }
+        public float Slip { get; private set; }           // degrees between where the nose points and where the car travels
+        Vector3 planarVel; TrailRenderer[] skids; float driftSmoke; ParticleSystem smoke;
         public float Speed => speed;             // signed, m/s along forward
 
         Rigidbody rb; bool lifted; int groundMask; float fallV; static bool layersSet; static readonly Collider[] sweepHits = new Collider[32]; readonly System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float> hitAt = new System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float>(); int pedMask = -1;
@@ -141,6 +147,53 @@ namespace MafiaSandbox.Vehicles
             }
         }
 
+        void UpdateSkids(float groundY)
+        {
+            bool skidding = Controlled && Slip > 14f && Mathf.Abs(speed) > 3f;
+            if (skids == null && skidding)
+            {
+                var mat = new Material(Shader.Find("Sprites/Default")); mat.color = new Color(0.05f, 0.05f, 0.05f, 0.7f);
+                skids = new TrailRenderer[2];
+                for (int i = 0; i < 2; i++)
+                {
+                    var g = new GameObject("Skid" + i); g.transform.SetParent(transform, false); g.transform.localPosition = new Vector3(i == 0 ? -width * 0.42f : width * 0.42f, 0.04f, -length * 0.32f);
+                    g.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);    // trail "Z" alignment then lies flat on the road
+                    var t = g.AddComponent<TrailRenderer>(); t.time = 14f; t.startWidth = 0.28f; t.endWidth = 0.28f; t.minVertexDistance = 0.25f; t.alignment = LineAlignment.TransformZ; t.sharedMaterial = mat; t.emitting = false; t.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    t.colorGradient = new Gradient { colorKeys = new[] { new GradientColorKey(Color.black, 0f), new GradientColorKey(Color.black, 1f) }, alphaKeys = new[] { new GradientAlphaKey(0.0f, 0f), new GradientAlphaKey(0.75f, 0.06f), new GradientAlphaKey(0.75f, 0.7f), new GradientAlphaKey(0f, 1f) } };
+                    skids[i] = t;
+                }
+            }
+            if (skids != null)
+                for (int i = 0; i < skids.Length; i++)
+                {
+                    var tr = skids[i].transform; var lp = tr.localPosition; tr.position = new Vector3(tr.position.x, (groundY > float.MinValue ? groundY : transform.position.y) + 0.07f, tr.position.z);
+                    if (skidding && !skids[i].emitting) skids[i].Clear(); skids[i].emitting = skidding;
+                }
+            if (skidding && Time.time > driftSmoke) { driftSmoke = Time.time + 0.06f; Puff(); }
+        }
+        void Puff()
+        {
+            if (!smoke)
+            {
+                var g = new GameObject("TyreSmoke"); g.transform.SetParent(transform, false); g.transform.localPosition = new Vector3(0f, 0.2f, -length * 0.35f);
+                smoke = g.AddComponent<ParticleSystem>(); var m = smoke.main; m.startLifetime = 1.1f; m.startSize = 1.2f; m.startSpeed = 0.5f; m.simulationSpace = ParticleSystemSimulationSpace.World; m.startColor = new Color(0.85f, 0.85f, 0.85f, 0.35f); m.playOnAwake = false; m.maxParticles = 80;
+                var e = smoke.emission; e.enabled = false; var sh = smoke.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(width * 0.9f, 0.1f, 0.1f);
+                var sz = smoke.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f), new Keyframe(1f, 1.6f)));
+                var col = smoke.colorOverLifetime; col.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.35f, 0f), new GradientAlphaKey(0f, 1f) }); col.color = gr;
+                var r = smoke.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = new Material(Shader.Find("Sprites/Default"));
+            }
+            smoke.Emit(2);
+        }
+
+        /// <summary>Small street furniture breaks when hit at speed.</summary>
+        void BreakHit(Collision c)
+        {
+            if (!Controlled || Mathf.Abs(speed) < 2.5f) return;
+            var bp = MafiaSandbox.World.BreakableProps.I; if (bp == null) return;
+            float cost = bp.TryBreak(c.collider, Mathf.Abs(speed), transform.forward * Mathf.Sign(speed));
+            if (cost > 0f) { speed *= 1f - cost; planarVel *= 1f - cost; }
+        }
+
         /// <summary>Seconds we've been pushing into something solid without moving (AI uses this to back out).</summary>
         public float WallT { get; private set; }
 
@@ -148,8 +201,12 @@ namespace MafiaSandbox.Vehicles
         {
             float dt = Time.fixedDeltaTime;
             { Vector3 was = rb.linearVelocity; was.y = 0f; if (Mathf.Abs(speed) > 1f && was.magnitude < 0.35f && Time.time - LastContactT < 0.25f) WallT += dt; else WallT = 0f; }
+            // drift: Space while turning at speed (player only) lets the tail swing out. Heading keeps rotating, the velocity lags behind it.
+            bool wantDrift = Controlled && handbrake && Mathf.Abs(speed) > 5f && (Mathf.Abs(steer) > 0.12f || Drifting);
+            Drifting = wantDrift;
             // longitudinal
-            if (handbrake) speed = Mathf.MoveTowards(speed, 0f, brakeDecel * dt);
+            if (Drifting) { if (Mathf.Abs(throttle) > 0.01f && Mathf.Sign(throttle) == Mathf.Sign(speed)) speed = Mathf.MoveTowards(speed, Mathf.Sign(speed) * maxSpeed * 0.92f, acceleration * 0.6f * dt); else speed = Mathf.MoveTowards(speed, 0f, 2.2f * dt); }
+            else if (handbrake) speed = Mathf.MoveTowards(speed, 0f, brakeDecel * dt);
             else if (Mathf.Abs(throttle) > 0.01f)
             {
                 bool braking = Mathf.Sign(throttle) != Mathf.Sign(speed) && Mathf.Abs(speed) > 0.3f;
@@ -161,6 +218,7 @@ namespace MafiaSandbox.Vehicles
             // steering (bicycle-ish): yaw rate from steer angle and speed
             float steerAngle = steer * maxSteerDeg * Mathf.Lerp(1f, 0.45f, Mathf.Abs(speed) / maxSpeed);
             float yawRate = speed / wheelBase * Mathf.Tan(steerAngle * Mathf.Deg2Rad) * Mathf.Rad2Deg; // deg/s
+            if (Drifting) yawRate *= 1.7f * Mathf.Sign(speed) * Mathf.Sign(speed);
             if (Mathf.Abs(speed) > 0.05f) rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, yawRate * dt, 0f));
 
             // ground follow: ride on a raycast instead of resting on the mesh (see Awake)
@@ -187,7 +245,17 @@ namespace MafiaSandbox.Vehicles
             }
             else { fallV -= 9.81f * dt; vy = fallV; }
             Vector3 planar = transform.forward * speed;
+            if (!Controlled) planarVel = planar;
+            else
+            {
+                float grip = Drifting ? 1.6f : 9f;                                   // how quickly travel direction follows the nose
+                planarVel = Vector3.Lerp(planarVel, planar, 1f - Mathf.Exp(-grip * dt));
+                if (planarVel.sqrMagnitude < 0.01f) planarVel = planar;
+                planar = planarVel;
+                Vector3 fl = transform.forward; Slip = Vector3.Angle(new Vector3(fl.x, 0f, fl.z), new Vector3(planarVel.x, 0f, planarVel.z)) * (planarVel.sqrMagnitude > 4f ? 1f : 0f);
+            }
             rb.linearVelocity = new Vector3(planar.x, vy, planar.z);
+            UpdateSkids(gy);
             SweepPedestrians(dt);
         }
 
@@ -250,6 +318,7 @@ namespace MafiaSandbox.Vehicles
 
         void OnCollisionEnter(Collision c)
         {
+            BreakHit(c);
             var animal = c.collider.GetComponentInParent<MafiaSandbox.World.Animal>();
             if (animal && !animal.Dead && Mathf.Abs(speed) > 2.5f) { animal.Hit(c.GetContact(0).point, transform.forward * Mathf.Sign(speed)); return; }
             // pedestrians: knock them down (ragdoll) when fast, nudge them when slow

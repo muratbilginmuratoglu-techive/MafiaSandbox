@@ -10,7 +10,7 @@ namespace MafiaSandbox.Economy
     /// <summary>F / G interactions on foot: take or buy items (G = steal), trade at a counter, search a body. Also builds the prompt text.</summary>
     public class PlayerInteraction : MonoBehaviour
     {
-        public enum Kind { None, Item, Counter, Body, Civilian, Crew }
+        public enum Kind { None, Item, Counter, Body, Civilian, Crew, Arms, Stash }
         public Kind TargetKind { get; private set; }
         public Pickable TargetItem { get; private set; }
         public Shop TargetShop { get; private set; }
@@ -52,14 +52,17 @@ namespace MafiaSandbox.Economy
             foreach (var cb in CharacterBody.All)
             {
                 if (!cb || cb.Dead || cb == body || cb.isPlayer || (cb.transform.position - pp).sqrMagnitude > 7.5f) continue;
-                var nb = cb.GetComponent<Npc.NpcBrain>(); bool civ = nb is Npc.CivilianBrain && nb.State != "flee" && nb.State != "hide" && nb.State != "tohide"; bool crew = nb is Gang.CrewBrain;
-                if (!civ && !crew) continue;
+                var nb = cb.GetComponent<Npc.NpcBrain>(); bool arms = nb is Factions.FactionBrain; bool civ = nb is Npc.CivilianBrain && nb.State != "flee" && nb.State != "hide" && nb.State != "tohide"; bool crew = nb is Gang.CrewBrain;
+                if (!civ && !crew && !arms) continue;
                 Vector3 to = cb.transform.position - pp; to.y = 0f; float d = to.magnitude; to.Normalize(); if (d > 0.1f && Vector3.Dot(to, f) < 0.2f) continue;
-                float score = d - 1.5f - Vector3.Dot(to, f) * 0.6f; if (score < best) { best = score; TargetKind = crew ? Kind.Crew : Kind.Civilian; TargetItem = null; TargetShop = null; TargetBody = cb; TargetNpc = nb; }
+                float score = d - 1.5f - Vector3.Dot(to, f) * 0.6f; if (score < best) { best = score; TargetKind = crew ? Kind.Crew : arms ? Kind.Arms : Kind.Civilian; TargetItem = null; TargetShop = null; TargetBody = cb; TargetNpc = nb; }
             }
+            if (Stash.I && TargetKind == Kind.None && (Stash.I.Pos - pp).sqrMagnitude < 2.4f * 2.4f) { TargetKind = Kind.Stash; }
             switch (TargetKind)
             {
                 case Kind.Civilian: { var cm = Gang.CrewManager.I; Prompt = cm ? $"F  Recruit {TargetNpc.displayName} (${cm.RecruitCost})    X  Offer product" : ""; break; }
+                case Kind.Arms: Prompt = $"X  Sell guns to {TargetNpc.displayName}"; break;
+                case Kind.Stash: Prompt = "F  Open your stash"; break;
                 case Kind.Crew: Prompt = $"F  Crew: {TargetNpc.displayName}"; break;
                 case Kind.Item:
                     {
@@ -84,6 +87,7 @@ namespace MafiaSandbox.Economy
                 case Kind.Item: eco.TakeItem(TargetItem, steal); if (anim) anim.PlayUpper("Take"); break;
                 case Kind.Counter: if (!steal) { if (TargetShop.kind == "bank") GameManager.I.Say("Teller: We don't deal with your kind here. The vault is at the back… not that you'd dare."); else GameUI.I?.OpenShop(TargetShop); } break;
                 case Kind.Civilian: if (!steal) Gang.CrewManager.I?.TryRecruit((Npc.CivilianBrain)TargetNpc); break;
+                case Kind.Stash: if (!steal) StashPanel.I?.Open(); break;
                 case Kind.Crew: if (!steal) CrewPanel.I?.OpenCrew((Gang.CrewBrain)TargetNpc); break;
                 case Kind.Body: if (!steal && LootT <= 0f) { LootT = 0.9f; if (anim) anim.PlayUpper("Take"); var cb = TargetBody; Invoke(nameof(FinishLoot), 0.7f); pendingLoot = cb; } break;
             }
@@ -92,6 +96,7 @@ namespace MafiaSandbox.Economy
         {
             var cm = Gang.CrewManager.I; if (!cm) return;
             if (TargetKind == Kind.Civilian) cm.Deal((Npc.CivilianBrain)TargetNpc);
+            else if (TargetKind == Kind.Arms) cm.SellArms((Factions.FactionBrain)TargetNpc);
             else if (TargetKind == Kind.Counter && Gang.CrewManager.Eligible(TargetShop)) CrewPanel.I?.OpenVenue(TargetShop);
         }
         CharacterBody pendingLoot;
