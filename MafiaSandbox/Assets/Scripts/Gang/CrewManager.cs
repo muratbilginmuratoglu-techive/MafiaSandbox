@@ -38,7 +38,7 @@ namespace MafiaSandbox.Gang
         public int WholeNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Wholesale[i] * Mood[i]));
         public int StreetNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Street[i] * Mood[i]));
         public string Trend(int i) => Mood[i] > 1.12f ? "▲ hot" : Mood[i] < 0.9f ? "▼ slow" : "steady";
-        public static bool Unlocked(int i) => Respect.Rank >= UnlockRank[i];
+        public static bool Unlocked(int i) => Respect.Rank >= UnlockRank[i] || Career.IsStarterProduct(Products[i]);
         public static int WholesalePrice(int i) => Wholesale[i];
         public static int StreetBase(int i) => Street[i];
         public int Stock(int i) => EconomyManager.I ? EconomyManager.I.Count(Products[i]) : 0;

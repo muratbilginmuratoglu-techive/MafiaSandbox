@@ -86,6 +86,28 @@ namespace MafiaSandbox.UI
             if (GameUI.I && GameUI.I.MapOpen) DrawBig(gm); else DrawMini(gm);
         }
 
+        static void GLine(Vector2 a, Vector2 b, float w, Color c)
+        {
+            var d = b - a; float len = d.magnitude; if (len < 0.5f) return; float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+            var old = GUI.matrix; GUIUtility.RotateAroundPivot(ang, a); GUI.color = c; GUI.DrawTexture(new Rect(a.x, a.y - w / 2f, len, w), Texture2D.whiteTexture); GUI.matrix = old; GUI.color = Color.white;
+        }
+        static void Diamond(Vector2 c, float sz, Color col)
+        {
+            var old = GUI.matrix; GUIUtility.RotateAroundPivot(45f, c); GUI.color = new Color(0, 0, 0, 0.8f); GUI.DrawTexture(new Rect(c.x - sz / 2 - 2, c.y - sz / 2 - 2, sz + 4, sz + 4), Texture2D.whiteTexture);
+            GUI.color = col; GUI.DrawTexture(new Rect(c.x - sz / 2, c.y - sz / 2, sz, sz), Texture2D.whiteTexture); GUI.matrix = old; GUI.color = Color.white;
+        }
+        static readonly Color QuestCol = new Color(1f, 0.82f, 0.15f), PinCol = new Color(0.25f, 0.9f, 1f);
+        void DrawRoute(Vector3[] pts, Color col, System.Func<Vector3, Vector2> sp, float w)
+        {
+            for (int i = 0; i + 1 < pts.Length; i++) GLine(sp(pts[i]), sp(pts[i + 1]), w, new Color(col.r, col.g, col.b, 0.85f));
+        }
+        /// <summary>Marker for a waypoint; when it is off the mini map it sticks to the edge pointing the way.</summary>
+        static void Marker(Vector2 s, Rect clip, bool clamp, Color col, float sz)
+        {
+            if (clip.Contains(s)) { Diamond(s, sz, col); return; }
+            if (!clamp) return; var c = clip.center; var d = s - c; float k = Mathf.Min((clip.width / 2f - 8f) / Mathf.Max(0.01f, Mathf.Abs(d.x)), (clip.height / 2f - 8f) / Mathf.Max(0.01f, Mathf.Abs(d.y))); Diamond(c + d * k, sz * 0.8f, col);
+        }
+
         void DrawMini(GameManager gm)
         {
             float H = Screen.height; const float S = 190f; float radiusM = 55f;
@@ -103,6 +125,16 @@ namespace MafiaSandbox.UI
                 if (!b || b.Dead || b.gameObject == gm.player.gameObject) continue; var br = b.GetComponent<NpcBrain>();
                 Color col = br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : br is FactionBrain fb && fb.Def != null ? fb.Def.color : new Color(0.86f, 0.86f, 0.86f);
                 Dot(b.transform.position, col, br is PoliceBrain || br is GangBrain || br is FactionBrain ? 6f : 4f);
+            }
+            var wp = Waypoints.I;
+            if (wp != null)
+            {
+                GUI.BeginGroup(r); Vector2 off = r.position; System.Func<Vector3, Vector2> g = w => Sp(w) - off;
+                DrawRoute(wp.QuestRoute, QuestCol, g, 3f); DrawRoute(wp.PinRoute, PinCol, g, 3f);
+                var local = new Rect(0, 0, S, S);
+                if (wp.QuestTarget.HasValue) Marker(g(wp.QuestTarget.Value), local, true, QuestCol, 9f);
+                foreach (var pin in wp.Pins) Marker(g(pin), local, true, PinCol, 8f);
+                GUI.EndGroup();
             }
             // player arrow
             var ps = new Vector2(r.x + S / 2f, r.y + S / 2f); float yaw = gm.player.transform.eulerAngles.y;
@@ -129,16 +161,37 @@ namespace MafiaSandbox.UI
             var lab = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }; lab.normal.textColor = Color.white;
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None)) { if (bi.kind == "house") continue; var s = Sp(bi.footprint.center); GUI.color = new Color(0, 0, 0, 0.55f); GUI.DrawTexture(new Rect(s.x - 42, s.y - 9, 84, 18), dot); GUI.color = Color.white; GUI.Label(new Rect(s.x - 42, s.y - 9, 84, 18), bi.label, lab); }
             foreach (var f in FactionDefs.All) { var c = Data.Coords.ToUnity(f.territory.center.x, 0f, f.territory.center.y + 18f); var s = Sp(c); var ts = new GUIStyle(lab) { fontSize = 13 }; ts.normal.textColor = Color.Lerp(f.color, Color.white, 0.35f); GUI.Label(new Rect(s.x - 60, s.y - 9, 120, 18), f.name, ts); }
+            var wp = Waypoints.I; var ev = Event.current;
+            if (wp != null)
+            {
+                DrawRoute(wp.QuestRoute, QuestCol, Sp, 4f); DrawRoute(wp.PinRoute, PinCol, Sp, 4f);
+                if (wp.QuestTarget.HasValue) Diamond(Sp(wp.QuestTarget.Value), 13f, QuestCol);
+                var pst = new GUIStyle(lab) { fontSize = 11 }; pst.normal.textColor = Color.black;
+                for (int pi = 0; pi < wp.Pins.Count; pi++) { var ps = Sp(wp.Pins[pi]); Diamond(ps, 13f, PinCol); GUI.Label(new Rect(ps.x - 10, ps.y - 9, 20, 18), (pi + 1).ToString(), pst); }
+                if (ev.type == EventType.MouseDown && r.Contains(ev.mousePosition))
+                {
+                    if (ev.button == 1) { wp.ClearPins(); ev.Use(); }
+                    else if (ev.button == 0)
+                    {
+                        int hit = -1; for (int pi = 0; pi < wp.Pins.Count; pi++) if ((Sp(wp.Pins[pi]) - ev.mousePosition).magnitude < 12f) hit = pi;
+                        if (hit >= 0) wp.RemovePin(hit);
+                        else { var w = new Vector3(worldMinX + (ev.mousePosition.x - r.x) / sx, gm.player.transform.position.y, worldMinZ + (r.yMax - ev.mousePosition.y) / sz); wp.AddPin(w); }
+                        ev.Use();
+                    }
+                }
+                if (r.Contains(ev.mousePosition)) { GUI.color = new Color(0.25f, 0.9f, 1f, 0.5f); GUI.DrawTexture(new Rect(ev.mousePosition.x - 4, ev.mousePosition.y - 4, 8, 8), dot); GUI.color = Color.white; }
+            }
             Dot(gm.player.transform.position, Color.white, 9f);
             // legend
             var box = new GUIStyle(UiSkin.PanelSolid) { alignment = TextAnchor.UpperLeft, fontSize = 13, padding = new RectOffset(12, 12, 10, 10) };
             var eco = EconomyManager.I; var ws = WantedSystem.I;
             string legend = "CITY MAP   (M / Esc closes)\n\n";
             foreach (var kv in KindCol) legend += $"■ {Items.ShopFor(kv.Key)?.title ?? kv.Key}\n";
-            legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n\n";
+            legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n";
+            legend += "\n◆ Mission target (gold route)\n◆ Your pins (cyan route)\nLeft-click: drop / remove a pin\nRight-click: clear all pins\n\n";
             var fm = FactionManager.I; if (fm) foreach (var f in FactionDefs.All) legend += $"■ {f.name}: {FactionManager.Standing(fm.Rep(f))}\n";
             legend += "\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
-            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 200, 360), legend, box);
+            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 210, 470), legend, box);
             // coloured squares for the legend rows
             int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 28, r.y + 46 + i * 17f, 10, 10), dot); i++; }
             GUI.color = Color.white;

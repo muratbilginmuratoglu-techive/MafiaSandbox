@@ -19,15 +19,26 @@ namespace MafiaSandbox.UI
     public class QuestManager : MonoBehaviour
     {
         public static QuestManager I { get; private set; }
-        public class Quest { public string title, desc, sal; public int reward; public Func<Vector3?> target; public Func<bool> done; }
+        public class Quest { public string title, desc, sal, tip; public Func<string> descF, tipF; public int reward; public Func<Vector3?> target; public Func<bool> done; public Action begin; }
+        public static string DescOf(Quest q) => q.descF != null ? q.descF() : q.desc;
+        public static string TipOf(Quest q) => q.tipF != null ? q.tipF() : q.tip;
+        /// <summary>Hint text for the current mission (shown in the tracker and on the workstation panel).</summary>
+        public string Coach { get; private set; }
+        public Vector3? CurrentTarget { get; private set; }
+        int beganIdx = -1, dealsBase; bool introPosted;
         public readonly List<Quest> Quests = new List<Quest>();
         public int Index { get; private set; }
         public bool AllDone => Index >= Quests.Count;
-        const string Key = "ms_quest_idx_v3";
+        const string Key = "ms_quest_idx_v4";
 
         int crewKills; bool heatSeen, started, phoneSeen; float doneFlash; string doneText; GameObject beacon; PlayerController pc; float startT = -1f;
 
-        void Awake() { I = this; }
+        void Awake()
+        {
+            I = this; var g = gameObject;   // make sure the career systems exist even in a scene built before they were added
+            if (!g.GetComponent<OldStash>()) g.AddComponent<OldStash>(); if (!g.GetComponent<HomePlacer>()) g.AddComponent<HomePlacer>();
+            if (!g.GetComponent<CareerPanel>()) g.AddComponent<CareerPanel>(); if (!g.GetComponent<Waypoints>()) g.AddComponent<Waypoints>();
+        }
         void OnEnable() { WorldEvents.OnCharacterDied += OnDied; }
         void OnDisable() { WorldEvents.OnCharacterDied -= OnDied; }
         void OnDied(CharacterBody b, string by) { if ((by == "player" || by == "crew") && b && b.GetComponent<FactionBrain>()) crewKills++; }
@@ -47,16 +58,35 @@ namespace MafiaSandbox.UI
             Vector3? JerSpot() => gm.homePosition;
             bool InHouse() { if (!eco || eco.homeShop == null || !eco.homeShop.info || !pc) return false; var f = eco.homeShop.info.footprint; var p = pc.transform.position; return p.x > f.min.x && p.x < f.max.x && p.z > f.min.z && p.z < f.max.z; }
             bool slept = false;
-            Quests.Add(new Quest { title = "0. What is left", desc = "Walk into the ruined house. Look around.", reward = 0, target = JerSpot, done = () => InHouse(), sal = null });
-            Quests.Add(new Quest { title = "0. Jeremy's number", desc = "Press T and read Jeremy's message.", reward = 25, done = () => PhonePanel.IsOpen, sal = "jeremy|I know it's a lot. The house is yours, nobody else wants it. Sleep, eat, get your legs back. I'll text you when I've got something." });
-            Quests.Add(new Quest { title = "0. Get your legs back", desc = "Sleep a night in your own bed (inside the house, press F at the bed after 19:30).", reward = 75, done = () => { if (HomeLab.Sleeping) slept = true; return slept && !HomeLab.Sleeping; }, sal = "jeremy|Three years in bed, you need real sleep. The bed in the house still works." });
+            int C() => Career.Chosen;
+            Vector3? Nearest(string kind) { if (!eco || !pc) return null; Vector3? best = null; float bd = 1e9f; foreach (var s in eco.shops) if (s.info && s.info.kind == kind) { float d = (s.info.door - pc.transform.position).sqrMagnitude; if (d < bd) { bd = d; best = s.info.door; } } return best; }
+            bool KitOk() => Career.Has && (eco.Count(Career.Kit) > 0 || (HomeLab.I && HomeLab.I.CountStations(C()) > 0));
+            int HaveItem(string id) => HomeLab.I ? HomeLab.I.Have(id) : eco.Count(id);
+            bool ShopDone() { if (!Career.Has || !KitOk()) return false; foreach (var (id, n, _) in Career.FirstBatch[C()]) if (HaveItem(id) < n) return false; return true; }
+            Vector3? ShopTarget() { if (!Career.Has) return null; if (!KitOk()) return Nearest(Career.KitShop[C()]); foreach (var (id, n, shop) in Career.FirstBatch[C()]) if (HaveItem(id) < n) return Nearest(shop); return gm.homePosition; }
+            string ShopDesc()
+            {
+                if (!Career.Has) return "Choose your trade first.";
+                string t = (KitOk() ? "[x] " : "[ ] ") + Items.Get(Career.Kit).name + $" at the {Items.ShopFor(Career.KitShop[C()]).title}";
+                foreach (var (id, n, shop) in Career.FirstBatch[C()]) t += "\n" + (HaveItem(id) >= n ? "[x] " : "[ ] ") + $"{Items.Get(id).name} {Mathf.Min(HaveItem(id), n)}/{n} at the {Items.ShopFor(shop).title}";
+                return t;
+            }
+            Vector3? StationPos() { if (!HomeLab.I || !Career.Has) return null; foreach (var st in HomeLab.I.stations) if (st.kind == C()) return st.pos; return null; }
+            string StName() => Career.Has ? Career.StationNames[C()].ToLower() : "workstation";
+            // ACT 0 - AFTERMATH: three years in a coma, the family is gone. Money from the old stash starts a new trade at home.
+            Quests.Add(new Quest { title = "0. The old stash", desc = "Jeremy says your family hid emergency cash under the floorboards at the back of the ruined house. Go inside, find the golden glow and press F.", tip = "A gold marker shows the way on the minimap and the big map (M).", reward = 0, target = () => OldStash.I != null && OldStash.I.Active ? OldStash.I.Pos : gm.homePosition, done = () => Career.StashTaken, sal = null });
+            Quests.Add(new Quest { title = "0. Choose your trade", desc = "A menu asks how you will make a living: bootleg alcohol, drugs or arms. Read the steps and choose one.", tip = "It decides what you buy, what you make at home and who you sell to.", reward = 0, begin = () => CareerPanel.I?.Open(), done = () => Career.Has, sal = "jeremy|You've got money now. What are you going to do with it? Think hard, it decides everything." });
+            Quests.Add(new Quest { title = "0. Shopping run", descF = ShopDesc, tip = "Walk into the shop and press F at the counter. Gold marker = next stop.", reward = 100, target = ShopTarget, done = ShopDone, sal = null });
+            Quests.Add(new Quest { title = "0. Set up at home", descF = () => $"Go home. Inside the house press B, walk to where you want your {StName()}, rotate with Q/E and press F to place it.", tip = "Leave space around it. It can't go near the bed, door, stash or furniture. Press B next to it later to move it.", reward = 100, target = () => gm.homePosition, done = () => Career.Has && HomeLab.I && HomeLab.I.CountStations(C()) > 0, sal = "jeremy|Good. Now bring it all home and put it where you can work. Press B inside the house." });
+            Quests.Add(new Quest { title = "0. First batch", descF = () => $"Walk up to your {StName()} and press F. Pick the recipe, check the ingredients, press Start and play the little game. Better work means more product.", tip = "Step 1: the recipe is selected. Step 2: ingredients must be full (2/2 etc). Step 3: press Start and play the puzzle.", reward = 50, target = StationPos, done = () => Career.Has && HomeLab.I && (HomeLab.I.batches[Career.RecipeIndex].state >= 1 || Career.Collects >= 1), sal = "jeremy|Time to learn the craft. Don't rush it, a good batch is worth three bad ones." });
+            Quests.Add(new Quest { title = "0. Let it cook", descF = () => "A batch takes game hours. Sleep in your bed to skip time (inside the house, press F at the bed after 19:30) or just wait until the READY message.", tip = "Sleeping finishes everything that is cooking. You can also wander off and come back.", reward = 50, target = () => { var l = HomeLab.I; if (l && HomeLab.CanSleepNow) return l.BedPos; return StationPos(); }, done = () => Career.Has && HomeLab.I && (HomeLab.I.batches[Career.RecipeIndex].state == 2 || Career.Collects >= 1), sal = null });
+            Quests.Add(new Quest { title = "0. Collect the product", descF = () => $"Go back to your {StName()}, press F and press Collect. The product lands in your backpack.", tip = "You will be able to sell it on the street later. Open your backpack with I.", reward = 150, target = StationPos, done = () => Career.Collects >= 1, sal = "jeremy|That's the whole loop: buy, make, wait, collect. Now do it again, but bigger." });
             Quests.Add(new Quest { title = "0. Three years of news", desc = "Press T and check Jeremy's message about the war.", reward = 25, done = () => PhonePanel.IsOpen, sal = "jeremy|You want to know who did it? Two families, Morettis and Kaplans, shot up the whole street. Nobody was arrested. Sal knows more. He is the only one who talks." });
             Quests.Add(new Quest { title = "0. Pay your respects", desc = "Be at the ruined house after dark (20:00 to 05:00).", reward = 50, target = JerSpot, done = () => { var d = DayNightCycle.I; return InHouse() && d && (d.timeOfDay >= 20f || d.timeOfDay < 5f); }, sal = "jeremy|Go home after dark and spend a quiet minute with them. Then call Sal, he is waiting." });
             // ACT I - STREET RAT: your uncle Enzo died owing Sal $6000. Sal fronts you product so you can work it off.
             Quests.Add(new Quest { title = "I. A message from Sal", desc = "Press T to open your phone.", reward = 50, done = () => PhonePanel.IsOpen, sal = "sal|Heard you woke up. Good. We should talk, kid. Check your phone." });
             Quests.Add(new Quest { title = "I. Wheels", desc = "Get behind the wheel of any car (walk up, press E).", reward = 100, done = () => vi && vi.Current, sal = "Your uncle Enzo left you his debt: $6000. I'm a reasonable man. Work it off. First: get yourself some wheels." });
-            Quests.Add(new Quest { title = "I. The starter pack", desc = "Order weed from Sal: K ▸ Supplies. Have 3 baggies in your backpack.", reward = 100, done = () => cm && cm.Stock(0) >= 3 || (cm && cm.Deals >= 1), sal = "Here's the deal: I front you product, you sell it on the street. Open your organisation menu (K) and order some weed." });
-            Quests.Add(new Quest { title = "I. First sales", desc = "Sell 3 baggies: walk up to a civilian and press X. Do it where cops can't see.", reward = 150, done = () => cm && cm.Deals >= 3, sal = "Walk up to people, press X. Watch for cops. Witnesses talk, but only a cop who sees you can arrest you." });
+            Quests.Add(new Quest { title = "I. First sales", descF = () => Career.Chosen == Career.Arms ? "Sell 3 pistols to armed gang members: find a gang member (red dot on the minimap), walk up and press X." : "Sell 3 units of what you made: walk up to a civilian and press X. Do it where cops can't see.", tip = "Check your backpack (I) for stock. Witnesses talk, but only a cop who sees you can arrest you.", reward = 150, begin = () => dealsBase = cm ? cm.Deals : 0, done = () => cm && cm.Deals - dealsBase >= 3, sal = "sal|Heard you're cooking at home. Good, no cut for me. Now move it: sell it on the street. Watch for cops." });
             Quests.Add(new Quest { title = "I. Earn respect", desc = "Reach the rank of Hustler (K ▸ Status).", reward = 250, done = () => Gang.Respect.Rank >= 1, sal = "People are starting to know your face. Keep going: sell, steal, fight. Respect opens doors." });
             // ACT II - THE CREW
             Quests.Add(new Quest { title = "II. Hire muscle", desc = "Recruit a civilian into your crew: walk up, press F.", reward = 200, done = () => cm && cm.Recruited >= 1, sal = "You can't do this alone. Pick someone with a spine and put a few dollars in their hand." });
@@ -79,8 +109,10 @@ namespace MafiaSandbox.UI
             if (!started) { started = true; Build(); startT = Time.time; }
             if (Time.time - startT < 6f) return;   // let the welcome text land first
             if (doneFlash > 0f) doneFlash -= Time.deltaTime;
-            if (AllDone) { SetBeacon(null); return; }
+            if (AllDone) { SetBeacon(null); CurrentTarget = null; Coach = null; if (Waypoints.I) Waypoints.I.QuestTarget = null; return; }
             var q = Quests[Index];
+            if (!introPosted) { introPosted = true; if (Index == 0 && !Career.StashTaken) PhonePanel.Post("jeremy", "Dad hid money under the floorboards, somewhere at the back of the house. Look for the loose boards. It's all that's left."); }
+            if (beganIdx != Index) { beganIdx = Index; q.begin?.Invoke(); }
             if (q.done != null && q.done())
             {
                 var eco = EconomyManager.I; if (eco) eco.cash += q.reward;
@@ -90,7 +122,9 @@ namespace MafiaSandbox.UI
                 if (AllDone) { gm.Banner("THE CITY IS YOURS", "You're somebody in Port City now.", 5f); PhonePanel.Post("sal", $"{PlayerAppearance.PlayerName}, you did well. There's more work coming. Stay sharp."); }
                 else { var n = Quests[Index]; if (!string.IsNullOrEmpty(n.sal)) { int bar = n.sal.IndexOf('|'); if (bar > 0) PhonePanel.Post(n.sal.Substring(0, bar), n.sal.Substring(bar + 1)); else PhonePanel.Post("sal", n.sal); } }
             }
-            SetBeacon(q.target != null ? q.target() : null);
+            CurrentTarget = q.target != null ? q.target() : null; Coach = TipOf(q);
+            if (Waypoints.I) Waypoints.I.QuestTarget = CurrentTarget;
+            SetBeacon(CurrentTarget);
         }
 
         void SetBeacon(Vector3? p)
@@ -109,7 +143,7 @@ namespace MafiaSandbox.UI
         public List<(string title, string desc, int state)> View()
         {
             var l = new List<(string, string, int)>();
-            for (int i = 0; i < Quests.Count; i++) l.Add((Quests[i].title, Quests[i].desc, i < Index ? 0 : i == Index ? 1 : 2));
+            for (int i = 0; i < Quests.Count; i++) l.Add((Quests[i].title, DescOf(Quests[i]), i < Index ? 0 : i == Index ? 1 : 2));
             return l;
         }
 
@@ -118,12 +152,15 @@ namespace MafiaSandbox.UI
             if (!started || IntroCinematic.Playing || Prologue.Active || CharacterCreator.IsOpen || !pc) return;
             float W = Screen.width;
             if (AllDone) return;
-            var q = Quests[Index]; var r = new Rect(W - 330, 112, 318, 92);
+            var q = Quests[Index];
+            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 }; var tipSt = new GUIStyle(wrap) { fontSize = 11 }; tipSt.normal.textColor = new Color(1f, 0.85f, 0.35f);
+            string dsc = DescOf(q), tip = TipOf(q); float dh = wrap.CalcHeight(new GUIContent(dsc), 294f), th = string.IsNullOrEmpty(tip) ? 0f : tipSt.CalcHeight(new GUIContent(tip), 294f) + 4f;
+            var r = new Rect(W - 330, 112, 318, 56 + dh + th + 8f);
             UiSkin.DrawPanel(r);
             GUI.Label(new Rect(r.x + 12, r.y + 6, r.width - 24, 20), $"MISSION {Index + 1}/{Quests.Count}", UiSkin.H2);
             GUI.Label(new Rect(r.x + 12, r.y + 22, r.width - 24, 22), "<b>" + q.title + "</b>", UiSkin.Label);
-            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true, fontSize = 12 };
-            GUI.Label(new Rect(r.x + 12, r.y + 44, r.width - 24, 34), q.desc, wrap);
+            GUI.Label(new Rect(r.x + 12, r.y + 46, r.width - 24, dh), dsc, wrap);
+            if (th > 0f) GUI.Label(new Rect(r.x + 12, r.y + 48 + dh, r.width - 24, th), tip, tipSt);
             var tp = q.target != null ? q.target() : null;
             if (tp.HasValue)
             {

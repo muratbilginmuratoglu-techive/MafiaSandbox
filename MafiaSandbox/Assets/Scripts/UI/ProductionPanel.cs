@@ -14,13 +14,19 @@ namespace MafiaSandbox.UI
         public static bool IsOpen => I && I.open;
         bool open; int sel; Puzzle puzzle; float resultT; int puzzleRecipe;
         void Awake() { I = this; }
-        public void Open() { open = true; puzzle = null; }
+        int station = -1; Vector3 stPos;
+        public void Open(int st = -1)
+        {
+            open = true; puzzle = null; station = st; var lab = HomeLab.I; var gm = GameManager.I; stPos = gm && gm.player ? gm.player.transform.position : Vector3.zero;
+            if (lab) { int i = lab.NearStation(stPos, 3f); if (i >= 0) stPos = lab.stations[i].pos; }
+            sel = HomeLab.RecipesFor(st)[0];
+        }
 
         void Update()
         {
             var gm = GameManager.I; if (!open || !gm || !gm.player) return;
             if (puzzle != null) { puzzle.Tick(Time.unscaledDeltaTime); if (puzzle.Done && resultT <= 0f) resultT = 1.6f; if (resultT > 0f) { resultT -= Time.unscaledDeltaTime; if (resultT <= 0f) { HomeLab.I.StartBatch(puzzleRecipe, puzzle.Score); puzzle = null; } } return; }
-            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.F) || HomeLab.I == null || (gm.player.transform.position - HomeLab.I.LabPos).sqrMagnitude > 5f * 5f) open = false;
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.F) || HomeLab.I == null || (gm.player.transform.position - stPos).sqrMagnitude > 5f * 5f) open = false;
         }
 
         void OnGUI()
@@ -28,13 +34,15 @@ namespace MafiaSandbox.UI
             if (!open) return; var lab = HomeLab.I; if (!lab) return;
             float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 400, H / 2f - 250, 800, 500); UiSkin.DrawPanel(r, true);
             GUILayout.BeginArea(new Rect(r.x + 16, r.y + 12, r.width - 32, r.height - 24));
-            GUILayout.BeginHorizontal(); GUILayout.Label("Workbench", UiSkin.Title); GUILayout.FlexibleSpace(); var dn = DayNightCycle.I; GUILayout.Label($"Day {dn.Day}  ·  {(int)dn.timeOfDay:00}:{(int)((dn.timeOfDay % 1f) * 60f):00}  ·  Esc / F closes", UiSkin.LabelDim); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); GUILayout.Label(station >= 0 ? Career.StationNames[station] : "Workbench", UiSkin.Title); GUILayout.FlexibleSpace(); var dn = DayNightCycle.I; GUILayout.Label($"Day {dn.Day}  ·  {(int)dn.timeOfDay:00}:{(int)((dn.timeOfDay % 1f) * 60f):00}  ·  Esc / F closes", UiSkin.LabelDim); GUILayout.EndHorizontal();
             if (puzzle != null) { DrawPuzzle(r); GUILayout.EndArea(); return; }
+            var tip = QuestManager.I ? QuestManager.I.Coach : null;
+            if (!string.IsNullOrEmpty(tip)) { var ts = new GUIStyle(UiSkin.Label) { wordWrap = true, fontSize = 13 }; ts.normal.textColor = new Color(1f, 0.85f, 0.35f); GUILayout.Label("MISSION TIP: " + tip, ts); }
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUILayout.Width(300));
-            for (int i = 0; i < HomeLab.Recipes.Length; i++)
+            foreach (int i in HomeLab.RecipesFor(station))
             {
-                var rc = HomeLab.Recipes[i]; var b = lab.batches[i]; bool locked = Respect.Rank < rc.rank;
+                var rc = HomeLab.Recipes[i]; var b = lab.batches[i]; bool locked = Respect.Rank < rc.rank && !Career.IsStarterRecipe(rc.id);
                 string tag = locked ? $"  (needs {Respect.Ranks[Mathf.Min(5, rc.rank)]})" : b.state == 1 ? $"  · {lab.HoursLeft(i):0.0} h" : b.state == 2 ? "  · READY" : "";
                 if (GUILayout.Button(rc.name + tag, sel == i ? UiSkin.ButtonOn : UiSkin.Button, GUILayout.Height(32))) sel = i;
             }

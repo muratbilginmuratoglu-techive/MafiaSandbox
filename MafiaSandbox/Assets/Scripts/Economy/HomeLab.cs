@@ -17,7 +17,14 @@ namespace MafiaSandbox.Economy
     {
         public static HomeLab I { get; private set; }
         public static bool Sleeping => I && I.sleeping;
-        public Vector3 LabPos { get; private set; }
+        public Vector3 LabPos => stations.Count > 0 ? stations[0].pos : fallbackLab;
+        Vector3 fallbackLab;
+        public class Station { public int kind; public Vector3 pos; public float yaw; public GameObject go; }
+        public readonly List<Station> stations = new List<Station>();
+        public static readonly Vector3 StationSize = new Vector3(1.5f, 0.95f, 0.8f);
+        public int CountStations(int kind) { int n = 0; foreach (var st in stations) if (st.kind == kind) n++; return n; }
+        public int NearStation(Vector3 p, float r) { int best = -1; float bd = r * r; for (int i = 0; i < stations.Count; i++) { var d = stations[i].pos - p; d.y = 0f; if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; } } return best; }
+        public static int[] RecipesFor(int station) { switch (station) { case 0: return new[] { 0 }; case 1: return new[] { 1, 2, 3 }; case 2: return new[] { 4, 5 }; default: return new[] { 0, 1, 2, 3, 4, 5 }; } }
         public Vector3 BedPos { get; private set; }
         public bool Ready { get; private set; }
         bool sleeping; float fade; string wakeText = "";
@@ -61,21 +68,58 @@ namespace MafiaSandbox.Economy
             var eco = EconomyManager.I; if (!eco || eco.homeShop == null) return;
             var bi = eco.homeShop.info; var anc = Stash.HomeAnchor(bi); Vector3 toDoor = bi.door - anc; toDoor.y = 0f; toDoor = toDoor.sqrMagnitude < 0.01f ? Vector3.forward : toDoor.normalized;
             Vector3 right = Vector3.Cross(Vector3.up, toDoor); float y = anc.y; float yaw = Mathf.Atan2(toDoor.x, toDoor.z) * Mathf.Rad2Deg;
-            var lp = Stash.InHome(bi, anc + toDoor * 1.1f + right * 1.7f); var bp = Stash.InHome(bi, anc + toDoor * 1.1f - right * 1.9f); lp.y = bp.y = y; LabPos = lp; BedPos = bp;
-            BuildLab(LabPos, yaw); BuildBed(BedPos, yaw); Ready = true;
+            var lp = Stash.InHome(bi, anc + toDoor * 1.1f + right * 1.7f); var bp = Stash.InHome(bi, anc + toDoor * 1.1f - right * 1.9f); lp.y = bp.y = y; fallbackLab = lp; BedPos = bp;
+            BuildBed(BedPos, yaw); LoadStations(); Ready = true;
         }
         GameObject Part(Transform root, string n, Vector3 lp, Vector3 sc, Color c, PrimitiveType t = PrimitiveType.Cube) { var g = GameObject.CreatePrimitive(t); g.name = n; Destroy(g.GetComponent<Collider>()); g.transform.SetParent(root, false); g.transform.localPosition = lp; g.transform.localScale = sc; g.GetComponent<Renderer>().sharedMaterial = M(c); return g; }
-        void BuildLab(Vector3 pos, float yaw)
+        const string StKey = "ms_stations_v1";
+        void SaveStations() { var sb = new System.Text.StringBuilder(); var ci = System.Globalization.CultureInfo.InvariantCulture; foreach (var st in stations) sb.Append(st.kind).Append(',').Append(st.pos.x.ToString(ci)).Append(',').Append(st.pos.y.ToString(ci)).Append(',').Append(st.pos.z.ToString(ci)).Append(',').Append(st.yaw.ToString(ci)).Append(';'); PlayerPrefs.SetString(StKey, sb.ToString()); PlayerPrefs.Save(); }
+        void LoadStations()
         {
-            var r = new GameObject("HomeWorkbench").transform; r.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            foreach (var part in PlayerPrefs.GetString(StKey, "").Split(';'))
+            {
+                var q = part.Split(','); if (q.Length != 5) continue;
+                if (int.TryParse(q[0], out int k) && float.TryParse(q[1], System.Globalization.NumberStyles.Float, ci, out float x) && float.TryParse(q[2], System.Globalization.NumberStyles.Float, ci, out float yy) && float.TryParse(q[3], System.Globalization.NumberStyles.Float, ci, out float z) && float.TryParse(q[4], System.Globalization.NumberStyles.Float, ci, out float yaw))
+                    AddStation(k, new Vector3(x, yy, z), yaw, false);
+            }
+        }
+        public Station AddStation(int kind, Vector3 pos, float yaw, bool save = true)
+        {
+            var st = new Station { kind = kind, pos = pos, yaw = yaw }; st.go = BuildStation(kind, pos, yaw); stations.Add(st); if (save) SaveStations(); return st;
+        }
+        public void RemoveStation(int i) { if (i < 0 || i >= stations.Count) return; if (stations[i].go) Destroy(stations[i].go); stations.RemoveAt(i); SaveStations(); }
+        GameObject BuildStation(int kind, Vector3 pos, float yaw)
+        {
+            var r = new GameObject("HomeStation_" + Career.StationNames[Mathf.Clamp(kind, 0, 2)]).transform; r.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
             var wood = new Color(0.45f, 0.3f, 0.16f); var steel = new Color(0.55f, 0.58f, 0.62f); var copper = new Color(0.72f, 0.42f, 0.2f);
-            Part(r, "Top", new Vector3(0, 0.9f, 0), new Vector3(1.5f, 0.08f, 0.75f), wood);
-            foreach (var x in new[] { -0.65f, 0.65f }) foreach (var z in new[] { -0.3f, 0.3f }) Part(r, "Leg", new Vector3(x, 0.44f, z), new Vector3(0.08f, 0.88f, 0.08f), wood);
-            Part(r, "Pot", new Vector3(-0.4f, 1.12f, 0), new Vector3(0.4f, 0.36f, 0.4f), copper, PrimitiveType.Cylinder);
-            Part(r, "Pipe", new Vector3(-0.1f, 1.3f, 0), new Vector3(0.06f, 0.3f, 0.06f), copper, PrimitiveType.Cylinder).transform.localRotation = Quaternion.Euler(0, 0, 80f);
-            Part(r, "Flask", new Vector3(0.25f, 1.05f, 0.1f), new Vector3(0.18f, 0.2f, 0.18f), new Color(0.6f, 0.9f, 0.7f), PrimitiveType.Sphere);
-            Part(r, "Vice", new Vector3(0.55f, 0.99f, -0.15f), new Vector3(0.2f, 0.12f, 0.14f), steel);
-            Part(r, "Box", new Vector3(0.5f, 0.99f, 0.18f), new Vector3(0.26f, 0.12f, 0.2f), new Color(0.2f, 0.25f, 0.2f));
+            Part(r, "Top", new Vector3(0, 0.9f, 0), new Vector3(1.5f, 0.08f, 0.75f), kind == 2 ? steel : wood);
+            foreach (var x in new[] { -0.65f, 0.65f }) foreach (var z in new[] { -0.3f, 0.3f }) Part(r, "Leg", new Vector3(x, 0.44f, z), new Vector3(0.08f, 0.88f, 0.08f), kind == 2 ? new Color(0.25f, 0.25f, 0.28f) : wood);
+            if (kind == 0)
+            {
+                Part(r, "Pot", new Vector3(-0.4f, 1.12f, 0), new Vector3(0.4f, 0.36f, 0.4f), copper, PrimitiveType.Cylinder);
+                Part(r, "Pipe", new Vector3(-0.1f, 1.3f, 0), new Vector3(0.06f, 0.3f, 0.06f), copper, PrimitiveType.Cylinder).transform.localRotation = Quaternion.Euler(0, 0, 80f);
+                Part(r, "Jug", new Vector3(0.35f, 1.05f, 0.1f), new Vector3(0.2f, 0.26f, 0.2f), new Color(0.75f, 0.6f, 0.3f), PrimitiveType.Cylinder);
+                Part(r, "Barrel", new Vector3(0.1f, 0.3f, -0.55f), new Vector3(0.5f, 0.6f, 0.5f), new Color(0.38f, 0.24f, 0.12f), PrimitiveType.Cylinder);
+            }
+            else if (kind == 1)
+            {
+                Part(r, "Flask", new Vector3(-0.35f, 1.08f, 0.05f), new Vector3(0.2f, 0.24f, 0.2f), new Color(0.6f, 0.9f, 0.7f), PrimitiveType.Sphere);
+                Part(r, "Flask2", new Vector3(0.0f, 1.05f, -0.1f), new Vector3(0.16f, 0.18f, 0.16f), new Color(0.9f, 0.7f, 0.9f), PrimitiveType.Sphere);
+                Part(r, "Burner", new Vector3(0.4f, 0.97f, 0.05f), new Vector3(0.3f, 0.08f, 0.3f), new Color(0.2f, 0.2f, 0.22f));
+                Part(r, "Plant", new Vector3(0.62f, 1.1f, -0.2f), new Vector3(0.22f, 0.3f, 0.22f), new Color(0.2f, 0.6f, 0.25f), PrimitiveType.Cylinder);
+                Part(r, "Lamp", new Vector3(0.62f, 1.55f, -0.2f), new Vector3(0.5f, 0.06f, 0.4f), new Color(0.9f, 0.3f, 0.8f));
+            }
+            else
+            {
+                Part(r, "Vice", new Vector3(0.55f, 0.99f, -0.15f), new Vector3(0.2f, 0.12f, 0.14f), steel);
+                Part(r, "Anvil", new Vector3(-0.35f, 1.0f, 0f), new Vector3(0.4f, 0.14f, 0.18f), new Color(0.18f, 0.18f, 0.2f));
+                Part(r, "Parts", new Vector3(0.1f, 0.97f, 0.15f), new Vector3(0.45f, 0.06f, 0.2f), new Color(0.3f, 0.32f, 0.35f));
+                Part(r, "Box", new Vector3(0.5f, 0.99f, 0.18f), new Vector3(0.26f, 0.12f, 0.2f), new Color(0.2f, 0.25f, 0.2f));
+                Part(r, "Rack", new Vector3(0f, 1.6f, 0.36f), new Vector3(1.3f, 0.5f, 0.05f), new Color(0.35f, 0.3f, 0.22f));
+            }
+            var col = r.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0f, StationSize.y / 2f, 0f); col.size = StationSize;
+            return r.gameObject;
         }
         void BuildBed(Vector3 pos, float yaw)
         {
@@ -101,7 +145,7 @@ namespace MafiaSandbox.Economy
         }
         public string CanStart(int r)
         {
-            var rc = Recipes[r]; if (Respect.Rank < rc.rank) return $"Needs rank {Respect.Ranks[Mathf.Min(5, rc.rank)]}";
+            var rc = Recipes[r]; if (Respect.Rank < rc.rank && !Career.IsStarterRecipe(rc.id)) return $"Needs rank {Respect.Ranks[Mathf.Min(5, rc.rank)]}";
             if (batches[r].state != 0) return batches[r].state == 1 ? "Already cooking" : "Collect the finished batch first";
             foreach (var (id, n) in rc.inputs) if (Have(id) < n) return $"Missing {Items.Get(id).name}";
             return null;
@@ -118,7 +162,7 @@ namespace MafiaSandbox.Economy
         public void Collect(int r)
         {
             var rc = Recipes[r]; var b = batches[r]; if (b.state != 2) return; var eco = EconomyManager.I;
-            eco.AddItem(rc.product, b.yield, false); GameManager.I.Say($"Collected {b.yield} × {Items.Get(rc.product).name}"); Respect.Add(rc.level + b.yield);
+            eco.AddItem(rc.product, b.yield, false); GameManager.I.Say($"Collected {b.yield} × {Items.Get(rc.product).name}"); Respect.Add(rc.level + b.yield); if (Career.IsStarterRecipe(rc.id)) Career.AddCollect();
             b.state = 0; b.yield = 0; Save(); Sfx.At("click", LabPos);
         }
         public float Progress(int r) { var rc = Recipes[r]; var b = batches[r]; if (b.state == 2) return 1f; if (b.state != 1) return 0f; return Mathf.Clamp01(1f - (b.readyAt - DayNightCycle.I.TotalHours) / rc.hours); }
