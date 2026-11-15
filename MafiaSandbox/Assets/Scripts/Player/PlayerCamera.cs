@@ -76,7 +76,7 @@ namespace MafiaSandbox.Player
             kick *= Mathf.Exp(-14f * dt); kickYaw *= Mathf.Exp(-14f * dt);
             if (cam) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, Aiming && !vehicleTarget ? AimFov : normalFov, 1f - Mathf.Exp(-12f * dt));
             // indoors (shop / house footprint): tighter camera, slightly from above, so the walls and the low ceiling don't squeeze it
-            bool indoor = target && !vehicleTarget && (MafiaSandbox.World.BuildingInfo.At(target.position) != null || MafiaSandbox.World.Hospital.Inside(target.position));
+            bool indoor = target && !vehicleTarget && (MafiaSandbox.World.BuildingInfo.At(target.position) != null || MafiaSandbox.World.Hospital.Inside(target.position) || MafiaSandbox.World.PoliceAnnex.Inside(target.position));
             Indoors = indoor;
             curDist = Mathf.Lerp(curDist, Aiming ? aimDistance : indoor ? indoorDistance : distance, 1f - Mathf.Exp(-12f * dt));
             curShoulder = Mathf.Lerp(curShoulder, Aiming ? aimShoulder : shoulder, 1f - Mathf.Exp(-12f * dt));

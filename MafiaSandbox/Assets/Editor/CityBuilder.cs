@@ -354,6 +354,17 @@ namespace MafiaSandbox.EditorTools
                 else Debug.LogWarning("[MafiaSandbox] No clear lot found for the hospital.");
             }
 
+            // --- police station annex: booking & holding wing next to the old station (props on its footprint are removed)
+            foreach (var pbi in bRoot.GetComponentsInChildren<BuildingInfo>())
+            {
+                if (pbi.kind != "police") continue;
+                var fp = pbi.footprint; var ac = new Vector3(fp.min.x - 4.3f, fp.min.y, fp.center.z);
+                var killP = new List<GameObject>(); foreach (Transform t in propsRoot) if (Mathf.Abs(t.position.x - ac.x) < 5.6f && Mathf.Abs(t.position.z - ac.z) < 7.4f) killP.Add(t.gameObject);
+                foreach (var k in killP) Object.DestroyImmediate(k);
+                MafiaSandbox.World.PoliceAnnex.Build(world, new Vector3(fp.center.x, fp.min.y, fp.center.z), fp.extents.x, fp.extents.z, propsRoot);
+                Debug.Log($"[MafiaSandbox] Police annex built at {ac}; cleared {killP.Count} props.");
+            }
+
             // --- navmesh: baked from the physics colliders on the Default layer (ground/roads/bridges mesh + wall boxes); vehicles carve at runtime
             var navGo = new GameObject("NavMesh"); navGo.transform.SetParent(world, false);
             // road surfaces get NavMesh area 3 ("Road"): pedestrians pay a high cost there (NpcBrain), so routes follow the

@@ -142,7 +142,7 @@ namespace MafiaSandbox.UI
             // 4. the drive
             Cinematic = true; pc.InputLocked = true; yield return FadeTo(1f, 0.7f);
             if (model) model.gameObject.SetActive(false); cc.enabled = false; if (jer) jer.gameObject.SetActive(false); cam.enabled = false;
-            var path = car ? BuildPath(car.transform.position, homePos) : null;
+            var path = car ? Smooth(BuildPath(car.transform.position, homePos)) : null;
             float total = 0f; var cum = new List<float>(); if (path != null) { cum.Add(0f); for (int i = 1; i < path.Count; i++) { total += Vector3.Distance(path[i - 1], path[i]); cum.Add(total); } }
             if (car && path != null && total > 5f)
             {
@@ -150,21 +150,30 @@ namespace MafiaSandbox.UI
                 Vector3 t0; Sample(path, cum, 0f, out t0); car.transform.rotation = Quaternion.LookRotation(t0, Vector3.up);
                 Cam(car.transform.position - t0 * 8f + Vector3.up * 3.4f, car.transform.position + Vector3.up, true, car.transform);
                 yield return FadeTo(0f, 1f);
-                float s = 0f, v = 0f; int lineIx = 0;
+                float s = 0f, v = 0f; int lineIx = 0; float blockedFor = 0f, obstructed = 0f, minY = 99f, maxY = -99f;
+                float carOff = Mathf.Clamp(car.transform.position.y - GroundAt(car.transform.position, car.transform.position.y), -0.3f, 1.2f); float lastY = car.transform.position.y - carOff;
                 var lines = new (float at, string who, string text)[] {
                     (0.08f, "Jeremy", "The Morettis took the west side, the Kaplans the east. The cops just collect from both."),
                     (0.42f, "Jeremy", "Your uncle Enzo died owing a fixer named Sal. Sal's been asking about you. His debt didn't die with him."),
                     (0.75f, "Jeremy", "Whatever you do next, do it quietly. This city eats loud people.") };
                 while (s < total - 0.05f)
                 {
-                    float remain = total - s; float target = Mathf.Min(11f, Mathf.Max(2.2f, remain * 0.6f)); v = Mathf.MoveTowards(v, target, (v < target ? 4f : 9f) * Time.deltaTime); s = Mathf.Min(total, s + v * Time.deltaTime);
-                    var p = Sample(path, cum, s, out var tan); if (RoadGround(p, out float gy)) p.y = gy + 0.06f; tan.y = 0f; if (tan.sqrMagnitude < 0.0001f) tan = car.transform.forward;
-                    car.transform.position = p; car.transform.rotation = Quaternion.RotateTowards(car.transform.rotation, Quaternion.LookRotation(tan, Vector3.up), 140f * Time.deltaTime);
+                    float remain = total - s; float target = Mathf.Min(11f, Mathf.Max(2.2f, remain * 0.6f));
+                    // slow for bends: compare the heading now with the heading a few metres ahead
+                    Sample(path, cum, s, out var t0b); Sample(path, cum, Mathf.Min(total, s + 9f), out var t1b); float bend = Vector3.Angle(t0b, t1b); target *= Mathf.Lerp(1f, 0.4f, Mathf.Clamp01(bend / 70f));
+                    // traffic ahead: slow behind it, stop short of it, creep on after a few seconds so the ride can't hang
+                    if (AheadBlocked(car, t0b, out float gap)) { blockedFor += Time.deltaTime; target = gap < 5f ? (blockedFor > 4f ? 1.5f : 0f) : Mathf.Min(target, gap * 0.9f); } else blockedFor = 0f;
+                    v = Mathf.MoveTowards(v, target, (v < target ? 4f : 14f) * Time.deltaTime); s = Mathf.Min(total, s + v * Time.deltaTime);
+                    var p = Sample(path, cum, s, out var tan); tan.y = 0f; if (tan.sqrMagnitude < 0.0001f) tan = car.transform.forward;
+                    lastY = Mathf.Lerp(lastY, GroundAt(p, lastY), 12f * Time.deltaTime); p.y = lastY + carOff; minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
+                    car.transform.position = p; car.transform.rotation = Quaternion.RotateTowards(car.transform.rotation, Quaternion.LookRotation(tan, Vector3.up), 110f * Time.deltaTime);
+                    if (HitsBuilding(car)) obstructed += Time.deltaTime;
                     camPos = car.transform.position - car.transform.forward * 8f + Vector3.up * 3.4f;
                     if (lineIx < lines.Length && s / total >= lines[lineIx].at) { Sub(lines[lineIx].who, lines[lineIx].text, 7f); lineIx++; }
                     if (Input.GetKeyDown(KeyCode.Space)) subUntil = 0f;
                     yield return null;
                 }
+                Debug.Log($"[Prologue] ride done: {total:0} m, y range {minY:0.00}..{maxY:0.00}, time inside walls {obstructed:0.0} s, path points {path.Count}");
             }
             else { if (car) car.transform.position = homePos + Vector3.right * 4f; }
             subText = null; yield return FadeTo(1f, 0.6f);
@@ -194,8 +203,8 @@ namespace MafiaSandbox.UI
                 var back = new List<Vector3>(); float cut = Mathf.Max(0f, total - 45f);
                 for (int i = path.Count - 1; i >= 0; i--) if (cum[i] >= cut) back.Add(path[i]);
                 var bc = new List<float> { 0f }; float bt = 0f; for (int i = 1; i < back.Count; i++) { bt += Vector3.Distance(back[i - 1], back[i]); bc.Add(bt); }
-                var fix = car.transform.rotation; float s = 0f, v = 0f;
-                while (s < bt - 0.1f && car) { v = Mathf.MoveTowards(v, 7f, 4f * Time.deltaTime); s = Mathf.Min(bt, s + v * Time.deltaTime); var p = Sample(back, bc, s, out _); if (RoadGround(p, out float gy)) p.y = gy + 0.06f; car.transform.position = p; car.transform.rotation = fix; yield return null; }
+                float s = 0f, v = 0f; float lastY = car.transform.position.y; float off = 0f;
+                while (s < bt - 0.1f && car) { v = Mathf.MoveTowards(v, 8f, 4f * Time.deltaTime); s = Mathf.Min(bt, s + v * Time.deltaTime); var p = Sample(back, bc, s, out var bt2); bt2.y = 0f; lastY = Mathf.Lerp(lastY, GroundAt(p, lastY), 12f * Time.deltaTime); p.y = lastY; car.transform.position = p; if (bt2.sqrMagnitude > 0.001f) car.transform.rotation = Quaternion.RotateTowards(car.transform.rotation, Quaternion.LookRotation(bt2, Vector3.up), 110f * Time.deltaTime); yield return null; }
             }
             if (car) Destroy(car.gameObject);
             run = null;
@@ -231,6 +240,53 @@ namespace MafiaSandbox.UI
         {
             if (Physics.Raycast(p + Vector3.up * 6f, Vector3.down, out var h, 14f, ~0, QueryTriggerInteraction.Ignore)) { y = h.point.y; return true; }
             y = p.y; return false;
+        }
+
+        /// <summary>Chaikin corner cutting: rounds the 90-degree road corners so the car turns instead of snapping.</summary>
+        static List<Vector3> Smooth(List<Vector3> pts)
+        {
+            if (pts == null || pts.Count < 3) return pts;
+            for (int it = 0; it < 3; it++)
+            {
+                var o = new List<Vector3> { pts[0] };
+                for (int i = 0; i < pts.Count - 1; i++) { o.Add(Vector3.Lerp(pts[i], pts[i + 1], 0.25f)); o.Add(Vector3.Lerp(pts[i], pts[i + 1], 0.75f)); }
+                o.Add(pts[pts.Count - 1]); pts = o;
+            }
+            for (int i = pts.Count - 1; i > 0; i--) if (Vector3.Distance(pts[i], pts[i - 1]) < 0.3f) pts.RemoveAt(i);
+            return pts;
+        }
+
+        /// <summary>Road height under p: the surface hit closest to the height we had a moment ago (roofs and bridges above it, gaps below it are ignored).</summary>
+        static float GroundAt(Vector3 p, float refY)
+        {
+            float best = refY, bd = 1.6f;
+            foreach (var h in Physics.RaycastAll(p + Vector3.up * 8f, Vector3.down, 16f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (h.collider.GetComponentInParent<VehicleController>() || h.collider.GetComponentInParent<CharacterBody>()) continue;
+                float d = Mathf.Abs(h.point.y - refY); if (d < bd) { bd = d; best = h.point.y; }
+            }
+            return best;
+        }
+
+        /// <summary>Another vehicle or a pedestrian in the lane ahead (up to 14 m)?</summary>
+        static bool AheadBlocked(VehicleController self, Vector3 fwd, out float gap)
+        {
+            gap = 99f; var o = self.transform.position + Vector3.up * 0.9f; var pl = GameManager.I ? GameManager.I.player : null;
+            foreach (var h in Physics.SphereCastAll(o, 1.0f, fwd, 14f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                var vc = h.collider.GetComponentInParent<VehicleController>(); var cb = h.collider.GetComponentInParent<CharacterBody>();
+                if ((vc == null || vc == self) && (cb == null || (pl && cb.gameObject == pl.gameObject))) continue;
+                if (vc == self) continue; if (h.distance < gap) gap = h.distance;
+            }
+            return gap < 14f;
+        }
+
+        /// <summary>Test aid: is the car inside a wall (building / city collider) right now?</summary>
+        static bool HitsBuilding(VehicleController car)
+        {
+            foreach (var h in Physics.OverlapBox(car.transform.position + Vector3.up * 0.9f, new Vector3(0.8f, 0.5f, 1.8f), car.transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+            { var cc = h.GetComponent<MafiaSandbox.World.CityCollider>(); if (cc && cc.building) return true; }
+            return false;
         }
 
         List<Vector3> BuildPath(Vector3 from, Vector3 to)

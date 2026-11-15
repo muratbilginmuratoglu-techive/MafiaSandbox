@@ -114,31 +114,43 @@ namespace MafiaSandbox.UI
             var r = new Rect(12, H - 12 - S - 20, S, S);
             Vector3 p = gm.player.transform.position; Vector2 c = ToPx(p); float half = radiusM * PxPerM;
             UiSkin.DrawPanel(new Rect(r.x - 5, r.y - 5, S + 10, S + 10));
-            GUI.DrawTextureWithTexCoords(r, map, new Rect((c.x - half) / TexSize, (c.y - half) / TexSize, 2f * half / TexSize, 2f * half / TexSize));
-            // live dots (north up: +z = up on screen)
-            float scale = S / (2f * radiusM);
-            Vector2 Sp(Vector3 w) => new Vector2(r.x + S / 2f + (w.x - p.x) * scale, r.y + S / 2f - (w.z - p.z) * scale);
-            void Dot(Vector3 w, Color col, float sz) { var s = Sp(w); if (s.x < r.x + 2 || s.x > r.xMax - 2 || s.y < r.y + 2 || s.y > r.yMax - 2) return; GUI.color = col; GUI.DrawTexture(new Rect(s.x - sz / 2, s.y - sz / 2, sz, sz), dot); }
-            foreach (var v in FindObjectsByType<VehicleController>(FindObjectsSortMode.None)) if (!v.Controlled) Dot(v.transform.position, new Color(0.96f, 0.83f, 0.42f), 5f);
-            foreach (var b in CharacterBody.All)
+            // heading-up: the map turns with the camera, so "up" on the minimap is always where you are looking
+            var cam = Camera.main; float camYaw = cam ? cam.transform.eulerAngles.y : gm.player.transform.eulerAngles.y; float A = -camYaw * Mathf.Deg2Rad, ca = Mathf.Cos(A), sa = Mathf.Sin(A);
+            float scale = S / (2f * radiusM); var mid = new Vector2(S / 2f, S / 2f);
+            Vector2 Sp(Vector3 w)   // group-local position: rotate the north-up offset (x right, z up) by -camera yaw
             {
-                if (!b || b.Dead || b.gameObject == gm.player.gameObject) continue; var br = b.GetComponent<NpcBrain>();
-                Color col = br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : br is FactionBrain fb && fb.Def != null ? fb.Def.color : new Color(0.86f, 0.86f, 0.86f);
-                Dot(b.transform.position, col, br is PoliceBrain || br is GangBrain || br is FactionBrain ? 6f : 4f);
+                float x = (w.x - p.x) * scale, y = -(w.z - p.z) * scale;
+                return mid + new Vector2(x * ca - y * sa, x * sa + y * ca);
             }
-            var wp = Waypoints.I;
-            if (wp != null)
+            GUI.BeginGroup(r);
             {
-                GUI.BeginGroup(r); Vector2 off = r.position; System.Func<Vector3, Vector2> g = w => Sp(w) - off;
-                DrawRoute(wp.QuestRoute, QuestCol, g, 3f); DrawRoute(wp.PinRoute, PinCol, g, 3f);
+                float E = S * 0.75f; float hE = half * (E / (S / 2f)); var old = GUI.matrix; GUIUtility.RotateAroundPivot(-camYaw, mid);
+                GUI.DrawTextureWithTexCoords(new Rect(mid.x - E, mid.y - E, 2f * E, 2f * E), map, new Rect((c.x - hE) / TexSize, (c.y - hE) / TexSize, 2f * hE / TexSize, 2f * hE / TexSize));
+                GUI.matrix = old;
                 var local = new Rect(0, 0, S, S);
-                if (wp.QuestTarget.HasValue) Marker(g(wp.QuestTarget.Value), local, true, QuestCol, 9f);
-                foreach (var pin in wp.Pins) Marker(g(pin), local, true, PinCol, 8f);
-                GUI.EndGroup();
+                void Dot(Vector3 w, Color col, float sz) { var s2 = Sp(w); if (!local.Contains(s2)) return; GUI.color = col; GUI.DrawTexture(new Rect(s2.x - sz / 2, s2.y - sz / 2, sz, sz), dot); }
+                foreach (var v in FindObjectsByType<VehicleController>(FindObjectsSortMode.None)) if (!v.Controlled) Dot(v.transform.position, new Color(0.96f, 0.83f, 0.42f), 5f);
+                foreach (var b2 in CharacterBody.All)
+                {
+                    if (!b2 || b2.Dead || b2.gameObject == gm.player.gameObject) continue; var br = b2.GetComponent<NpcBrain>();
+                    Color col = br is PoliceBrain ? new Color(0.31f, 0.55f, 1f) : br is GangBrain ? new Color(0.88f, 0.31f, 0.31f) : br is FactionBrain fb && fb.Def != null ? fb.Def.color : new Color(0.86f, 0.86f, 0.86f);
+                    Dot(b2.transform.position, col, br is PoliceBrain || br is GangBrain || br is FactionBrain ? 6f : 4f);
+                }
+                var wp = Waypoints.I;
+                if (wp != null)
+                {
+                    DrawRoute(wp.QuestRoute, QuestCol, Sp, 3f); DrawRoute(wp.PinRoute, PinCol, Sp, 3f);
+                    if (wp.QuestTarget.HasValue) Marker(Sp(wp.QuestTarget.Value), local, true, QuestCol, 9f);
+                    foreach (var pin in wp.Pins) Marker(Sp(pin), local, true, PinCol, 8f);
+                }
+                // player arrow: its angle relative to the camera
+                float rel = gm.player.transform.eulerAngles.y - camYaw; GUIUtility.RotateAroundPivot(rel, mid); GUI.color = Color.white;
+                GUI.DrawTexture(new Rect(mid.x - 2, mid.y - 9, 4, 12), dot); GUI.DrawTexture(new Rect(mid.x - 6, mid.y - 3, 12, 4), dot); GUI.matrix = old;
+                // north marker on the rim
+                var nl = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold }; nl.normal.textColor = new Color(1f, 0.85f, 0.4f);
+                var np = mid + new Vector2(0f * ca - (-(S / 2f - 10f)) * sa, 0f * sa + (-(S / 2f - 10f)) * ca); GUI.Label(new Rect(np.x - 8, np.y - 8, 16, 16), "N", nl);
             }
-            // player arrow
-            var ps = new Vector2(r.x + S / 2f, r.y + S / 2f); float yaw = gm.player.transform.eulerAngles.y;
-            GUIUtility.RotateAroundPivot(yaw, ps); GUI.color = Color.white; GUI.DrawTexture(new Rect(ps.x - 2, ps.y - 9, 4, 12), dot); GUI.DrawTexture(new Rect(ps.x - 6, ps.y - 3, 12, 4), dot); GUIUtility.RotateAroundPivot(-yaw, ps);
+            GUI.EndGroup();
             GUI.color = Color.white;
             GUI.Label(new Rect(r.x, r.yMax + 6, S, 16), "M map   ·   I backpack", UiSkin.Small);
         }

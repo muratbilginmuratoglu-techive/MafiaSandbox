@@ -112,7 +112,7 @@ namespace MafiaSandbox.World
             var blueSign = new Color(0.15f, 0.4f, 0.65f); var green = new Color(0.2f, 0.65f, 0.4f); var paper = new Color(0.95f, 0.95f, 0.9f);
             float zb = -6.825f - EXT + 0.25f;   // inner face of the back wall
             // signs
-            Box("CheckInBoard", new Vector3(-4.5f, 2.55f, 3.6f), new Vector3(3.0f, 0.55f, 0.06f), blueSign, false); Label("CHECK-IN", new Vector3(-4.5f, 2.55f, 3.64f), 0.12f, Color.white);
+            Box("CheckInBoard", new Vector3(-8.62f, 2.45f, 3.6f), new Vector3(0.06f, 0.55f, 3.0f), blueSign, false); Label("CHECK-IN", new Vector3(-8.57f, 2.45f, 3.6f), 0.12f, Color.white, 270f);
             Box("DoctorBoard", new Vector3(-7.8f, 2.95f, -6.62f), new Vector3(1.5f, 0.4f, 0.04f), green, false, false, true); Label("DOCTOR", new Vector3(-7.8f, 2.95f, -6.65f), 0.07f, Color.white);
             Box("TreatBoard", new Vector3(7.6f, 2.95f, -6.62f), new Vector3(1.9f, 0.4f, 0.04f), green, false, false, true); Label("TREATMENT", new Vector3(7.6f, 2.95f, -6.65f), 0.07f, Color.white);
             Label("WAITING AREA", new Vector3(6.2f, 2.6f, 6.6f), 0.08f, new Color(0.15f, 0.3f, 0.5f));

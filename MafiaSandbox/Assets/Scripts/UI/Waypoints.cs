@@ -16,7 +16,7 @@ namespace MafiaSandbox.UI
         public readonly List<Vector3> Pins = new List<Vector3>();
         public Vector3[] QuestRoute = new Vector3[0], PinRoute = new Vector3[0];
         public const int MaxPins = 8; const string Key = "ms_pins_v1";
-        LineRenderer qLine, pLine; GameObject pinBeacon; float routeT; Vector3? lastQ, lastP; Vector3 lastFrom;
+        float routeT; Vector3? lastQ, lastP; Vector3 lastFrom;
 
         void Awake() { I = this; Load(); }
         public Vector3? ActivePin => Pins.Count > 0 ? Pins[Pins.Count - 1] : (Vector3?)null;
@@ -30,22 +30,39 @@ namespace MafiaSandbox.UI
             foreach (var part in PlayerPrefs.GetString(Key, "").Split(';')) { var q = part.Split(','); if (q.Length == 3 && float.TryParse(q[0], ns, ci, out float x) && float.TryParse(q[1], ns, ci, out float y) && float.TryParse(q[2], ns, ci, out float z)) Pins.Add(new Vector3(x, y, z)); }
         }
 
+        /// <summary>Route along the streets: snap both ends onto the nearest road edge, Dijkstra over the road graph, then the short hops off the road.</summary>
         static Vector3[] Path(Vector3 a, Vector3 b)
         {
-            Vector3 sa = a, sb = b;
-            if (NavMesh.SamplePosition(a, out var ha, 8f, NavMesh.AllAreas)) sa = ha.position;
-            if (NavMesh.SamplePosition(b, out var hb, 8f, NavMesh.AllAreas)) sb = hb.position;
-            var path = new NavMeshPath();
-            if (NavMesh.CalculatePath(sa, sb, NavMesh.AllAreas, path) && path.corners.Length >= 2) { var l = new List<Vector3>(path.corners); l.Insert(0, a); l.Add(b); return l.ToArray(); }
-            return new[] { a, b };
+            var g = Object.FindAnyObjectByType<MafiaSandbox.World.RoadGraph>(); var n = g != null ? g.roadNodes : null;
+            if (n == null || n.Length < 2) return new[] { a, b };
+            int N = n.Length, S = N, T = N + 1; var pos = new Vector3[N + 2]; for (int i = 0; i < N; i++) pos[i] = n[i].pos;
+            var extra = new List<(int u, int v)>[2] { new List<(int, int)>(), new List<(int, int)>() };
+            Vector3 Snap(Vector3 p, int slot, out int ea, out int eb)
+            {
+                float best = float.MaxValue; Vector3 bp = p; ea = eb = -1;
+                for (int i = 0; i < N; i++) if (n[i].adj != null) foreach (int j in n[i].adj) if (j > i)
+                {
+                    Vector3 pa = n[i].pos, pb = n[j].pos; pa.y = pb.y = p.y; var ab = pb - pa; float t = Mathf.Clamp01(Vector3.Dot(p - pa, ab) / Mathf.Max(0.001f, ab.sqrMagnitude)); var q = pa + ab * t; float d = (q - p).sqrMagnitude;
+                    if (d < best) { best = d; bp = q; ea = i; eb = j; }
+                }
+                return bp;
+            }
+            pos[S] = Snap(a, 0, out int sa, out int sb); pos[T] = Snap(b, 1, out int ta, out int tb);
+            var dist = new float[N + 2]; var prev = new int[N + 2]; var done = new bool[N + 2]; for (int i = 0; i < dist.Length; i++) { dist[i] = float.MaxValue; prev[i] = -1; }
+            dist[S] = 0f;
+            for (int it = 0; it < N + 2; it++)
+            {
+                int u = -1; float bd = float.MaxValue; for (int i = 0; i < N + 2; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; u = i; }
+                if (u < 0 || u == T) break; done[u] = true;
+                void Relax(int w) { float d = dist[u] + Vector3.Distance(pos[u], pos[w]); if (d < dist[w]) { dist[w] = d; prev[w] = u; } }
+                if (u < N) { if (n[u].adj != null) foreach (int w in n[u].adj) { if (u == sa && w == sb || u == sb && w == sa) { } Relax(w); } if (u == ta || u == tb) Relax(T); if (u == sa || u == sb) { } }
+                else if (u == S) { Relax(sa); Relax(sb); if (sa == ta && sb == tb) Relax(T); }
+            }
+            if (prev[T] < 0 && dist[T] == float.MaxValue) return new[] { a, b };
+            var chain = new List<Vector3> { b }; for (int c = T; c >= 0; c = prev[c]) chain.Add(pos[c]); chain.Add(a); chain.Reverse();
+            for (int i = 0; i < chain.Count; i++) { var q = chain[i]; if (NavMesh.SamplePosition(q, out var h, 3f, NavMesh.AllAreas)) q.y = h.position.y; chain[i] = q; }
+            return chain.ToArray();
         }
-        static LineRenderer MakeLine(string n, Color c)
-        {
-            var g = new GameObject(n); g.transform.rotation = Quaternion.Euler(90f, 0f, 0f); var lr = g.AddComponent<LineRenderer>();
-            lr.material = new Material(Shader.Find("Sprites/Default")); lr.startColor = lr.endColor = c; lr.startWidth = lr.endWidth = 0.35f; lr.alignment = LineAlignment.TransformZ; lr.numCornerVertices = 3; lr.useWorldSpace = true; lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return lr;
-        }
-        static void Fill(LineRenderer lr, Vector3[] pts) { if (!lr) return; lr.positionCount = pts.Length; for (int i = 0; i < pts.Length; i++) lr.SetPosition(i, pts[i] + Vector3.up * 0.3f); }
 
         void Update()
         {
