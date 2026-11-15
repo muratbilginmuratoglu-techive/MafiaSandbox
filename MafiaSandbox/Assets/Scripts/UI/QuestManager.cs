@@ -29,11 +29,11 @@ namespace MafiaSandbox.UI
         // ---- Joshua: found by asking around (restaurant cashier, then a guest); he smokes at the playground every night
         public static bool AskedCashier, AskedGuest;
         Quest qAskCashier, qAskGuest, qPark;
-        public bool CashierAskable(Shop sh) => started && qAskCashier != null && !AllDone && Quests[Index] == qAskCashier && !AskedCashier && sh != null && sh.kind == "restaurant";
+        public bool CashierAskable(Shop sh) => started && qAskCashier != null && !AllDone && Quests[Index] == qAskCashier && !AskedCashier && sh != null && sh.kind == "restaurant" && sh.info && sh.info.label == "Restaurant";
         public bool GuestAskable(Npc.NpcBrain nb)
         {
             if (!started || qAskGuest == null || AllDone || Quests[Index] != qAskGuest || AskedGuest || !(nb is Npc.CamperBrain) || nb.displayName != "Guest") return false;
-            var eco = EconomyManager.I; if (!eco) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == "restaurant") { var f = s.info.footprint; var p = nb.transform.position; return p.x > f.min.x - 1f && p.x < f.max.x + 1f && p.z > f.min.z - 1f && p.z < f.max.z + 1f; }
+            var eco = EconomyManager.I; if (!eco) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == "restaurant" && s.info.label == "Restaurant") { var f = s.info.footprint; var p = nb.transform.position; return p.x > f.min.x - 1f && p.x < f.max.x + 1f && p.z > f.min.z - 1f && p.z < f.max.z + 1f; }
             return false;
         }
         public void Ask(bool guest)
@@ -93,7 +93,7 @@ namespace MafiaSandbox.UI
         void Build()
         {
             var gm = GameManager.I; var eco = EconomyManager.I;
-            Vector3? Door(string kind) { if (eco) foreach (var s in eco.shops) if (s.info && s.info.kind == kind) return s.info.door; return null; }
+            Vector3? Door(string kind) { if (eco) foreach (var s in eco.shops) if (s.info && s.info.kind == kind && (kind != "restaurant" || s.info.label == "Restaurant")) return s.info.door; return null; }
             bool Inside(string kind) { if (!eco || !pc) return false; foreach (var s in eco.shops) if (s.info && s.info.kind == kind) { var f = s.info.footprint; var p = pc.transform.position; return p.x > f.min.x && p.x < f.max.x && p.z > f.min.z && p.z < f.max.z; } return false; }
             FactionDef mor = FactionDefs.Get("moretti"), kap = FactionDefs.Get("kaplan");
             Vector3? NearestHq() { if (mor == null || kap == null || !pc) return null; var p = pc.transform.position; return (mor.HqUnity - p).sqrMagnitude < (kap.HqUnity - p).sqrMagnitude ? mor.HqUnity : kap.HqUnity; }

@@ -211,14 +211,15 @@ namespace MafiaSandbox.UI
             var box = new GUIStyle(UiSkin.PanelSolid) { alignment = TextAnchor.UpperLeft, fontSize = 13, padding = new RectOffset(12, 12, 10, 10) };
             var eco = EconomyManager.I; var ws = WantedSystem.I;
             string legend = "CITY MAP   (M / Esc closes)\n\n";
-            foreach (var kv in KindCol) legend += $"■ {Items.ShopFor(kv.Key)?.title ?? kv.Key}\n";
+            var present = new HashSet<string>(); foreach (var pbi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None)) present.Add(pbi.kind);   // only the kinds that exist on the trimmed map
+            foreach (var kv in KindCol) if (present.Contains(kv.Key)) legend += $"■ {Items.ShopFor(kv.Key)?.title ?? kv.Key}\n";
             legend += "\n● Police   ● Crew   ● Pedestrian   ■ Vehicle\n";
             legend += "\n◆ Mission target (gold route)\n◆ Your pins (cyan route)\nLeft-click: drop / remove a pin\nRight-click: clear all pins\n\n";
             var fm = FactionManager.I; if (fm) foreach (var f in FactionDefs.All) legend += $"■ {f.name}: {FactionManager.Standing(fm.Rep(f))}\n";
             legend += "\n" + (eco ? $"Cash: ${eco.cash}\n" : "") + (ws && ws.Level > 0 ? "Wanted: " + new string('★', ws.Level) : "Wanted: –");
-            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 210, 470f), legend, box);
+            GUI.color = Color.white; GUI.Box(new Rect(r.xMax + 16, r.y, 210, 500f), legend, box);
             // coloured squares for the legend rows
-            int i = 0; foreach (var kv in KindCol) { GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 28, r.y + 46 + i * 17f, 10, 10), dot); i++; }
+            int i = 0; foreach (var kv in KindCol) { if (!present.Contains(kv.Key)) continue; GUI.color = kv.Value; GUI.DrawTexture(new Rect(r.xMax + 28, r.y + 46 + i * 17f, 10, 10), dot); i++; }
             GUI.color = Color.white;
         }
     }
