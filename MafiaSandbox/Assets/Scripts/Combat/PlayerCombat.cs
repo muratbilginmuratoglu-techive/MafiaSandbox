@@ -27,7 +27,7 @@ namespace MafiaSandbox.Combat
         public bool HitMarkerHead { get; private set; }
 
         PlayerController pc; PlayerCamera cam; CharacterAnimator anim; CharacterBody body;
-        Transform holder; readonly Dictionary<WeaponKind, GameObject> models = new Dictionary<WeaponKind, GameObject>();
+        Transform holder, handAnchor; bool fpView; Vector3 fpPos; readonly Dictionary<WeaponKind, GameObject> models = new Dictionary<WeaponKind, GameObject>();
         GameObject model; Transform muzzle;
         float cooldown, heat, aimHold;
         bool swinging;
@@ -54,8 +54,8 @@ namespace MafiaSandbox.Combat
             if (holder) return;
             if (!body) body = GetComponent<CharacterBody>();
             var hand = body ? body.RightHand : null;
-            holder = new GameObject("WeaponHolder").transform;
-            holder.SetParent(hand ? hand : transform, false);
+            holder = new GameObject("WeaponHolder").transform; handAnchor = hand ? hand : transform;
+            holder.SetParent(handAnchor, false);
             holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity;
         }
 
@@ -89,6 +89,28 @@ namespace MafiaSandbox.Combat
             return null;
         }
 
+        /// <summary>
+        /// First person: the body is hidden (shadows only) and the hand hangs below the view, so the weapon becomes a view model:
+        /// the holder rides the camera, barrel forward (the model is built with +Y along the barrel and +Z up), lower right, centred when aiming.
+        /// </summary>
+        void LateUpdate()
+        {
+            if (!holder || !cam) return;
+            bool fp = cam.FirstPerson;
+            if (fp != fpView)
+            {
+                fpView = fp;
+                holder.SetParent(fp ? cam.transform : handAnchor, false);
+                if (!fp) { holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity; holder.localScale = Vector3.one; }
+            }
+            if (!fp) return;
+            var goal = Aiming ? new Vector3(0.0f, -0.115f, 0.5f) : new Vector3(0.2f, -0.2f, 0.55f);
+            fpPos = Vector3.Lerp(fpPos, goal, 1f - Mathf.Exp(-16f * Time.deltaTime));
+            holder.localPosition = fpPos;
+            holder.localRotation = Quaternion.AngleAxis(180f, Vector3.forward) * Quaternion.AngleAxis(90f, Vector3.right);   // model +Y -> view forward, +Z -> view up
+            if (model) foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // the camera hides the body's renderers, not the gun
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
@@ -109,7 +131,7 @@ namespace MafiaSandbox.Combat
             {
                 model.SetActive(!pc.InputLocked && !(body && body.Dead) && !Emoting);   // the weapon stays in hand (lowered when not aiming)
                 // carried guns hang with the barrel down and the slide upright; the aim pose keeps the model's native orientation
-                bool raised = Aiming || Weapon.melee || cooldown > Weapon.rof - 0.35f;
+                bool raised = Aiming || Weapon.melee || cooldown > Weapon.rof - 0.35f || (cam && cam.FirstPerson);
                 var target = raised ? Quaternion.identity : Quaternion.Euler(0f, carryRoll, 0f);
                 model.transform.localRotation = Quaternion.Slerp(model.transform.localRotation, target, 1f - Mathf.Exp(-14f * dt));
             }

@@ -19,7 +19,29 @@ namespace MafiaSandbox.Npc
         public string role = "keeper";
         float heldUpT, robT, calmT, waveT; bool gaveCash, greeted;
 
-        protected override void OnSpawned() { SetState("keeper"); idleClip = "Idle"; Stop(); gaveCash = false; lookAt = building ? building.counter + (building.door - building.counter).normalized * 3f : (Vector3?)null; }
+        protected override void OnSpawned() { Uniform(); SetState("keeper"); idleClip = "Idle"; Stop(); gaveCash = false; lookAt = building ? building.counter + (building.door - building.counter).normalized * 3f : (Vector3?)null; }
+
+        /// <summary>Shop staff wear an apron and a cap in the shop's colour, so the seller is recognisable behind the counter.</summary>
+        void Uniform()
+        {
+            if (role != "keeper" || !building) return;
+            Color c;
+            switch (building.kind) { case "market": c = new Color(0.16f, 0.55f, 0.28f); break; case "restaurant": c = new Color(0.88f, 0.88f, 0.84f); break; case "gun": c = new Color(0.4f, 0.32f, 0.2f); break; default: return; }
+            Transform spine = null, head = null;
+            foreach (var t in GetComponentsInChildren<Transform>(true)) { if (t.name == "Spine1" || t.name.EndsWith(":Spine1")) spine = t; else if (t.name == "Head" || t.name.EndsWith(":Head")) head = t; }
+            if (spine) { Garment(spine, new Vector3(0f, -0.1f, 0.13f), new Vector3(0.36f, 0.55f, 0.03f), c, "Apron"); Garment(spine, new Vector3(0f, -0.26f, 0.15f), new Vector3(0.22f, 0.12f, 0.02f), c * 0.7f, "ApronPocket"); }
+            if (head) Garment(head, new Vector3(0f, 0.16f, 0.02f), new Vector3(0.27f, 0.08f, 0.29f), c, "Cap");
+        }
+        /// <summary>A box in root space (x right, y up, z forward, metres) glued to a bone.</summary>
+        void Garment(Transform bone, Vector3 off, Vector3 size, Color col, string name)
+        {
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = name; Destroy(g.GetComponent<Collider>());
+            g.transform.SetParent(bone, false);
+            g.transform.position = bone.position + transform.rotation * off; g.transform.rotation = transform.rotation;
+            var ls = bone.lossyScale; g.transform.localScale = new Vector3(size.x / Mathf.Max(0.0001f, ls.x), size.y / Mathf.Max(0.0001f, ls.y), size.z / Mathf.Max(0.0001f, ls.z));
+            var r = g.GetComponent<Renderer>(); var sh = Shader.Find("Standard"); if (!sh) sh = Shader.Find("Legacy Shaders/Diffuse");
+            r.material = new Material(sh) { color = col }; r.material.SetFloat("_Glossiness", 0.1f);
+        }
         protected override Vector3 RespawnPoint() => spawnPos;
 
         protected override void OnHit(string zone, Vector3 point) { Flee(point); }

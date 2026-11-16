@@ -85,10 +85,34 @@ namespace MafiaSandbox.EditorTools
         static Build Sofa(float w, Color col) => p => { B(p, "Base", 0f, 0.25f, 0f, w, 0.4f, 0.9f, col); B(p, "Back", 0f, 0.65f, -0.36f, w, 0.5f, 0.2f, col * 0.85f); B(p, "ArmL", -w * 0.5f + 0.1f, 0.5f, 0f, 0.2f, 0.3f, 0.9f, col * 0.8f); B(p, "ArmR", w * 0.5f - 0.1f, 0.5f, 0f, 0.2f, 0.3f, 0.9f, col * 0.8f); B(p, "Cushion", 0f, 0.5f, 0.05f, w - 0.5f, 0.1f, 0.6f, col * 1.12f); };
         static Build Table(float w, float d, float h, Color col) => p => { B(p, "Top", 0f, h, 0f, w, 0.06f, d, col); foreach (var sx in new[] { -1f, 1f }) foreach (var sz in new[] { -1f, 1f }) B(p, "Leg", sx * (w * 0.5f - 0.06f), h * 0.5f, sz * (d * 0.5f - 0.06f), 0.06f, h, 0.06f, col * 0.75f); };
         static Build Chair(Color col) => p => { B(p, "Seat", 0f, 0.42f, 0f, 0.42f, 0.06f, 0.42f, col); B(p, "Back", 0f, 0.72f, -0.2f, 0.42f, 0.55f, 0.05f, col); foreach (var sx in new[] { -1f, 1f }) foreach (var sz in new[] { -1f, 1f }) B(p, "Leg", sx * 0.17f, 0.2f, sz * 0.17f, 0.05f, 0.4f, 0.05f, col * 0.7f); };
+        /// <summary>One group of identical shop goods (cans, bottles, boxes, loaves, tins, soft packs) starting at x; returns the width used.</summary>
+        static float ShelfProduct(GameObject p, float x, float y0, Color[] stock, System.Random rng)
+        {
+            Color c = stock[rng.Next(stock.Length)], label = C(0.95f, 0.95f, 0.9f), silver = C(0.78f, 0.8f, 0.84f);
+            int kind = rng.Next(6), n = 2 + rng.Next(3); float used = 0f;
+            for (int k = 0; k < n; k++)
+            {
+                switch (kind)
+                {
+                    case 0: { float cx = x + 0.04f + k * 0.085f; Cyl(p, "Can", cx, y0 + 0.06f, 0f, 0.07f, 0.12f, c); Cyl(p, "CanBand", cx, y0 + 0.06f, 0f, 0.074f, 0.045f, label); Cyl(p, "CanTop", cx, y0 + 0.123f, 0f, 0.06f, 0.008f, silver); used = 0.085f * (k + 1); break; }
+                    case 1: { if (k > 2) break; float cx = x + 0.05f + k * 0.1f; Cyl(p, "Bottle", cx, y0 + 0.12f, 0f, 0.08f, 0.24f, c * 0.9f); Cyl(p, "Neck", cx, y0 + 0.28f, 0f, 0.035f, 0.09f, c * 0.9f); Cyl(p, "Cap", cx, y0 + 0.335f, 0f, 0.042f, 0.025f, label); Cyl(p, "Label", cx, y0 + 0.12f, 0f, 0.083f, 0.09f, label); used = 0.1f * (k + 1); break; }
+                    case 2: { if (k > 1) break; float cx = x + 0.09f + k * 0.18f; B(p, "Box", cx, y0 + 0.13f, 0f, 0.16f, 0.26f, 0.08f, c); B(p, "BoxLabel", cx, y0 + 0.14f, 0.042f, 0.12f, 0.12f, 0.004f, label); B(p, "BoxTop", cx, y0 + 0.235f, 0.042f, 0.12f, 0.03f, 0.004f, c * 0.7f); used = 0.18f * (k + 1); break; }
+                    case 3: { if (k > 0) break; B(p, "Loaf", x + 0.17f, y0 + 0.055f, 0f, 0.32f, 0.11f, 0.13f, C(0.72f, 0.46f, 0.22f)); B(p, "LoafTop", x + 0.17f, y0 + 0.12f, 0f, 0.28f, 0.04f, 0.115f, C(0.82f, 0.56f, 0.3f)); used = 0.34f; break; }
+                    case 4: { float cx = x + 0.05f + k * 0.1f; for (int t = 0; t < 2; t++) { Cyl(p, "Tin", cx, y0 + 0.032f + t * 0.065f, 0f, 0.09f, 0.062f, silver); Cyl(p, "TinLabel", cx, y0 + 0.032f + t * 0.065f, 0f, 0.093f, 0.04f, c); } used = 0.1f * (k + 1); break; }
+                    default: { float cx = x + 0.075f + k * 0.15f; B(p, "Pack", cx, y0 + 0.1f, 0f, 0.13f, 0.2f, 0.05f, c); B(p, "PackStripe", cx, y0 + 0.1f, 0.027f, 0.13f, 0.06f, 0.004f, label); B(p, "PackSeal", cx, y0 + 0.2f, 0f, 0.14f, 0.012f, 0.055f, c * 0.75f); used = 0.15f * (k + 1); break; }
+                }
+            }
+            return used;
+        }
         static Build Shelf(float w, float h, Color col, Color[] stock, System.Random rng) => p =>
         {
             B(p, "Frame", 0f, h * 0.5f, -0.1f, w, h, 0.05f, col * 0.8f); B(p, "SideL", -w * 0.5f + 0.02f, h * 0.5f, 0f, 0.04f, h, 0.35f, col); B(p, "SideR", w * 0.5f - 0.02f, h * 0.5f, 0f, 0.04f, h, 0.35f, col);
-            for (int i = 0; i <= 4; i++) { float y = 0.05f + i * (h - 0.1f) / 4f; B(p, "Board", 0f, y, 0f, w, 0.04f, 0.35f, col); if (i == 4) break; float x = -w * 0.5f + 0.12f; while (x < w * 0.5f - 0.1f) { float bw = 0.06f + (float)rng.NextDouble() * 0.12f, bh = 0.22f + (float)rng.NextDouble() * 0.12f; B(p, "Item", x + bw * 0.5f, y + 0.02f + bh * 0.5f, 0f, bw, bh, 0.22f, stock[rng.Next(stock.Length)]); x += bw + 0.02f; } }
+            for (int i = 0; i <= 4; i++)
+            {
+                float y = 0.05f + i * (h - 0.1f) / 4f; B(p, "Board", 0f, y, 0f, w, 0.04f, 0.35f, col); if (i == 4) break;
+                float x = -w * 0.5f + 0.1f;
+                while (x < w * 0.5f - 0.15f) x += ShelfProduct(p, x, y + 0.02f, stock, rng) + 0.03f;
+            }
         };
         static Build Plant(float s) => p => { B(p, "Pot", 0f, 0.2f * s, 0f, 0.38f * s, 0.4f * s, 0.38f * s, C(0.62f, 0.34f, 0.22f)); B(p, "Leaf1", 0f, 0.65f * s, 0f, 0.5f * s, 0.5f * s, 0.5f * s, Green); B(p, "Leaf2", 0.04f, 1.05f * s, -0.03f, 0.32f * s, 0.4f * s, 0.32f * s, Green * 1.15f); };
         static Build Lamp() => p => { B(p, "Base", 0f, 0.03f, 0f, 0.3f, 0.05f, 0.3f, DarkWood); B(p, "Pole", 0f, 0.8f, 0f, 0.05f, 1.55f, 0.05f, DarkWood); B(p, "Shade", 0f, 1.62f, 0f, 0.38f, 0.3f, 0.38f, C(1f, 0.9f, 0.62f), true); };

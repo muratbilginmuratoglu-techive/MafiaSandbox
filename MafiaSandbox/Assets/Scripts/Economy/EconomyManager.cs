@@ -75,8 +75,13 @@ namespace MafiaSandbox.Economy
         public Pickable SpawnPickable(string id, Vector3 pos, float yaw, Shop shop, bool vault, bool respawns = true)
         {
             var def = Items.Get(id); if (def == null) return null;
-            if (!prefabByName.TryGetValue(def.prop, out var prefab)) { Debug.LogWarning("[Economy] no prefab for " + def.prop); return null; }
-            var go = Instantiate(prefab, pos, Quaternion.Euler(0f, yaw, 0f), itemRoot); go.name = "Item " + id;
+            GameObject go = ItemModels.Build(id);   // real-looking product (can, bread, sack ...) first, the Esya_* prop as a fallback
+            if (go) { go.transform.SetParent(itemRoot, false); go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f)); }
+            else
+            {
+                if (!prefabByName.TryGetValue(def.prop, out var prefab)) { Debug.LogWarning("[Economy] no prefab for " + def.prop); return null; }
+                go = Instantiate(prefab, pos, Quaternion.Euler(0f, yaw, 0f), itemRoot); go.name = "Item " + id;
+            }
             foreach (var c in go.GetComponentsInChildren<Collider>()) Destroy(c);
             var pk = go.AddComponent<Pickable>(); pk.Setup(id, shop, vault); pk.respawns = respawns; pickables.Add(pk); return pk;
         }

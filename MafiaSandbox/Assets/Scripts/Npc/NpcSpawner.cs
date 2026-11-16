@@ -94,7 +94,7 @@ namespace MafiaSandbox.Npc
                     if (bi.seats != null && bi.seats.Length > 0 && Random.value < 0.6f) Loiterer(bi, bi.seats[Random.Range(0, bi.seats.Length)], Random.value < 0.5f ? "Idle" : "Crouch_Idle", "Resident", bi.footprint.center);
                     continue;
                 }
-                var k = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeperPos, bi.keeperYaw); k.building = bi; k.displayName = bi.label + " keeper";
+                var k = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeperPos, bi.keeperYaw); k.building = bi; k.displayName = bi.label + " keeper"; if (bi.kind == "market") Debug.Log($"[MafiaSandbox] market keeper at {k.transform.position} (counter {bi.counter}, door {bi.door})");
                 if (bi.hasKeeper2) { var k2 = Spawn<KeeperBrain>(Pick("Vatandas"), bi.keeper2Pos, bi.keeper2Yaw); k2.building = bi; k2.displayName = bi.label + " teller"; }
                 PopulateShop(bi);
             }
