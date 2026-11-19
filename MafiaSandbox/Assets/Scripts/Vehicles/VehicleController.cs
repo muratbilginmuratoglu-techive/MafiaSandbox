@@ -276,7 +276,7 @@ namespace MafiaSandbox.Vehicles
                 var vi = body.GetComponent<VehicleInteraction>(); if (vi && vi.Current) continue;   // the driver of another car
                 Vector3 dir = body.transform.position - rb.position; dir.y = 0f; dir = (dir.normalized * 0.6f + dirF * 0.8f + Vector3.up * 0.35f).normalized;
                 Vector3 contact = body.ChestPos;
-                if (light) body.Hit(body.ZoneNear(contact), contact, dir, 1, false, 2.5f, Controlled ? "player" : "vehicle");
+                if (light || !Controlled) body.Hit(body.ZoneNear(contact), contact, dir, 1, false, 2.5f, Controlled ? "player" : "vehicle");   // rides and AI traffic only shove people: the town was losing a citizen a minute to its own drivers
                 else body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle");
                 MafiaSandbox.Core.Sfx.At("thud", contact);
                 StartCoroutine(PassThrough(body, 2.5f));
@@ -342,7 +342,7 @@ namespace MafiaSandbox.Vehicles
                 var contact = c.GetContact(0).point;
                 if (v > 3f)
                 {
-                    if (!(hitAt.TryGetValue(body, out float t0) && Time.time - t0 < 1.5f)) { hitAt[body] = Time.time; dir = (dir + Vector3.up * 0.35f).normalized; body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); }
+                    if (!(hitAt.TryGetValue(body, out float t0) && Time.time - t0 < 1.5f)) { hitAt[body] = Time.time; dir = (dir + Vector3.up * 0.35f).normalized; bool kill = v > 7f && Controlled && !light; body.Hit(body.ZoneNear(contact), contact, dir, kill ? 99 : 1, kill, kill ? Mathf.Clamp(v * 0.8f, 2f, 13f) : 2.5f, Controlled ? "player" : "vehicle"); MafiaSandbox.Core.Sfx.At("thud", contact); }
                     StartCoroutine(PassThrough(body, 2.5f));   // the body must not act as a wall for the car that hit it
                 }
                 else { var cc = body.GetComponent<CharacterController>(); if (cc && cc.enabled) cc.Move(dir * 0.4f); }

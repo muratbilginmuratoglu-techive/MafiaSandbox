@@ -48,16 +48,17 @@ namespace MafiaSandbox.UI
                 if (GUILayout.Button(rc.name + tag, sel == i ? UiSkin.ButtonOn : UiSkin.Button, GUILayout.Height(32))) { sel = i; mult = 1; }
             }
             GUILayout.EndVertical(); GUILayout.Space(14);
-            GUILayout.BeginVertical();
+            GUILayout.BeginVertical(GUILayout.Width(440));   // fixed width: a long line must wrap instead of pushing the buttons' text out of the panel
+            var wrap = new GUIStyle(UiSkin.LabelDim) { wordWrap = true };
             var s = HomeLab.Recipes[sel]; var sb = lab.batches[sel];
-            GUILayout.Label(s.name, UiSkin.H2); GUILayout.Label(s.blurb, UiSkin.LabelDim);
+            GUILayout.Label(s.name, UiSkin.H2); GUILayout.Label(s.blurb, wrap);
             GUILayout.Space(6); GUILayout.Label(Admin.Unlimited ? "INGREDIENTS (admin: unlimited)" : "INGREDIENTS (backpack + home cupboard)", UiSkin.H2);
             int maxB = Mathf.Clamp(lab.MaxBatches(sel), 1, 5); mult = Mathf.Clamp(mult, 1, maxB);
             foreach (var (id, n) in s.inputs) { int have = lab.Have(id); GUILayout.Label($"{Items.Get(id).name}   {(Admin.Unlimited ? "∞" : have.ToString())} / {n * mult}", have >= n * mult ? UiSkin.Label : UiSkin.LabelDim); }
             GUILayout.BeginHorizontal(); GUILayout.Label($"Batch size  ×{mult}   (you have enough for ×{Mathf.Min(5, lab.MaxBatches(sel))})", UiSkin.LabelDim, GUILayout.Width(300));
             if (GUILayout.Button("−", UiSkin.Button, GUILayout.Width(36))) mult = Mathf.Max(1, mult - 1); if (GUILayout.Button("+", UiSkin.Button, GUILayout.Width(36))) mult = Mathf.Min(maxB, mult + 1); GUILayout.EndHorizontal();
-            GUILayout.Label($"Makes about {s.yield * mult} × {Items.Get(s.product).name} (better handiwork = more)  ·  {s.hours:0} game hours", UiSkin.LabelDim);
-            GUILayout.Label("Buy ingredients at the market (mash, sugar, yeast, oak, botanicals, seeds, medicine, solvent, precursor) and the gun shop (metal parts, gunpowder, stock blanks). Keep them in your backpack or the cupboard at home.", UiSkin.LabelDim);
+            GUILayout.Label($"Makes about {s.yield * mult} × {Items.Get(s.product).name} (better handiwork = more)  ·  {s.hours:0} game hours", wrap);
+            GUILayout.Label("Buy ingredients at the market (mash, sugar, yeast, oak, botanicals, seeds, medicine, solvent, precursor) and the gun shop (metal parts, gunpowder, stock blanks). Keep them in your backpack or the cupboard at home.", wrap);
             GUILayout.Space(8);
             if (sb.state == 1) { GUILayout.Label($"Cooking… {sb.yield} units expected", UiSkin.Label); var pr = GUILayoutUtility.GetRect(10, 16, GUILayout.ExpandWidth(true)); UiSkin.DrawBar(pr, lab.Progress(sel), UiSkin.Accent); GUILayout.Label("Sleep to speed up the wait.", UiSkin.LabelDim); }
             else if (sb.state == 2) { if (GUILayout.Button($"Collect {sb.yield} × {Items.Get(s.product).name}", UiSkin.ButtonOn, GUILayout.Height(38))) lab.Collect(sel); }

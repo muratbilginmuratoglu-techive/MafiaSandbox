@@ -26,7 +26,30 @@ namespace MafiaSandbox.UI
         static void Stock(string id, int n)
         {
             var st = Stash.I; if (!st) { EconomyManager.I?.AddItem(id, n, false); return; }
-            var it = st.items.Find(x => x.id == id && !x.stolen); if (it != null) it.qty += n; else st.items.Add(new InvItem { id = id, qty = n, stolen = false }); st.SavePublic();
+            var it = st.items.Find(x => x.id == id && !x.stolen); if (it != null) it.qty = Mathf.Max(it.qty, n); else st.items.Add(new InvItem { id = id, qty = n, stolen = false }); st.SavePublic();
+        }
+
+
+        /// <summary>(Re)places the still, the chemistry table and the gunsmith bench in free corners of the home: clear of the cupboard, the bed, the door, the shelves and the furniture.</summary>
+        static void PlaceStations(HomeLab lab, World.BuildingInfo bi)
+        {
+            var gm = GameManager.I; while (lab.stations.Count > 0) lab.RemoveStation(0);
+            var avoid = new System.Collections.Generic.List<Vector3>(); if (Stash.I) avoid.Add(Stash.I.Pos); avoid.Add(lab.BedPos); avoid.Add(bi.door); if (bi.shelves != null) avoid.AddRange(bi.shelves);
+            var f = bi.footprint; float y = lab.BedPos.y; Vector3 centre = new Vector3(f.center.x, y, f.center.z); int placed = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                float best = 0f; Vector3 bp = Vector3.zero; bool found = false;
+                for (float x = f.min.x + 1.2f; x <= f.max.x - 1.2f; x += 0.5f) for (float z = f.min.z + 1.2f; z <= f.max.z - 1.2f; z += 0.5f)
+                {
+                    var p = new Vector3(x, y, z); float d = float.MaxValue; foreach (var a in avoid) { Vector3 q = a - p; q.y = 0f; d = Mathf.Min(d, q.magnitude); }
+                    if (d < 1.9f || d <= best) continue;
+                    if (Physics.CheckBox(p + Vector3.up * 0.7f, new Vector3(0.8f, 0.45f, 0.5f), Quaternion.identity, 1 << 0, QueryTriggerInteraction.Ignore)) continue;
+                    best = d; bp = p; found = true;
+                }
+                if (!found) break;
+                Vector3 look = centre - bp; lab.AddStation(k, bp, Mathf.Abs(look.x) > Mathf.Abs(look.z) ? (look.x > 0f ? 90f : -90f) : (look.z > 0f ? 0f : 180f)); avoid.Add(bp); placed++;
+            }
+            gm?.Say(placed == 3 ? "The still, the chemistry table and the gunsmith bench are set up at home." : $"Only {placed} station(s) fitted in the house.");
         }
 
         void OnGUI()
@@ -52,15 +75,20 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Cupboard: 20 of every ingredient", UiSkin.Button)) { foreach (var kv in Items.All) if (kv.Value.kind == "material") Stock(kv.Key, 20); gm.Say("The cupboard at home is stocked."); }
             if (GUILayout.Button("Backpack: 5 of every product", UiSkin.Button) && eco) { foreach (var p in CrewManager.Products) eco.AddItem(p, 5, false); gm.Say("Five of every product in your backpack."); }
             GUILayout.EndHorizontal(); GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Set up the three stations at home", UiSkin.Button) && lab && lab.Ready && eco && eco.homeShop != null)
+            if (GUILayout.Button("Set up the three stations at home", UiSkin.Button) && lab && lab.Ready && eco && eco.homeShop != null) PlaceStations(lab, eco.homeShop.info);
+            if (GUILayout.Button("Teleport inside home", UiSkin.Button))
             {
-                var bi = eco.homeShop.info; int added = 0; Vector3 mid = Stash.I ? Stash.I.Pos : lab.BedPos + Vector3.right * 1.9f, right = mid - lab.BedPos; right.y = 0f; right.Normalize(); Vector3 toDoor = Vector3.Cross(right, Vector3.up);
-                for (int k = 0; k < 3; k++) if (lab.CountStations(k) == 0) { var p = Stash.InHome(bi, mid - toDoor * 2.1f + right * ((k - 1) * 1.8f)); p.y = lab.BedPos.y; lab.AddStation(k, p, Mathf.Atan2(toDoor.x, toDoor.z) * Mathf.Rad2Deg); added++; }
-                gm.Say(added > 0 ? $"{added} station(s) placed at home." : "All three stations are already at home.");
+                Vector3 hp = gm.homePosition; float yaw = gm.homeYaw;
+                if (Stash.I && lab && lab.Ready) { Vector3 side = Stash.I.Pos - lab.BedPos; side.y = 0f; side.Normalize(); Vector3 doorDir = Vector3.Cross(side, Vector3.up); hp = Stash.I.Pos + doorDir * 1.3f; yaw = Mathf.Atan2(-doorDir.x, -doorDir.z) * Mathf.Rad2Deg; }
+                gm.player.Teleport(hp, yaw); if (gm.playerCamera) gm.playerCamera.SetYaw(yaw); open = false;
             }
-            if (GUILayout.Button("Teleport home", UiSkin.Button)) { gm.player.Teleport(gm.homePosition, gm.homeYaw); if (gm.playerCamera) gm.playerCamera.SetYaw(gm.homeYaw); open = false; }
+            if (GUILayout.Button("Time 20:00", UiSkin.Button) && World.DayNightCycle.I) World.DayNightCycle.I.timeOfDay = 20f;
+            if (GUILayout.Button("Sleep", UiSkin.Button) && lab) { open = false; lab.TrySleep(); }
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal(); GUILayout.Label("Station panel (normal rules):", UiSkin.LabelDim, GUILayout.Width(200));
+            for (int k = 0; k < 3; k++) if (GUILayout.Button(Career.StationNames[k], UiSkin.Button) && ProductionPanel.I) { open = false; ProductionPanel.I.Open(k); }
+            GUILayout.EndHorizontal();
             GUILayout.Space(6); GUILayout.Label("OPEN A WORKSHOP JOB HERE (the product goes straight to your backpack)", UiSkin.H2);
             scroll = GUILayout.BeginScrollView(scroll);
             if (lab) for (int st = 0; st < 3; st++)

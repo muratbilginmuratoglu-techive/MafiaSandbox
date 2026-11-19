@@ -61,7 +61,13 @@ namespace MafiaSandbox.Economy
             }
             if (Stash.I && TargetKind == Kind.None && (Stash.I.Pos - pp).sqrMagnitude < 2.4f * 2.4f) { TargetKind = Kind.Stash; }
             if (OldStash.I && OldStash.I.Active && TargetKind == Kind.None && (OldStash.I.Pos - pp).sqrMagnitude < 2.4f * 2.4f) TargetKind = Kind.OldStash;
-            if (HomeLab.I && HomeLab.I.Ready && TargetKind == Kind.None) { int si = HomeLab.I.NearStation(pp, 2.4f); if (si >= 0) { TargetKind = Kind.Lab; LabStation = si; } else if ((HomeLab.I.BedPos - pp).sqrMagnitude < 2.4f * 2.4f) TargetKind = Kind.Bed; }
+            if (HomeLab.I && HomeLab.I.Ready && (TargetKind == Kind.None || TargetKind == Kind.Stash))
+            {
+                // the cupboard, the stations and the bed stand close together: the nearest one wins
+                float dStash = TargetKind == Kind.Stash ? (Stash.I.Pos - pp).sqrMagnitude : float.MaxValue; int si = HomeLab.I.NearStation(pp, 2.4f);
+                if (si >= 0) { Vector3 sd = HomeLab.I.stations[si].pos - pp; sd.y = 0f; if (sd.sqrMagnitude < dStash) { TargetKind = Kind.Lab; LabStation = si; } }
+                else if (TargetKind == Kind.None && (HomeLab.I.BedPos - pp).sqrMagnitude < 2.4f * 2.4f) TargetKind = Kind.Bed;
+            }
             switch (TargetKind)
             {
                 case Kind.Civilian: { var cm = Gang.CrewManager.I; Prompt = cm ? $"F  Recruit {TargetNpc.displayName} (${cm.RecruitCost})    X  Offer product" : ""; break; }
