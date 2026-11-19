@@ -135,6 +135,15 @@ namespace MafiaSandbox.Economy
             float f = score < 0.25f ? 0.3f : 0.55f + score * 0.65f + (score >= 0.9f ? 0.15f : 0f);
             int y = Mathf.Max(1, Mathf.RoundToInt(rc.yield * f)); if (score >= 0.9f && rc.yield <= 2) y = rc.yield + 1; return y;
         }
+        /// <summary>A hired worker runs one batch on his own: ingredients out of the cupboard, product back into it. Returns the units made (0 = short of something).</summary>
+        public int WorkerBatch(int r, float score)
+        {
+            if (r < 0 || r >= Recipes.Length) return 0; var rc = Recipes[r]; if (Locked(rc)) return 0;
+            foreach (var (id, n) in rc.inputs) if (Have(id) < n) return 0;
+            foreach (var (id, n) in rc.inputs) Use(id, n);
+            int y = YieldFor(rc, score); if (!Stash.I || !Stash.I.AddDirect(rc.product, y)) EconomyManager.I.AddItem(rc.product, y, false);
+            MafiaSandbox.Gang.Empire.NoteBatch(r, y); return y;
+        }
         public void CollectNow(int r) { if (batches[r].state == 1) batches[r].state = 2; Collect(r); }
         public string CanStart(int r, int mult = 1)
         {
@@ -154,7 +163,7 @@ namespace MafiaSandbox.Economy
         public void Collect(int r)
         {
             var rc = Recipes[r]; var b = batches[r]; if (b.state != 2) return; var eco = EconomyManager.I;
-            eco.AddItem(rc.product, b.yield, false); GameManager.I.Say($"Collected {b.yield} × {Items.Get(rc.product).name}"); Respect.Add(rc.level + b.yield); if (Career.IsStarterRecipe(rc.id)) Career.AddCollect();
+            eco.AddItem(rc.product, b.yield, false); GameManager.I.Say($"Collected {b.yield} × {Items.Get(rc.product).name}"); MafiaSandbox.Gang.Empire.NoteBatch(r, b.yield); Respect.Add(rc.level + b.yield); if (Career.IsStarterRecipe(rc.id)) Career.AddCollect();
             b.state = 0; b.yield = 0; Save(); Sfx.At("click", LabPos);
         }
         public float Progress(int r) { var rc = Recipes[r]; var b = batches[r]; if (b.state == 2) return 1f; if (b.state != 1) return 0f; return Mathf.Clamp01(1f - (b.readyAt - DayNightCycle.I.TotalHours) / rc.hours); }

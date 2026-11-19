@@ -12,7 +12,7 @@ namespace MafiaSandbox.UI
         public static CrewPanel I { get; private set; }
         public static bool IsOpen => I && I.open;
         bool open; int tab; Shop venue; Vector2 scroll; CrewBrain selected;
-        static readonly string[] Tabs = { "Crew", "Venues", "Supplies", "Hustles", "Status" };
+        static readonly string[] Tabs = { "Crew", "Venues", "Supplies", "Hustles", "Status", "Home", "Turf" };
 
         void Awake() { I = this; }
         public void Open(int t = 0) { open = true; tab = t; scroll = Vector2.zero; }
@@ -38,7 +38,7 @@ namespace MafiaSandbox.UI
             for (int i = 0; i < Tabs.Length; i++) if (GUILayout.Button(Tabs[i], tab == i ? UiSkin.ButtonOn : UiSkin.Button, GUILayout.Height(28))) { tab = i; scroll = Vector2.zero; }
             GUILayout.EndHorizontal(); GUILayout.Space(6);
             scroll = GUILayout.BeginScrollView(scroll, GUILayout.Height(r.height - 100));
-            switch (tab) { case 0: TabCrew(cm); break; case 1: TabVenues(cm, eco); break; case 2: TabSupplies(cm, eco); break; case 3: TabHustles(); break; default: TabStatus(cm); break; }
+            switch (tab) { case 0: TabCrew(cm); break; case 1: TabVenues(cm, eco); break; case 2: TabSupplies(cm, eco); break; case 3: TabHustles(); break; case 5: if (Empire.I) Empire.I.DrawHomeTab(); break; case 6: if (Empire.I) Empire.I.DrawTurfTab(); break; default: TabStatus(cm); break; }
             GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
@@ -61,7 +61,7 @@ namespace MafiaSandbox.UI
                 GUILayout.EndHorizontal();
                 if (sel)
                 {
-                    GUILayout.Label("ARM  (pay once, they keep it)", UiSkin.H2); GUILayout.BeginHorizontal();
+                    GUILayout.Label("ARM  (pay once, they keep it; a gun you made yourself is free and comes out of your stock)", UiSkin.H2); GUILayout.BeginHorizontal();
                     foreach (var k in CrewManager.ArmOptions) if (GUILayout.Button($"{WeaponDef.All[k].name} ${CrewManager.ArmPrice(k)}", m.weapon == k ? UiSkin.ButtonOn : UiSkin.Button)) cm.Arm(m, k);
                     GUILayout.EndHorizontal();
                     GUILayout.Label("Follow: stays with you · Guard: holds this spot (stand at a venue and set it) · Dealer: sells your stock on the street each shift", UiSkin.LabelDim);

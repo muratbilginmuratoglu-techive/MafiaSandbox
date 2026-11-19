@@ -58,6 +58,11 @@ namespace MafiaSandbox.Gang
             return true;
         }
         static readonly int[] SaleOrder = { 6, 2, 7, 1, 8, 5, 0 };   // best first: powder, pills, moonshine, weed
+        /// <summary>Dealers also sell what the workers left in the cupboard at home.</summary>
+        int StockAny(int i) => Stock(i) + (Stash.I ? Stash.I.CountOf(Products[i]) : 0);
+        int BestProductAny() { foreach (int i in SaleOrder) if (Unlocked(i) && StockAny(i) > 0) return i; return -1; }
+        bool TakeAny(string id) => Take(id) || (Stash.I && Stash.I.TakeDirect(id, 1) > 0);
+        public void ForcePayout() => Payout();
         int BestProduct() { foreach (int i in SaleOrder) if (Unlocked(i) && Stock(i) > 0) return i; return -1; }
 
         /// <summary>Offer something to a civilian: who is buying, how much, and who might be watching.</summary>
@@ -68,10 +73,10 @@ namespace MafiaSandbox.Gang
             if (pitchCd.TryGetValue(c, out var t) && Time.time < t) { gm.Say($"{c.displayName} isn't interested."); return; }
             var pp = gm.player.transform.position;
             if (WantedSystem.I && WantedSystem.I.CopWitness(pp, 22f, 1, "dealing in front of the police")) { return; }
-            float chance = 0.62f + (Shop.IsNight ? 0.12f : 0f) + Respect.Rank * 0.03f;
+            float chance = 0.62f + (Shop.IsNight ? 0.12f : 0f) + Respect.Rank * 0.03f + MafiaSandbox.Player.Highs.DealChance;
             if (Random.value < chance)
             {
-                int price = Mathf.RoundToInt(StreetNow(p) * Random.Range(0.85f, 1.3f) * (Shop.IsNight ? 1.1f : 1f)); Take(Products[p]); eco.cash += price; Deals++;
+                int price = Mathf.RoundToInt(StreetNow(p) * Random.Range(0.85f, 1.3f) * (Shop.IsNight ? 1.1f : 1f) * MafiaSandbox.Player.Highs.DealPrice); Take(Products[p]); eco.cash += price; Deals++;
                 gm.Say($"Sold {Items.Get(Products[p]).name} for ${price}"); Respect.Add(p == 0 || p == 5 ? 3 : p == 1 ? 6 : 12); Sfx.At("click", pp);
             }
             else
@@ -103,7 +108,7 @@ namespace MafiaSandbox.Gang
             if (crew.Count >= MaxCrew) { gm.Say($"Your crew is full ({MaxCrew}). Rank up to take on more."); return false; }
             if (pitchCd.TryGetValue(c, out var t) && Time.time < t) { gm.Say($"{c.displayName} already said no."); return false; }
             int cost = RecruitCost; if (eco.cash < cost) { gm.Say($"{c.displayName}: Sign-on is ${cost}, cash up front."); return false; }
-            if (Random.value > 0.5f + 0.08f * Respect.Rank) { gm.Say($"{c.displayName}: Not my kind of work."); pitchCd[c] = Time.time + 60f; return false; }
+            if (Random.value > 0.5f + 0.08f * Respect.Rank + MafiaSandbox.Player.Highs.DealChance) { gm.Say($"{c.displayName}: Not my kind of work."); pitchCd[c] = Time.time + 60f; return false; }
             eco.cash -= cost; var go = c.gameObject; string nm = c.displayName;
             var sp = FindAnyObjectByType<NpcSpawner>(); if (sp) sp.npcs.Remove(c);
             Destroy(c); var m = go.AddComponent<CrewBrain>(); m.displayName = nm; m.name = "Crew " + nm; m.walkSpeed = 2.4f; m.runSpeed = 5.8f;
@@ -116,6 +121,9 @@ namespace MafiaSandbox.Gang
         public bool Arm(CrewBrain m, WeaponKind k)
         {
             var eco = EconomyManager.I; var gm = GameManager.I; int price = ArmPrice(k);
+            // a gun from your own bench costs nothing: one comes out of your stock (backpack or cupboard)
+            string own = k == WeaponKind.Pistol ? "Guns" : k == WeaponKind.Revolver ? "Revolvers" : k == WeaponKind.Shotgun ? "Shotguns" : k == WeaponKind.Rifle ? "Rifles" : null;
+            if (own != null && TakeAny(own)) { m.SetWeapon(k); gm.Say($"{m.displayName} takes a {WeaponDef.All[k].name.ToLower()} from your own stock"); return true; }
             if (eco.cash < price) { gm.Say($"Not enough cash (${price})"); return false; }
             eco.cash -= price; m.SetWeapon(k); gm.Say($"{m.displayName} is carrying a {WeaponDef.All[k].name}"); return true;
         }
@@ -197,11 +205,11 @@ namespace MafiaSandbox.Gang
             foreach (var m in crew)
             {
                 if (!m || m.role != CrewBrain.Role.Dealer) continue;
-                for (int n = 0; n < 4; n++) { int p = BestProduct(); if (p < 0) break; Take(Products[p]); int rev = Mathf.RoundToInt(StreetNow(p) * 0.7f); dealIncome += rev; m.sales++; Deals++; }
+                for (int n = 0; n < 4; n++) { int p = BestProductAny(); if (p < 0) break; if (!TakeAny(Products[p])) break; int rev = Mathf.RoundToInt(StreetNow(p) * 0.7f); dealIncome += rev; m.sales++; Deals++; }
             }
             DealerCash += dealIncome; int wages = 0; foreach (var m in crew) if (m) wages += Mathf.RoundToInt(m.wage * 0.25f);
             wages = Mathf.Min(wages, eco.cash + venueIncome + dealIncome);
-            eco.cash += venueIncome + dealIncome - wages; ShiftIncome = venueIncome + dealIncome - wages;
+            eco.cash += venueIncome + dealIncome - wages; ShiftIncome = venueIncome + dealIncome - wages; Empire.NoteAuto(venueIncome + dealIncome);
             if (venueIncome + dealIncome + wages > 0)
             {
                 lastReport = $"Shift report: venues +${venueIncome}, dealers +${dealIncome}, wages -${wages}";

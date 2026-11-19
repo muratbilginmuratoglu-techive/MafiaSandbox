@@ -4,10 +4,15 @@ using static MafiaSandbox.Economy.Kit;
 
 namespace MafiaSandbox.Economy
 {
-    public enum WK { Place, Crank, Shake, Fill, Drops, Heat, Stretch, Grind, Timing, Clicks, Pack }
+    public enum WK { Place, Crank, Shake, Fill, Drops, Heat, Stretch, Grind, Timing, Clicks, Pack, Pour }
 
     /// <summary>One hands-on step of a job. part = tray part index, f = amount (turns / seconds / target), a / b = scene object names, v = a point on the table.</summary>
-    public class WStep { public WK k; public int part; public float f = 1f; public string a, b, on, off, pre, text, hint; public Vector3 v; }
+    public class WStep
+    {
+        public WK k; public int part; public float f = 1f; public string a, b, on, off, pre, text, hint; public Vector3 v;
+        // Pour: unit = what is counted (drops, g, ml ...), per = units in one drop / grain, fill = object that rises as it goes in, with = objects carried along with the container
+        public string unit, fill, with; public float fillTo = 1f, per = 1f; public Color col = Color.white; public bool grain;
+    }
     /// <summary>A part lying in the tray. It is modelled in its final (assembled) position, so placing it is just "move to the origin".</summary>
     public class WPart { public string name; public System.Action<Transform> build; public bool hide; }
     public class WorkDef
@@ -30,7 +35,24 @@ namespace MafiaSandbox.Economy
         static WPart P(string name, System.Action<Transform> build, bool hide = false) => new WPart { name = name, build = build, hide = hide };
         static WStep S(WK k, string text, string hint, int part = -1, float f = 1f, string a = null, string b = null, string on = null, string off = null, Vector3 v = default)
             => new WStep { k = k, text = text, hint = hint, part = part, f = f, a = a, b = b, on = on, off = off, v = v };
+        public const string PourHint = "Drag it over the target and let go: it stays there. Scroll DOWN to tip it, drop by drop; scroll up to stop. Click to put it back when the amount is right.";
+        /// <summary>Carry a container over a target and tip it with the mouse wheel: drop by drop or gram by gram.</summary>
+        static WStep Pour(string text, int part, string node, float amount, string unit, Vector3 mouth, Color col, bool grain, float per = 1f, string fill = null, float fillTo = 1f)
+            => new WStep { k = WK.Pour, text = text, hint = PourHint, part = part, a = node, f = amount, unit = unit, v = mouth, col = col, grain = grain, per = per, fill = fill, fillTo = fillTo };
         static Transform Rot(Transform t, float x, float y, float z) { t.localRotation = Quaternion.Euler(x, y, z) * t.localRotation; return t; }
+
+        /// <summary>The same parts the bench jobs assemble, for the guns people actually carry (x = towards the muzzle, y = up).</summary>
+        public static WPart[] GunParts(MafiaSandbox.Combat.WeaponKind k)
+        {
+            switch (k)
+            {
+                case MafiaSandbox.Combat.WeaponKind.Pistol: return Pistol();
+                case MafiaSandbox.Combat.WeaponKind.Revolver: return Revolver();
+                case MafiaSandbox.Combat.WeaponKind.Shotgun: return Shotgun();
+                case MafiaSandbox.Combat.WeaponKind.Rifle: return Rifle();
+                default: return null;
+            }
+        }
 
         public static WorkDef Get(string recipe)
         {
@@ -317,20 +339,21 @@ namespace MafiaSandbox.Economy
                 parts.Add(P("Label", t => Label(t, 0.06f, TableY + 0.135f, 0.095f, 0.13f, white, H(0x1f6b63), false)));
             }
             int n = 0;
-            for (; n < 3; n++) steps.Add(S(WK.Place, "Load the still: " + parts[n].name.ToLower(), "Drag it over the boiler's neck and drop it in.", n));
+            Vector3 neck = new Vector3(Pot.x, Pot.y + 0.7f, Pot.z);
+            for (; n < 3; n++) { string pn = parts[n].name; bool y2 = pn == "Yeast", bot = pn == "Botanicals"; steps.Add(Pour("Load the still: " + pn.ToLower(), n, null, bot ? 12f : y2 ? 20f : pn == "Sugar" ? 300f : 500f, bot ? "berries" : "g", neck, bot ? H(0x2b2f6a) : pn == "Sugar" ? sugar : y2 ? yeast : corn, true, bot ? 1f : y2 ? 2f : pn == "Sugar" ? 20f : 25f)); }
             steps.Add(S(WK.Heat, "Run the still", "Hold SPACE (or the mouse button) to feed the fire. Keep the needle inside the green band.", -1, kind == 0 ? 9f : 11f, "Flame"));
             steps.Add(S(WK.Place, "Stand the " + parts[3].name.ToLower() + " under the spout", drag, 3));
-            steps.Add(S(WK.Fill, "Fill it to the line", "Hold the mouse button (or SPACE) to open the tap. Stop at the mark, then press ENTER.", -1, 0.86f, "Liquid", null, null, null, spout));
+            steps.Add(S(WK.Fill, "Fill it to the line", "Scroll DOWN to open the tap, scroll up to close it. Stop at the mark, close the tap and press ENTER.", -1, 0.86f, "Liquid", null, null, null, spout));
             if (kind == 1)
             {
-                steps.Add(S(WK.Place, "Drop in the charred oak", "Drag the chips over the bottle's mouth.", 4));
+                steps.Add(Pour("Drop in the charred oak", 4, null, 6f, "chips", mouth, H(0x2a1a10), true));
                 steps.Add(S(WK.Place, "Cork it", drag, 5));
                 steps.Add(S(WK.Shake, "Shake the oak through", "Grab the bottle and flick it the way the arrows show.", 3, 6f));
                 steps.Add(S(WK.Place, "Hang the label", drag, 6));
             }
             else if (kind == 2)
             {
-                steps.Add(S(WK.Drops, "Add the essence", "Grab the little bottle, carry it over the mouth (it snaps in place), then roll the mouse wheel to tip it. 6 drops, then ENTER.", -1, 6f, "Essence", null, null, null, mouth));
+                steps.Add(Pour("Add the essence: 6 drops", -1, "Essence", 6f, "drops", mouth, H(0x55d06a), false));
                 steps.Add(S(WK.Place, "Screw the cap on", drag, 4));
                 steps.Add(S(WK.Place, "Hang the label", drag, 5));
             }
@@ -366,6 +389,10 @@ namespace MafiaSandbox.Economy
         // =================================================================================================== LAB BENCH
         static readonly Vector3 Burn = new Vector3(0.05f, TableY, 0.16f), Mort = new Vector3(0.5f, TableY, -0.12f), Scale = new Vector3(-0.3f, TableY, -0.22f), TrayPos = new Vector3(0.1f, TableY, -0.28f);
 
+        static readonly Vector3 BagMouth = new Vector3(Scale.x, Scale.y + 0.145f, Scale.z + 0.015f), MortMouth = new Vector3(Mort.x, Mort.y + 0.11f, Mort.z);
+        static WStep Pre(WStep s, string pre) { s.pre = pre; return s; }
+        static WStep On(WStep s, string on) { s.on = on; return s; }
+        static WStep Off(WStep s, string off) { s.off = off; return s; }
         static void Burner(Transform r)
         {
             float x = Burn.x, y = Burn.y, z = Burn.z;
@@ -441,10 +468,12 @@ namespace MafiaSandbox.Economy
                 S(WK.Clicks, "Trim the fan leaves", "Move the scissors over each dark fan leaf and click to snip it. Don't cut the buds.", -1, 16f, "Leaf", "Bud"),
                 S(WK.Timing, "Dry and cure", "Pull it off the line at the right moment: stop the marker in the green zone (SPACE)."),
                 S(WK.Place, "Put a zip bag on the scale", "Drag it onto the scale.", 1),
-                S(WK.Fill, "Weigh out the bag", "Hold the mouse button (or SPACE) to drop buds in. Stop at the mark, then press ENTER.", -1, 0.8f, "BagFill"),
+                Pre(Pour("Weigh out the bag: 28 g", -1, "BudBowl", 28f, "g", BagMouth, H(0x6fa63f), true, 2f, "BagFill", 0.8f), "BudBowl,-Bud0,-Bud1,-Bud2,-Bud3,-Bud4,-Bud5,-Bud6,-Bud7"),
                 S(WK.Pack, "Box it", "Drag the bag from the scale into the crate on the right.", 1),
             };
-            return new WorkDef { title = "Weed", parts = parts, steps = steps, origin = Vector3.zero, apparatus = r => { ScaleUnit(r); Lamp(r); Box(r, 0.55f, TableY + 0.008f, -0.22f, 0.16f, 0.016f, 0.05f, st, 0.7f, 0.9f); Cy(r, 0.47f, TableY + 0.01f, -0.22f, 0.05f, 0.012f, H(0xb23a2e), 1, 0.3f); } };
+            return new WorkDef { title = "Weed", parts = parts, steps = steps, origin = Vector3.zero, hidden = new[] { "BudBowl" }, apparatus = r => { ScaleUnit(r); Lamp(r);
+                var bb = Node(r, "BudBowl", 0.47f, TableY, 0.02f); La(bb, 0f, 0f, 0f, new[] { 0f, 0f, 0.05f, 0f, 0.085f, 0.05f, 0.09f, 0.055f, 0.078f, 0.05f, 0.045f, 0.012f, 0f, 0.012f }, st, 0.7f, 0.9f);
+                for (int i = 0; i < 7; i++) { float a = i * 0.9f; Ball(bb, Mathf.Cos(a) * (i == 0 ? 0f : 0.04f), 0.045f + (i % 2) * 0.012f, Mathf.Sin(a) * (i == 0 ? 0f : 0.04f), 0.04f, 0.036f, 0.04f, i % 2 == 0 ? H(0x6fa63f) : H(0x8fc24f), 0.15f); } Box(r, 0.55f, TableY + 0.008f, -0.22f, 0.16f, 0.016f, 0.05f, st, 0.7f, 0.9f); Cy(r, 0.47f, TableY + 0.01f, -0.22f, 0.05f, 0.012f, H(0xb23a2e), 1, 0.3f); } };
         }
 
         static WorkDef Pills()
@@ -464,12 +493,12 @@ namespace MafiaSandbox.Economy
             };
             var steps = new[]
             {
-                S(WK.Place, "Tip the tablets into the mortar", "Drag the blister pack over the mortar.", 0, 1f, null, null, "MortarContent"),
+                On(Pour("Tip the tablets into the mortar", 0, null, 8f, "tablets", MortMouth, white, true), "MortarContent"),
                 S(WK.Grind, "Grind to a fine powder", "Grab the pestle and stir in steady circles. Too fast and powder flies out.", -1, 3f, "Mortar", "Pestle"),
-                S(WK.Place, "Add the binder", "Drag the bottle over the mortar.", 1),
+                Pour("Add the binder: 5 drops", 1, null, 5f, "drops", MortMouth, H(0xc98a2a), false),
                 S(WK.Crank, "Stamp the tablets", "Grab the press wheel and turn it in circles.", -1, 2.5f, "Crank", null, "Pressed", "MortarContent"),
                 S(WK.Place, "Put a pill bottle on the scale", "Drag it onto the scale.", 2),
-                S(WK.Fill, "Count them in", "Hold the mouse button (or SPACE) to pour pills. Stop at the mark, then press ENTER.", -1, 0.75f, "BottleFill", null, null, "Pressed"),
+                Off(Pour("Count them in: 30 pills", -1, "Pressed", 30f, "pills", new Vector3(Scale.x, Scale.y + 0.155f, Scale.z + 0.015f), white, true, 2f, "BottleFill", 0.75f), "Pressed"),
                 S(WK.Place, "Snap the cap on", "Drag it onto the bottle.", 3),
                 S(WK.Pack, "Box it", "Drag the bottle from the scale into the crate on the right.", 2),
             };
@@ -511,17 +540,17 @@ namespace MafiaSandbox.Economy
             var steps = new List<WStep>
             {
                 S(WK.Place, "Stand the flask on the burner", "Drag the flask from the tray onto its glowing outline.", 0),
-                S(WK.Place, "Tip in the precursor", "Drag the jar over the flask's neck.", 1),
+                Pour("Tip in the precursor: 40 g", 1, null, 40f, "g", new Vector3(fx, Burn.y + 0.46f, fz), H(0xd9d2c0), true, 2f),
             };
-            if (crystal) steps.Add(S(WK.Place, "Add the crushed tablets", "Drag the blister pack over the flask's neck.", 2));
-            steps.Add(S(WK.Fill, "Top up with solvent", "Hold the mouse button (or SPACE) to pour. Stop at the mark, then press ENTER.", -1, crystal ? 0.7f : 0.6f, "Liquid", null, null, null, new Vector3(fx, fy, fz)));
+            if (crystal) steps.Add(Pour("Add the cold tablets", 2, null, 8f, "tablets", new Vector3(fx, Burn.y + 0.46f, fz), H(0xe06a5a), true));
+            steps.Add(Pour("Top up with solvent: 120 ml", -1, "Solvent", 120f, "ml", new Vector3(fx, Burn.y + 0.46f, fz), H(0xbfe6f2), false, 5f, "Liquid", crystal ? 0.7f : 0.6f));
             steps.Add(S(WK.Heat, "Cook it down", "Hold SPACE (or the mouse button) to open the gas. Keep the needle inside the green band.", -1, crystal ? 12f : 10f, "Flame"));
             steps.Add(S(WK.Place, "Set out the glass tray", "Drag the tray onto its glowing outline.", trayI));
             steps.Add(S(WK.Timing, crystal ? "Pour and let it set" : "Pour and let it dry", "Timing is everything: stop the marker in the green zone (SPACE).", -1, 1f, null, null, crystal ? "Shards" : "Slab", "Liquid"));
             if (crystal) steps.Add(S(WK.Clicks, "Break up the sheet", "Click each shard to crack it loose.", -1, 12f, "Shard"));
             else { var g = S(WK.Grind, "Crush it to powder", "Grab the pestle and stir in steady circles. Too fast and powder flies out.", -1, 3f, "Mortar", "Pestle"); g.pre = "MortarContent,-Slab"; steps.Add(g); }
             steps.Add(S(WK.Place, "Put a zip bag on the scale", "Drag it onto the scale.", bagI));
-            steps.Add(S(WK.Fill, "Weigh out the bag", "Hold the mouse button (or SPACE) to fill. Stop at the mark, then press ENTER.", -1, 0.8f, "BagFill", null, null, crystal ? "Shards" : "MortarContent"));
+            { var w = Pour(crystal ? "Weigh out the bag: 10 g" : "Weigh out the bag: 10 g", -1, crystal ? "Shards" : "Mortar", 10f, "g", BagMouth, prod, true, 0.5f, "BagFill", 0.8f); w.off = crystal ? "Shards" : "MortarContent"; if (!crystal) { w.with = "MortarContent"; w.pre = "-Pestle"; } steps.Add(w); }
             steps.Add(S(WK.Pack, "Box it", "Drag the bag from the scale into the crate on the right.", bagI));
             return new WorkDef
             {
@@ -530,6 +559,7 @@ namespace MafiaSandbox.Economy
                 apparatus = r =>
                 {
                     Burner(r); ScaleUnit(r); Lamp(r); if (!crystal) Mortar(r, prod);
+                    var sv = Node(r, "Solvent", 0.42f, y, -0.08f); La(sv, 0f, 0f, 0f, new[] { 0f, 0f, 0.04f, 0f, 0.042f, 0.01f, 0.042f, 0.11f, 0.016f, 0.135f, 0.016f, 0.165f }, H(0x7a4a1c, 0.6f), 0.9f); Cy(sv, 0f, 0.172f, 0f, 0.04f, 0.016f, H(0x1c1c1e)); Box(sv, 0f, 0.06f, -0.043f, 0.055f, 0.05f, 0.002f, white); Box(sv, 0f, 0.07f, -0.045f, 0.04f, 0.008f, 0.002f, H(0xb21f1f));
                     // glassware and a retort stand in the back for the look of the thing
                     Cy(r, -0.32f, y + 0.008f, 0.3f, 0.16f, 0.016f, H(0x25272b), 1, 0.4f, 0.5f); Cy(r, -0.32f, y + 0.3f, 0.3f, 0.014f, 0.6f, st, 1, 0.7f, 0.9f); Box(r, -0.26f, y + 0.42f, 0.3f, 0.12f, 0.014f, 0.014f, st, 0.7f, 0.9f);
                     La(r, -0.2f, y + 0.25f, 0.3f, new[] { 0f, 0f, 0.012f, 0f, 0.012f, 0.22f, 0.02f, 0.23f }, H(0xcfe8ee, 0.3f), 0.95f);

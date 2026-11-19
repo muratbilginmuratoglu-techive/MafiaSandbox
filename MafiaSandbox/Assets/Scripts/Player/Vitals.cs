@@ -21,14 +21,14 @@ namespace MafiaSandbox.Player
         {
             float dt = Time.deltaTime; if (body && body.Dead) return;
             bool sprinting = pc && pc.IsRunning && pc.Moving && !pc.InputLocked;
-            if (sprinting) stamina = Mathf.Max(0f, stamina - 11f * dt);
-            else stamina = Mathf.Min(100f, stamina + (hunger > 30f ? 12f : 5f) * dt * (pc && pc.Moving ? 0.6f : 1f));
+            if (sprinting) stamina = Mathf.Max(0f, stamina - (Highs.NoTire ? 0f : 11f) * dt);
+            else stamina = Mathf.Min(100f, stamina + (hunger > 30f ? 12f : 5f) * dt * (pc && pc.Moving ? 0.6f : 1f) * Highs.StaminaRegen);
             if (stamina <= 0f) Exhausted = true; else if (stamina > 25f) Exhausted = false;
-            if (pc) { pc.SprintAllowed = !Exhausted; pc.SpeedScale = hunger <= 0f ? 0.8f : 1f; }
+            if (pc) { pc.SprintAllowed = !Exhausted && !Highs.CantRun; pc.SpeedScale = (hunger <= 0f ? 0.8f : 1f) * Highs.Speed; }
 
             // footsteps
             if (pc && pc.Moving && !pc.InputLocked) { stepT -= dt; if (stepT <= 0f) { stepT = sprinting ? 0.3f : pc.IsCrouching ? 0.7f : 0.48f; Sfx.At("step", transform.position, sprinting ? 0.5f : 0.3f); } } else stepT = 0.1f;
-            hunger = Mathf.Max(0f, hunger - dt / 6f);
+            hunger = Mathf.Max(0f, hunger - dt / 6f * Highs.HungerDrain);
             if (hunger <= 0f && body)
             {
                 starveT += dt; if (starveT > 40f) { starveT = 0f; if (body.hp > 1) body.hp--; }

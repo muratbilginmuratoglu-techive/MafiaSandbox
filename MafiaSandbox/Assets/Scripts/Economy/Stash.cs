@@ -63,6 +63,19 @@ namespace MafiaSandbox.Economy
             n = Mathf.Min(n, it.qty); if (n <= 0) return; EconomyManager.I.AddItem(it.id, n, it.stolen); it.qty -= n; if (it.qty <= 0) items.Remove(it); Save();
         }
         public void SavePublic() => Save();
+        /// <summary>Staff put things straight into the cupboard (false if it is full).</summary>
+        public bool AddDirect(string id, int n)
+        {
+            if (n <= 0) return true; if (Units + n > Capacity) return false;
+            var s = items.Find(x => x.id == id && !x.stolen); if (s != null) s.qty += n; else items.Add(new InvItem { id = id, qty = n, stolen = false }); Save(); return true;
+        }
+        /// <summary>Takes units out of the cupboard (dealers selling from the house). Returns how many came out.</summary>
+        public int TakeDirect(string id, int n)
+        {
+            int got = 0; for (int i = items.Count - 1; i >= 0 && got < n; i--) { var it = items[i]; if (it.id != id) continue; int k = Mathf.Min(it.qty, n - got); it.qty -= k; got += k; if (it.qty <= 0) items.RemoveAt(i); }
+            if (got > 0) Save(); return got;
+        }
+        public int CountOf(string id) { int n = 0; foreach (var i in items) if (i.id == id) n += i.qty; return n; }
         void Save() { var sb = new StringBuilder(); foreach (var i in items) sb.Append(i.id).Append(':').Append(i.qty).Append(':').Append(i.stolen ? 1 : 0).Append(';'); PlayerPrefs.SetString(Key, sb.ToString()); PlayerPrefs.Save(); }
         void Load()
         {

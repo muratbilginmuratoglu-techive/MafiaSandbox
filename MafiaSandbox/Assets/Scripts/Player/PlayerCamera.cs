@@ -62,7 +62,7 @@ namespace MafiaSandbox.Player
         }
 
         /// <summary>Recoil: pitch up a little and wobble yaw, decays quickly.</summary>
-        public void AddKick(float amount) { kick += amount * 0.9f; kickYaw += (Random.value - 0.5f) * amount * 0.5f; }
+        public void AddKick(float amount) { amount *= Highs.Recoil; kick += amount * 0.9f; kickYaw += (Random.value - 0.5f) * amount * 0.5f; }
 
         void Update()
         {
@@ -81,7 +81,7 @@ namespace MafiaSandbox.Player
         {
             float dt = Time.deltaTime;
             kick *= Mathf.Exp(-14f * dt); kickYaw *= Mathf.Exp(-14f * dt);
-            if (cam) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, Aiming && !vehicleTarget ? AimFov : normalFov, 1f - Mathf.Exp(-12f * dt));
+            if (cam) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, (Aiming && !vehicleTarget ? AimFov : normalFov) + Highs.FovAdd, 1f - Mathf.Exp(-12f * dt));
             // indoors (shop / house footprint): tighter camera, slightly from above, so the walls and the low ceiling don't squeeze it
             bool indoor = target && !vehicleTarget && (MafiaSandbox.World.BuildingInfo.At(target.position) != null || MafiaSandbox.World.Hospital.Inside(target.position) || MafiaSandbox.World.PoliceAnnex.Inside(target.position));
             Indoors = indoor;

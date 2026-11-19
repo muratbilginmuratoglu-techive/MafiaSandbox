@@ -154,6 +154,7 @@ namespace MafiaSandbox.Combat
         {
             if (Dead) { Impulse(point, dir, 16f * impulse); return false; }
             if (invulnerable) return false;
+            if (isPlayer && !lethal && MafiaSandbox.Player.Highs.Numb > 0f && UnityEngine.Random.value < MafiaSandbox.Player.Highs.Numb) return false;   // too far gone to feel it
             string clip = zone == "torso" ? ZoneFromDirection(dir) : zone;
             hp -= dmg;
             if (zone == "Hit_Head" && meleeHeadKill) lethal = true;

@@ -130,7 +130,8 @@ namespace MafiaSandbox.UI
                 GUILayout.BeginHorizontal(GUILayout.Height(28));
                 GUILayout.Label($"{def.name}{(it.qty > 1 ? "  x" + it.qty : "")}{(it.stolen ? "   (stolen)" : "")}", it.stolen ? dim : row, GUILayout.Width(300));
                 GUILayout.Label($"~${def.value}", price, GUILayout.Width(70));
-                if (def.kind == "food" || def.kind == "med" || def.kind == "ride") { if (GUILayout.Button(def.kind == "food" ? "Eat" : def.kind == "ride" ? "Ride" : "Use", btn, GUILayout.Width(52))) { use = it; if (def.kind == "ride") invOpen = false; } }
+                var high = MafiaSandbox.Player.Highs.Get(it.id);
+                if (def.kind == "food" || def.kind == "med" || def.kind == "ride" || high != null) { if (GUILayout.Button(high != null ? (high.drink ? "Drink" : it.id == "Weed" ? "Smoke" : "Take") : def.kind == "food" ? "Eat" : def.kind == "ride" ? "Ride" : "Use", btn, GUILayout.Width(52))) { use = it; if (def.kind == "ride") invOpen = false; } }
                 else GUILayout.Label("", GUILayout.Width(52));
                 if (GUILayout.Button(it.qty > 1 && Event.current.shift ? "Drop all" : "Drop", btn, GUILayout.Width(62))) { drop = it; dropAll = Event.current.shift; }
                 GUILayout.EndHorizontal();

@@ -69,20 +69,7 @@ namespace MafiaSandbox.Npc
                 var g = Spawn<GangBrain>(Pick("Vatandas"), p, Random.Range(0f, 360f)); g.homeSpot = p; g.displayName = "Crew " + (i + 1); g.runSpeed = 6f;
             }
             // gangs and families (step 7): a few at the HQ door, a few in the yard, the rest on the patrol loop
-            foreach (var f in FactionDefs.All)
-            {
-                var route = new Vector3[f.patrol.Length]; for (int i = 0; i < route.Length; i++) route[i] = Data.Coords.ToUnity(f.patrol[i].x, 0f, f.patrol[i].y);
-                for (int i = 0; i < f.members; i++)
-                {
-                    string role = i < 2 ? "guard" : i < f.members - 3 ? "loiter" : "patrol";
-                    Vector3 spot = role == "patrol" ? route[(i * 3) % route.Length] : Data.Coords.ToUnity(f.spots[i % f.spots.Length].x, 0f, f.spots[i % f.spots.Length].y);
-                    if (role == "guard") spot += new Vector3(i == 0 ? -1.2f : 1.2f, 0f, 0f);
-                    var m = Spawn<FactionBrain>(Pick(f.prefabPrefix), spot + new Vector3(Random.Range(-0.6f, 0.6f), 0f, Random.Range(-0.6f, 0.6f)), Random.Range(0f, 360f));
-                    m.factionId = f.id; m.role = role; m.homeSpot = m.transform.position; m.route = route; m.routeIdx = (i * 3) % route.Length;
-                    m.displayName = (f.kind == FactionKind.Mafia ? (i < 2 ? "Soldier" : i < 4 ? "Capo" : "Associate") : (i < 2 ? "Lookout" : "Member")) + " · " + f.name;
-                    m.walkSpeed = 1.8f; m.runSpeed = f.kind == FactionKind.Mafia ? 5.8f : 6.2f;
-                }
-            }
+            foreach (var f in FactionDefs.All) SpawnFaction(f, f.members, false);
             // shopkeepers
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None))
             {
@@ -136,6 +123,26 @@ namespace MafiaSandbox.Npc
             if (pose == "Sit") { var ag0 = c.GetComponent<NavMeshAgent>(); Vector3 fl = new Vector3(hp.x, hp.y, hp.z); if (c.transform.position.y > hp.y + 0.3f && NavMesh.SamplePosition(fl, out var fh, 0.8f, NavMesh.AllAreas) && fh.position.y < hp.y + 0.3f && ag0) ag0.Warp(fh.position); }
             c.homeSpot = c.transform.position; c.pose = pose; c.fire = face; c.displayName = name; c.walkSpeed = 1.6f;
             return c;
+        }
+
+        public GameObject PickPrefab(string prefix) => Pick(prefix);
+
+        /// <summary>Puts members of a gang or family on the street: a few at the HQ door, a few in the yard, the rest on the patrol loop (atHq: all of them at the door).</summary>
+        public List<FactionBrain> SpawnFaction(FactionDef f, int count, bool atHq)
+        {
+            var made = new List<FactionBrain>(); if (f == null) return made;
+            var route = new Vector3[f.patrol.Length]; for (int i = 0; i < route.Length; i++) route[i] = Data.Coords.ToUnity(f.patrol[i].x, 0f, f.patrol[i].y);
+            for (int i = 0; i < count; i++)
+            {
+                string role = atHq ? "loiter" : i < 2 ? "guard" : i < count - 3 ? "loiter" : "patrol";
+                Vector3 spot = atHq ? f.HqUnity + new Vector3((i % 3 - 1) * 1.6f, 0f, (i / 3) * 1.6f) : role == "patrol" ? route[(i * 3) % route.Length] : Data.Coords.ToUnity(f.spots[i % f.spots.Length].x, 0f, f.spots[i % f.spots.Length].y);
+                if (role == "guard") spot += new Vector3(i == 0 ? -1.2f : 1.2f, 0f, 0f);
+                var m = Spawn<FactionBrain>(Pick(f.prefabPrefix), spot + new Vector3(Random.Range(-0.6f, 0.6f), 0f, Random.Range(-0.6f, 0.6f)), Random.Range(0f, 360f));
+                m.factionId = f.id; m.role = role; m.homeSpot = m.transform.position; m.route = route; m.routeIdx = (i * 3) % route.Length;
+                m.displayName = (f.kind == FactionKind.Mafia ? (i < 2 ? "Soldier" : i < 4 ? "Capo" : "Associate") : (i < 2 ? "Lookout" : "Member")) + " · " + f.name;
+                m.walkSpeed = 1.8f; m.runSpeed = f.kind == FactionKind.Mafia ? 5.8f : 6.2f; made.Add(m);
+            }
+            return made;
         }
 
         public T Spawn<T>(GameObject prefab, Vector3 pos, float yaw) where T : NpcBrain

@@ -58,6 +58,23 @@ namespace MafiaSandbox.UI
             gm?.Say(placed == 3 ? "The still, the chemistry table and the gunsmith bench are set up at home." : $"Only {placed} station(s) fitted in the house.");
         }
 
+        /// <summary>Places one station of the given kind in the freest corner of the home (clear of the cupboard, the bed, the door and the other stations).</summary>
+        public static bool PlaceOne(HomeLab lab, World.BuildingInfo bi, int kind)
+        {
+            var avoid = new System.Collections.Generic.List<Vector3>(); if (Stash.I) avoid.Add(Stash.I.Pos); avoid.Add(lab.BedPos); avoid.Add(bi.door); if (bi.shelves != null) avoid.AddRange(bi.shelves); foreach (var st in lab.stations) avoid.Add(st.pos);
+            var f = bi.footprint; float y = lab.BedPos.y; Vector3 centre = new Vector3(f.center.x, y, f.center.z); float best = 0f; Vector3 bp = Vector3.zero; bool found = false;
+            for (int pass = 0; pass < 2 && !found; pass++)
+                for (float x = f.min.x + 1.2f; x <= f.max.x - 1.2f; x += 0.5f) for (float z = f.min.z + 1.2f; z <= f.max.z - 1.2f; z += 0.5f)
+                {
+                    var p = new Vector3(x, y, z); float d = float.MaxValue; foreach (var a in avoid) { Vector3 q = a - p; q.y = 0f; d = Mathf.Min(d, q.magnitude); }
+                    if (d < (pass == 0 ? 1.9f : 1.3f) || d <= best) continue;
+                    if (pass == 0 && Physics.CheckBox(p + Vector3.up * 0.7f, new Vector3(0.8f, 0.45f, 0.5f), Quaternion.identity, 1 << 0, QueryTriggerInteraction.Ignore)) continue;
+                    best = d; bp = p; found = true;
+                }
+            if (!found) return false;
+            Vector3 look = centre - bp; lab.AddStation(kind, bp, Mathf.Abs(look.x) > Mathf.Abs(look.z) ? (look.x > 0f ? 90f : -90f) : (look.z > 0f ? 0f : 180f)); return true;
+        }
+
         void OnGUI()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
@@ -92,6 +109,19 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Sleep", UiSkin.Button) && lab) { open = false; lab.TrySleep(); }
             GUILayout.EndHorizontal();
 
+            // missions, staff and turf
+            var qm = QuestManager.I; var emp = Empire.I;
+            GUILayout.BeginHorizontal(); GUILayout.Label(qm ? $"Mission {Mathf.Min(qm.Index + 1, qm.Quests.Count)}/{qm.Quests.Count}" + (qm.Testing ? "  testing..." : qm.TestSummary.Length > 0 ? "  last test: " + qm.TestSummary : "") : "Missions", UiSkin.LabelDim, GUILayout.Width(250));
+            if (GUILayout.Button("Skip mission", UiSkin.Button) && qm) qm.SkipCurrent();
+            if (GUILayout.Button("Test all missions", UiSkin.Button) && qm) { open = false; qm.RunSelfTest(); }
+            if (GUILayout.Button("Run a shift now", UiSkin.Button) && emp) emp.ForceShift();
+            GUILayout.EndHorizontal(); GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Raid at next shift", UiSkin.Button) && emp) { emp.RaidDue = true; gm.Say("A raid will hit the house at the next shift."); }
+            if (GUILayout.Button("Counterattack at next shift", UiSkin.Button) && emp) { emp.CounterDue = true; gm.Say("One of your blocks will be attacked at the next shift."); }
+            if (GUILayout.Button("Teleport to the nearest rival HQ", UiSkin.Button) && emp) { var tgt = emp.NearestTarget(); if (tgt != null) { gm.player.Teleport(tgt.HqUnity + new Vector3(0f, 0f, 6f), 180f); open = false; } }
+            if (GUILayout.Button("Rank 0", UiSkin.Button)) { Respect.Reset(); gm.Say("Respect reset: you are a Street Rat again."); }
+            if (GUILayout.Button("Rank up", UiSkin.Button)) { int rk = Respect.Rank; if (rk < Respect.Thresholds.Length - 1) Respect.Add(Respect.Thresholds[rk + 1] - Respect.XP); }
+            GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal(); GUILayout.Label("Station panel (normal rules):", UiSkin.LabelDim, GUILayout.Width(200));
             for (int k = 0; k < 3; k++) if (GUILayout.Button(Career.StationNames[k], UiSkin.Button) && ProductionPanel.I) { open = false; ProductionPanel.I.Open(k); }
             GUILayout.EndHorizontal();

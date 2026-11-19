@@ -157,7 +157,7 @@ namespace MafiaSandbox.Combat
 
         void Fire()
         {
-            var w = Weapon; cooldown = w.rof;
+            var w = Weapon; cooldown = w.rof * MafiaSandbox.Player.Highs.FireRate;
             if (!Aiming) { SetAiming(true); aimHold = 0.5f; }
             anim.PlayUpper(w.clipPrefix + "_Fire");
             heat = Mathf.Min(1.2f, heat + (w.auto ? 0.16f : 0.45f));
@@ -258,7 +258,7 @@ namespace MafiaSandbox.Combat
             string zone = best.ZoneNear(Vector3.Lerp(best.transform.position + Vector3.up * tip.y - Vector3.up * best.transform.position.y, tip, 0.35f));
             CombatFx.I?.Blood(point, fwd, w.kind == WeaponKind.Bat ? 5 : 8);
             if (cam) cam.AddKick(0.6f);
-            bool killed = best.Hit(zone, point, (fwd + Vector3.up * 0.3f).normalized, w.damage, false, w.impulse / 2.5f, "player", w.headKill);
+            bool killed = best.Hit(zone, point, (fwd + Vector3.up * 0.3f).normalized, w.damage, MafiaSandbox.Player.Highs.Berserk, w.impulse / 2.5f * (MafiaSandbox.Player.Highs.Berserk ? 1.8f : 1f), "player", w.headKill);
             Sfx.At(w.kind == WeaponKind.Bat ? "thud" : "stab", point);
             HitMarkerT = 0.16f; HitMarkerHead = zone == "Hit_Head";
         }

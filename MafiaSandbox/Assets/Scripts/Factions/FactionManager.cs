@@ -69,7 +69,8 @@ namespace MafiaSandbox.Factions
             if (t != Territory)
             {
                 Territory = t;
-                if (t != null) { bannerText = t.name.ToUpperInvariant() + (t.kind == FactionKind.Mafia ? " TERRITORY" : " TURF") + (Hostile(t) ? "  —  HOSTILE" : Wary(t) ? "  —  unwelcome" : ""); bannerT = 4.5f; }
+                if (t != null && MafiaSandbox.Gang.Empire.Owns(t.id)) { bannerText = "YOUR TURF  ·  " + t.name.ToUpperInvariant(); bannerT = 4.5f; }
+                else if (t != null) { bannerText = t.name.ToUpperInvariant() + (t.kind == FactionKind.Mafia ? " TERRITORY" : " TURF") + (Hostile(t) ? "  —  HOSTILE" : Wary(t) ? "  —  unwelcome" : ""); bannerT = 4.5f; }
             }
         }
 
@@ -89,7 +90,7 @@ namespace MafiaSandbox.Factions
             {
                 var st = new GUIStyle(GUI.skin.label) { fontSize = 12, alignment = TextAnchor.MiddleCenter }; st.normal.textColor = new Color(1f, 1f, 1f, 0.85f);
                 var c = Territory.color; GUI.color = new Color(c.r, c.g, c.b, 0.55f); GUI.DrawTexture(new Rect(W / 2f - 70, 96, 140, 18), dot); GUI.color = Color.white;
-                GUI.Label(new Rect(W / 2f - 70, 96, 140, 18), Territory.name + (Hostile(Territory) ? " ✖" : Wary(Territory) ? " !" : ""), st);
+                GUI.Label(new Rect(W / 2f - 70, 96, 140, 18), MafiaSandbox.Gang.Empire.Owns(Territory.id) ? "★ your turf" : Territory.name + (Hostile(Territory) ? " ✖" : Wary(Territory) ? " !" : ""), st);
             }
         }
 

@@ -31,7 +31,7 @@ namespace MafiaSandbox.Economy
         bool carry, grip; float turns, prevAng, level, flow, heatV, heatT, heatIn, clock, stepT, speedPen; int shakeI, shakeErr, drops, spilled, clicksLeft; int[] shakePat; Vector2 anchor;
         float tilt, dropMeter, pullL, pullR; int stretchDrag; bool creased, snapped; Transform stream, src; Vector3 srcHome; readonly List<(Transform t, float vy, bool ok)> falling = new List<(Transform, float, bool)>();
         readonly List<Transform> targets = new List<Transform>(), decoys = new List<Transform>(); readonly List<(Transform t, Vector3 p)> group = new List<(Transform, Vector3)>(); Vector3 groupC;
-        float needle, skipCd, snipT; bool wheelTilt; Transform scissors; readonly List<(Transform t, float vy)> debris = new List<(Transform, float)>();
+        float pourIn, srcH, camLift; bool docked; float needle, skipCd, snipT, poured, valve, doneT; bool wheelTilt; RP srcPart; Vector3 srcTop, srcGrab; Quaternion srcRot = Quaternion.identity; Transform fillT; float fill0; Transform scissors; readonly List<(Transform t, float vy)> debris = new List<(Transform, float)>();
 
         void Awake() { I = this; Camera.onPreCull += PreCull; Camera.onPostRender += PostRender; }
         void OnDestroy() { Camera.onPreCull -= PreCull; Camera.onPostRender -= PostRender; }
@@ -118,8 +118,8 @@ namespace MafiaSandbox.Economy
         void ToSlot(RP p) { p.scale = p.fit; p.t.localScale = Vector3.one * p.fit; p.t.position = p.slot - p.center * p.fit; }
         void PlaceCamera()
         {
-            if (!cam) return; var target = W(new Vector3(-0.06f, TableY + 0.23f, 0.02f)); var rot = Quaternion.Euler(camElev, camYaw, 0f);
-            cam.transform.position = target - rot * Vector3.forward * camDist; cam.transform.rotation = rot;
+            if (!cam) return; var target = W(new Vector3(-0.06f, TableY + 0.23f + camLift * 0.6f, 0.02f)); var rot = Quaternion.Euler(camElev, camYaw, 0f);
+            cam.transform.position = target - rot * Vector3.forward * (camDist + camLift * 0.8f); cam.transform.rotation = rot;
         }
         void Toggle(string names, bool on)
         {
@@ -131,7 +131,7 @@ namespace MafiaSandbox.Economy
         void EnterStep()
         {
             var s = Step; carry = grip = false; turns = 0f; level = 0f; flow = 0f; heatV = 0.15f; heatT = 0f; heatIn = 0f; clock = 0f; stepT = 0f; speedPen = 0f; shakeI = 0; shakeErr = 0; drops = 0; spilled = 0;
-            tilt = 0f; dropMeter = 0f; pullL = pullR = 0f; stretchDrag = 0; creased = false; snapped = false; src = null; targets.Clear(); decoys.Clear(); group.Clear();
+            tilt = 0f; dropMeter = 0f; poured = 0f; valve = 0f; doneT = 0f; docked = false; srcPart = null; fillT = null; pullL = pullR = 0f; stretchDrag = 0; creased = false; snapped = false; src = null; targets.Clear(); decoys.Clear(); group.Clear();
             if (ghost) { ghost.SetActive(false); ghost.transform.SetParent(null); Destroy(ghost); } ghost = null; if (scissors) Destroy(scissors.gameObject); scissors = null; if (stream) Destroy(stream.gameObject); stream = null;
             if (s == null) { result = true; return; }
             Toggle(s.pre, true);
@@ -149,7 +149,18 @@ namespace MafiaSandbox.Economy
                         if (s.v != Vector3.zero) { stream = Kit.Cy(root, 0f, 0f, 0f, 0.014f, 1f, new Color(0.85f, 0.93f, 0.95f, 0.8f), 1, 0.9f, 0f, "Stream"); stream.gameObject.SetActive(false); }
                         break;
                     }
-                case WK.Drops: src = Kit.Find(root, s.a); if (src) srcHome = src.position; break;
+                case WK.Pour:
+                    {
+                        if (s.part >= 0) { srcPart = parts[s.part]; src = srcPart.t; src.localScale = Vector3.one; src.position = OriginW; src.rotation = Quaternion.identity; }
+                        else src = Kit.Find(root, s.a);
+                        if (!src) break;
+                        src.gameObject.SetActive(true);
+                        if (!string.IsNullOrEmpty(s.with)) foreach (var raw in s.with.Split(',')) { var w = Kit.Find(root, raw.Trim()); if (w) { w.gameObject.SetActive(true); w.SetParent(src, true); } }
+                        var b = Kit.BoundsOf(src); srcHome = src.position; srcRot = src.rotation; srcTop = b.center + Vector3.up * b.extents.y - src.position; srcGrab = b.center - src.position; srcH = Mathf.Max(0.04f, b.size.y);
+                        if (srcPart != null) ToSlot(srcPart);
+                        if (!string.IsNullOrEmpty(s.fill)) { fillT = Kit.Find(root, s.fill); if (fillT) { fillT.gameObject.SetActive(true); fill0 = Mathf.Max(0.001f, fillT.localScale.y); if (fill0 >= s.fillTo) fill0 = 0.001f; } }
+                        break;
+                    }
                 case WK.Clicks:
                     foreach (var t in root.GetComponentsInChildren<Transform>(false)) { if (t.name.StartsWith(s.a) && t.name.Length <= s.a.Length + 2 && t.name != s.a + "s") targets.Add(t); else if (!string.IsNullOrEmpty(s.b) && t.name.StartsWith(s.b) && t.name.Length <= s.b.Length + 2) decoys.Add(t); }
                     clicksLeft = targets.Count; if (!string.IsNullOrEmpty(s.b)) BuildScissors(); break;
@@ -158,14 +169,18 @@ namespace MafiaSandbox.Economy
         void CompleteStep(string msg = null)
         {
             var s = Step; if (s == null) return; Toggle(s.on, true); Toggle(s.off, false); if (msg != null) Say(msg); Click();
-            if (s.k == WK.Drops && src) { src.position = srcHome; src.rotation = Quaternion.identity; }
+            if (s.k == WK.Pour && src)
+            {
+                if (srcPart != null) { srcPart.placed = true; src.rotation = Quaternion.identity; ToSlot(srcPart); if (def.parts[s.part].hide) src.gameObject.SetActive(false); }
+                else { src.position = srcHome; src.rotation = srcRot; }
+            }
             foreach (var f in falling) if (f.t) Destroy(f.t.gameObject); falling.Clear();
             idx++; EnterStep();
         }
 
         void Finish()
         {
-            var lab = HomeLab.I; int r = recipe, m = mult; bool d = direct; float score = Mathf.Clamp01(quality / 100f); Close();
+            var lab = HomeLab.I; int r = recipe, m = mult; bool d = direct; float score = Mathf.Clamp01(quality / 100f); MafiaSandbox.Gang.Empire.NoteQuality(quality); Close();
             if (!lab) return; lab.StartBatch(r, score, m); if (d || Admin.Instant) lab.CollectNow(r);
         }
 
@@ -178,7 +193,10 @@ namespace MafiaSandbox.Economy
             if (Input.GetMouseButtonDown(1)) { orbit = true; dragStart = Input.mousePosition; yaw0 = camYaw; elev0 = camElev; }
             if (Input.GetMouseButtonUp(1)) orbit = false;
             if (orbit) { camYaw = Mathf.Clamp(yaw0 + (Input.mousePosition.x - dragStart.x) * 0.18f, -35f, 35f); camElev = Mathf.Clamp(elev0 - (Input.mousePosition.y - dragStart.y) * 0.14f, 16f, 62f); }
-            float wheel = Input.mouseScrollDelta.y; bool tipping = carry && Step != null && Step.k == WK.Drops; if (tipping && Mathf.Abs(wheel) > 0.01f) { tilt = Mathf.Clamp(tilt + wheel * 9f, 0f, 78f); wheelTilt = true; } else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
+            float wheel = Input.mouseScrollDelta.y; bool wheelBusy = Step != null && !result && ((Step.k == WK.Pour && carry) || Step.k == WK.Fill);
+            if (wheelBusy) pourIn = (Mathf.Abs(wheel) > 0.01f ? -Mathf.Sign(wheel) * Mathf.Clamp(Mathf.Abs(wheel), 0.6f, 2f) : 0f) + ((Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) ? 5f * dt : 0f) - ((Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) ? 5f * dt : 0f);   // scroll DOWN (or the down arrow) pours, up stops
+            else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
+            { float lift = Step != null && !result && Step.k == WK.Pour ? Mathf.Clamp(Step.v.y - TableY - 0.3f, 0f, 0.45f) : 0f; camLift = Mathf.Lerp(camLift, lift, 1f - Mathf.Exp(-4f * dt)); }   // look up when something is poured in high (the still's neck)
             PlaceCamera();
             for (int i = debris.Count - 1; i >= 0; i--)   // snipped leaves flutter down to the bench
             {
@@ -197,8 +215,8 @@ namespace MafiaSandbox.Economy
                 case WK.Place: DoPlace(s, down, up, dt); break;
                 case WK.Crank: case WK.Grind: DoTurn(s, down, held, dt); break;
                 case WK.Shake: DoShake(s, down, held); break;
-                case WK.Fill: DoFill(s, held || Input.GetKey(KeyCode.Space), enter, dt); break;
-                case WK.Drops: DoDrops(s, down, held, enter, dt); break;
+                case WK.Fill: DoFill(s, enter, dt); break;
+                case WK.Pour: DoPour(s, down, held, enter, dt); break;
                 case WK.Heat: DoHeat(s, held || Input.GetKey(KeyCode.Space), dt); break;
                 case WK.Stretch: DoStretch(down, held); break;
                 case WK.Timing: clock += dt; needle = 0.5f + 0.495f * Mathf.Sin(clock * 3.5f - 1.45f); if (Input.GetKeyDown(KeyCode.Space) || (down && TimingRect().Contains(GuiMouse))) StopTiming(); break;
@@ -213,6 +231,7 @@ namespace MafiaSandbox.Economy
             var s = Step; if (s == null || skipCd > 0f) return; skipCd = 0.3f;
             if (s.k == WK.Place) { var rp = parts[s.part]; rp.placed = true; rp.scale = 1f; rp.t.localScale = Vector3.one; rp.t.position = OriginW; if (def.parts[s.part].hide) rp.t.gameObject.SetActive(false); }
             if (s.k == WK.Fill) { var l = Kit.Find(root, s.a); if (l) l.localScale = new Vector3(1f, s.f, 1f); }
+            if (s.k == WK.Pour) { if (fillT) fillT.localScale = new Vector3(1f, s.fillTo, 1f); foreach (var f in falling) if (f.t) Destroy(f.t.gameObject); falling.Clear(); carry = false; }
             if (s.k == WK.Clicks) foreach (var t in targets) if (t && !string.IsNullOrEmpty(s.b)) t.gameObject.SetActive(false);
             if (s.k == WK.Pack) { for (int i = Mathf.Max(0, s.part); i < parts.Count; i++) if (parts[i].placed) parts[i].t.gameObject.SetActive(false); Toggle("CrateLid", true); }
             CompleteStep("Step skipped (admin)");
@@ -278,55 +297,85 @@ namespace MafiaSandbox.Economy
             }
         }
 
-        void DoFill(WStep s, bool pour, bool enter, float dt)
+        /// <summary>The still's tap: the wheel opens and closes it.</summary>
+        void DoFill(WStep s, bool enter, float dt)
         {
             var l = Kit.Find(root, s.a);
-            if (pour) { flow = Mathf.Min(0.42f, flow + dt * 0.5f); level += flow * dt; } else flow = 0f;
+            valve = Mathf.Clamp01(valve + pourIn * 0.22f); bool pour = valve > 0.02f;
+            flow = valve * 0.3f; if (pour) level += flow * dt;
             if (l) l.localScale = new Vector3(1f, Mathf.Clamp(level, 0.001f, 1.06f), 1f);
             if (stream)
             {
-                stream.gameObject.SetActive(pour && l); if (pour && l) { Vector3 a = W(s.v), b = l.position; b.x = a.x; b.z = a.z; float len = Mathf.Max(0.01f, a.y - b.y); stream.position = (a + b) * 0.5f; stream.localScale = new Vector3(0.012f + flow * 0.03f, len * 0.5f, 0.012f + flow * 0.03f); }
+                stream.gameObject.SetActive(pour && l); if (pour && l) { Vector3 a = W(s.v), b = l.position; b.x = a.x; b.z = a.z; float len = Mathf.Max(0.01f, a.y - b.y); stream.position = (a + b) * 0.5f; stream.localScale = new Vector3(0.008f + valve * 0.022f, len * 0.5f, 0.008f + valve * 0.022f); }
             }
             if (level >= 1.06f) { if (stream) stream.gameObject.SetActive(false); quality = Mathf.Max(0f, quality - 25f); CompleteStep("It ran over the top: -25 quality"); return; }
             if (enter)
             {
-                if (level < 0.15f) { Say("There's barely anything in it yet."); return; }
+                if (level < 0.15f) { Say("There's barely anything in it yet. Scroll down to open the tap."); return; }
                 float e = Mathf.Abs(level - s.f), loss = e < 0.035f ? 0f : e < 0.08f ? 5f : e < 0.15f ? 12f : 22f; quality = Mathf.Max(0f, quality - loss);
                 if (stream) stream.gameObject.SetActive(false); CompleteStep(loss <= 0f ? "Right on the line!" : (level < s.f ? "Short measure" : "Overfilled") + $": -{loss:0} quality");
             }
         }
 
-        void DoDrops(WStep s, bool down, bool held, bool enter, float dt)
+        /// <summary>
+        /// Every "add this to that" on the bench: grab the container, carry it over the target, then tip it with the wheel
+        /// (scroll down). It comes out drop by drop or grain by grain, faster the further it is tipped.
+        /// </summary>
+        void DoPour(WStep s, bool down, bool held, bool enter, float dt)
         {
             if (!src) { CompleteStep(); return; }
-            const float h = 0.17f; Vector3 mouth = W(s.v); int target = Mathf.RoundToInt(s.f);
-            if (down && SD(src.position + Vector3.up * 0.06f) < 0.09f) carry = true;
-            if (!held && carry) { carry = false; tilt = 0f; wheelTilt = false; src.position = srcHome; src.rotation = Quaternion.identity; }
-            Vector3 nozzle = src.position + src.rotation * (Vector3.up * h);
+            Vector3 mouth = W(s.v); const float clear = 0.045f; float hover = clear + srcH * 0.5f;   // the container hangs just clear of the mouth
+            Vector3 grabAt = srcPart != null && !carry ? srcPart.slot : src.position + src.rotation * Quaternion.Inverse(srcRot) * srcGrab;
+            bool putBack = false;
+            if (down && !carry) { if (SD(grabAt) < 0.11f) { carry = true; docked = false; tilt = 0f; Click(); } else if (SD(mouth) < 0.1f) Say("Pick up the " + SrcName(s) + " first"); }
+            else if (down && docked) putBack = true;                          // a click while it hangs over the target puts it back
+            Vector3 over = mouth + Vector3.up * hover, want = over;
+            if (carry && !putBack)
+            {
+                want = OnPlane(mouth.y + hover); want.x = Mathf.Clamp(want.x, BasePos.x - 1.25f, BasePos.x + 1.15f); want.z = Mathf.Clamp(want.z, BasePos.z - 0.65f, BasePos.z + 0.7f);
+                snapped = docked || Vector2.Distance(new Vector2(want.x, want.z), new Vector2(over.x, over.z)) < 0.11f || SD(over) < 0.08f || SD(mouth) < 0.07f; if (snapped) want = over;
+            }
+            if (!held && carry && !docked) { if (snapped) { docked = true; Click(); } else putBack = true; }   // let go over the target: it stays there, hands free for the wheel
+            if (putBack)
+            {
+                carry = false; docked = false; tilt = 0f; snapped = false; src.rotation = srcRot; if (srcPart != null) ToSlot(srcPart); else src.position = srcHome;
+            }
             if (carry)
             {
-                if (Input.GetKey(KeyCode.Space)) { tilt = Mathf.Min(78f, tilt + 60f * dt); wheelTilt = false; } else if (!wheelTilt) tilt = Mathf.Max(0f, tilt - 150f * dt);
-                Vector3 want = OnPlane(mouth.y + 0.22f); want.x = Mathf.Clamp(want.x, BasePos.x - 0.9f, BasePos.x + 1.1f); want.z = Mathf.Clamp(want.z, BasePos.z - 0.6f, BasePos.z + 0.6f);
-                Vector3 over = new Vector3(mouth.x, mouth.y + 0.22f, mouth.z); snapped = Vector2.Distance(new Vector2(want.x, want.z), new Vector2(over.x, over.z)) < 0.1f || SD(over) < 0.07f; if (snapped) want = over;
-                var q = Quaternion.Euler(0f, 0f, tilt); src.rotation = q;   // tips to the left around its own mouth, which stays over the target src.position = want - q * (Vector3.up * h); nozzle = want;
-                float rate = tilt < 26f ? 0f : tilt < 47f ? 1f : tilt < 65f ? 2.6f : 5.8f; dropMeter += rate * dt;
-                while (dropMeter >= 1f) { dropMeter -= 1f; var d = Kit.Ball(root, 0f, 0f, 0f, 0.016f, 0.024f, 0.016f, new Color(0.45f, 0.8f, 0.5f), 0.9f, 0f, "Drop", 0.4f); d.position = nozzle; falling.Add((d, 0f, snapped)); }
+                tilt = Mathf.Clamp(tilt + pourIn * 11f, 0f, 80f);
+                float vis = tilt * 1.45f; var q = Quaternion.Euler(0f, 0f, vis); if (srcPart != null) { srcPart.scale = 1f; src.localScale = Vector3.one; }
+                want.y = mouth.y + clear + srcH * Mathf.Max(0f, Mathf.Cos(vis * Mathf.Deg2Rad));   // its lip stays over the target and comes down as it tips
+                src.rotation = q * srcRot; src.position = want - q * srcTop;
+                float rate = tilt < 20f || poured >= s.f * 1.3f ? 0f : tilt < 38f ? 1.3f : tilt < 58f ? 3.2f : 7.5f; dropMeter += rate * dt;   // past 130% it is empty
+                while (dropMeter >= 1f)
+                {
+                    dropMeter -= 1f; Transform d;
+                    if (s.grain) { d = Kit.Box(root, 0f, 0f, 0f, 0.02f, 0.016f, 0.02f, s.col, 0.2f, 0f, "Grain", 0.25f); d.rotation = Random.rotation; }
+                    else d = Kit.Ball(root, 0f, 0f, 0f, 0.026f, 0.04f, 0.026f, s.col, 0.9f, 0f, "Drop", 1.2f);
+                    d.position = want + new Vector3(Random.Range(-0.006f, 0.006f), -0.01f, Random.Range(-0.006f, 0.006f)); falling.Add((d, 0.12f, snapped));
+                }
             }
             for (int i = falling.Count - 1; i >= 0; i--)
             {
-                var f = falling[i]; f.vy += 4.5f * dt; f.t.position += Vector3.down * f.vy * dt; falling[i] = f;
-                if (f.t.position.y <= mouth.y)
+                var f = falling[i]; if (!f.t) { falling.RemoveAt(i); continue; } f.vy += 2.4f * dt; f.t.position += Vector3.down * f.vy * dt; if (s.grain) f.t.Rotate(300f * dt, 200f * dt, 0f); falling[i] = f;
+                if (f.t.position.y <= (f.ok ? mouth.y : BasePos.y + TableY + 0.01f))
                 {
-                    if (f.ok) { drops++; if (drops > target) Lose(3f, "One drop too many"); else Click(); } else { spilled++; Lose(3f, "A drop missed the mouth"); }
+                    if (f.ok) { poured += s.per; if (poured > s.f + 0.001f) { if (speedPen < 10f) { speedPen += 2f; Lose(2f, "Too much went in"); } } else Click(); } else { spilled++; Lose(2f, "Spilled on the bench"); }
                     Destroy(f.t.gameObject); falling.RemoveAt(i);
                 }
             }
+            if (fillT) fillT.localScale = new Vector3(1f, Mathf.Lerp(fill0, s.fillTo, Mathf.Clamp(poured / s.f, 0f, 1.15f)), 1f);
+            bool full = poured >= s.f - 0.001f;
+            if (full && !carry && falling.Count == 0) { doneT += dt; if (doneT > 0.25f) { CompleteStep(poured <= s.f + 0.001f ? "Exactly right." : "Done, a little heavy."); return; } } else doneT = 0f;
             if (enter && falling.Count == 0)
             {
-                float loss = Mathf.Min(40f, Mathf.Max(0, target - drops) * 6f + (drops == 0 ? 10f : 0f)); quality = Mathf.Max(0f, quality - loss);
-                carry = false; CompleteStep(loss <= 0f && drops == target ? "Exactly right." : loss > 0f ? $"Too little essence: -{loss:0} quality" : "Dosed.");
+                if (poured <= 0f) { Say("Nothing went in yet: grab the " + SrcName(s) + ", hold it over the target and scroll down."); return; }
+                float loss = full ? 0f : Mathf.Min(30f, (1f - poured / s.f) * 30f + 3f); quality = Mathf.Max(0f, quality - loss);
+                carry = false; docked = false; CompleteStep(loss <= 0f ? "Exactly right." : $"Short measure: -{loss:0} quality");
             }
         }
+        string SrcName(WStep s) => s.part >= 0 ? def.parts[s.part].name.ToLower() : s.a == "Essence" ? "essence bottle" : s.a == "BudBowl" ? "bowl of buds" : s.a == "Pressed" ? "tray of pills" : s.a == "Shards" ? "shards" : s.a.ToLower();
+        static string Amount(float v) => v >= 100f ? v.ToString("0") : Mathf.Abs(v - Mathf.Round(v)) < 0.01f ? v.ToString("0") : v.ToString("0.0");
 
         float HeatLo => 0.45f + Mathf.Sin(clock * 0.7f) * 0.14f;
         float HeatHi => HeatLo + 0.2f;
@@ -457,8 +506,8 @@ namespace MafiaSandbox.Economy
                         for (int i = 0; i < shakePat.Length; i++) { var b = new Rect(r.x + 12 + i * ((r.width - 24) / shakePat.Length), r.y + 10, 38, 38); Fill(b, i < shakeI ? new Color(0.25f, 0.5f, 0.3f) : i == shakeI ? new Color(1f, 0.78f, 0.25f, 0.9f) : new Color(1f, 1f, 1f, 0.12f)); var a = new GUIStyle(UiSkin.Big); a.normal.textColor = i == shakeI ? Color.black : Color.white; GUI.Label(b, i < shakeI ? "✓" : Arrow[shakePat[i]], a); }
                         break;
                     }
-                case WK.Fill: Gauge(W, H, $"{Mathf.Min(level, 1f) * 100f:0}%   (mark at {s.f * 100f:0}%)   ENTER when done", Mathf.Clamp01(level), s.f); break;
-                case WK.Drops: Gauge(W, H, $"{drops} / {s.f:0} drops   spilled {spilled}   {(carry ? (snapped ? "over the mouth: roll the mouse wheel up to tip it (down to stop)" : "move over the bottle's mouth") : "pick up the little bottle")}   ENTER when done", Mathf.Clamp01(drops / s.f), 1f); break;
+                case WK.Fill: Gauge(W, H, $"{Mathf.Min(level, 1f) * 100f:0}% (mark {s.f * 100f:0}%)   tap {valve * 100f:0}% open   ENTER when done", Mathf.Clamp01(level), s.f); break;
+                case WK.Pour: Gauge(W, H, $"{Amount(poured)} / {Amount(s.f)} {s.unit}   spilled {spilled}{(carry && tilt > 0.5f ? $"   tilt {tilt:0}°" : "")}   {(carry ? (snapped ? (tilt < 20f ? (docked ? "in place: scroll DOWN to tip it, click to put it back" : "over the target: let go, then scroll DOWN") : "pouring: scroll up to stop") : "carry it over the target") : poured >= s.f - 0.001f ? "done" : "grab the " + SrcName(s))}", Mathf.Clamp01(poured / s.f), 1f); break;
                 case WK.Heat:
                     {
                         var r = new Rect(W / 2f - 260, 14, 520, 70); UiSkin.DrawPanel(r, true); var bar = new Rect(r.x + 16, r.y + 30, r.width - 32, 26); Fill(bar, new Color(0.1f, 0.12f, 0.16f));

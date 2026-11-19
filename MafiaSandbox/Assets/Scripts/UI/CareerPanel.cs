@@ -12,6 +12,7 @@ namespace MafiaSandbox.UI
         bool open;
         void Awake() { I = this; }
         public void Open() { if (!Career.Has) open = true; }
+        public void Close() { open = false; }
 
         static readonly string[] Title = { "BOOTLEG ALCOHOL", "DRUGS", "ARMS" };
         static readonly string[] Pitch =

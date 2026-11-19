@@ -33,6 +33,8 @@ namespace MafiaSandbox.UI
         GUIStyle bubble, bubbleText, field; PlayerController pc;
 
         void Awake() { I = this; }
+        /// <summary>Opens or closes the phone from code (mission self test).</summary>
+        public static void DebugOpen(bool on) { if (I) I.open = on; }
         public static void Post(string id, string text) { if (!I) return; I.BuildContacts(); foreach (var c in I.contacts) if (c.id == id) { I.Notify(c, text); return; } }
 
         int Unread { get { int n = 0; foreach (var c in convs) n += c.unread; return n; } }

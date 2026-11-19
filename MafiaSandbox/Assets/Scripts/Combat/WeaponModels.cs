@@ -63,14 +63,64 @@ namespace MafiaSandbox.Combat
             GameObject g;
             switch (k)
             {
-                case WeaponKind.Pistol: g = Pistol(); g.transform.localScale = Vector3.one * 1.55f; break;      // the blocky hand swallows a life-size pistol
-                case WeaponKind.Revolver: g = Revolver(); g.transform.localScale = Vector3.one * 1.45f; break;
-                case WeaponKind.Rifle: g = Rifle(); break;
-                case WeaponKind.Shotgun: g = Shotgun(); break;
+                // firearms are the very models you assemble at the gunsmith bench (the old blocky ones are the fallback)
+                case WeaponKind.Pistol: g = Bench("Pistol", k, 0.51f, -0.19f, 0.058f, 0f, 0.062f, 0.22f, Vector3.zero) ?? Pistol(); g.transform.localScale = Vector3.one * 1.55f; break;      // the blocky hand swallows a life-size pistol
+                case WeaponKind.Revolver: g = Bench("Revolver", k, 0.475f, -0.19f, 0.078f, 0f, 0.072f, 0.4f, Vector3.zero) ?? Revolver(); g.transform.localScale = Vector3.one * 1.45f; break;
+                case WeaponKind.Rifle: g = Bench("Rifle", k, 1.11f, -0.19f, 0f, 0.14f, 0.045f, 0.6f, new Vector3(0f, -0.02f, 0f)) ?? Rifle(); break;
+                case WeaponKind.Shotgun: g = Bench("Shotgun", k, 1.03f, -0.2f, 0.022f, 0.14f, 0.052f, 0.5165f, new Vector3(0f, -0.02f, 0f)) ?? Shotgun(); break;
                 case WeaponKind.Knife: g = Knife(); g.transform.localScale = Vector3.one * 1.3f; break;
                 default: g = Bat(); break;
             }
             return g;
+        }
+
+        // bench space (x = muzzle, y = up, z = side) -> hand space (y = muzzle, z = up, x = side)
+        static readonly Quaternion BenchRot = Quaternion.LookRotation(Vector3.right, Vector3.forward);
+
+        /// <summary>
+        /// Builds a carried gun out of the workshop's parts. gripX / axisY: where the hand holds it and the height of the bore in bench
+        /// space; that point lands at (0, handY, axisZ) in the hand. The pump shotgun's forend stays a separate "Pump" so it can be racked.
+        /// </summary>
+        static GameObject Bench(string name, WeaponKind k, float s, float gripX, float axisY, float handY, float axisZ, float muzzleX, Vector3 offset)
+        {
+            GameObject g = null;
+            try
+            {
+                var parts = MafiaSandbox.Economy.WorkshopModels.GunParts(k); if (parts == null) return null;
+                g = Root(name, new Vector3(0f, handY + (muzzleX - gripX) * s, axisZ), offset);
+                Vector3 pos = new Vector3(0f, handY, axisZ) - BenchRot * (new Vector3(gripX, axisY, 0f) * s);
+                Transform Holder(string n, Transform parent) { var h = new GameObject(n).transform; h.SetParent(parent, false); h.localPosition = pos; h.localRotation = BenchRot; h.localScale = Vector3.one * s; return h; }
+                var bodyT = Holder("Body", g.transform); Transform forend = null;
+                foreach (var p in parts)
+                {
+                    Transform parent = bodyT;
+                    if (p.name == "Pump forend") { var pump = new GameObject("Pump").transform; pump.SetParent(g.transform, false); forend = Holder("Forend", pump); parent = forend; }
+                    var node = new GameObject(p.name).transform; node.SetParent(parent, false); p.build(node);
+                }
+                Merge(bodyT); if (forend) Merge(forend);
+                return g;
+            }
+            catch (System.Exception e) { Debug.LogWarning("[MafiaSandbox] bench model for " + k + " failed, using the simple one: " + e.Message); if (g) Object.Destroy(g); return null; }
+        }
+
+        /// <summary>Folds the dozens of little boxes of a bench model into one mesh per material, so a street full of armed men stays cheap to draw.</summary>
+        static void Merge(Transform root)
+        {
+            var groups = new Dictionary<Material, List<CombineInstance>>(); var old = new List<GameObject>(); Matrix4x4 inv = root.worldToLocalMatrix;
+            foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
+            {
+                var mr = mf.GetComponent<MeshRenderer>(); if (!mr || !mf.sharedMesh || !mr.sharedMaterial || !mf.sharedMesh.isReadable) return;   // leave it as it is
+                if (!groups.TryGetValue(mr.sharedMaterial, out var l)) groups[mr.sharedMaterial] = l = new List<CombineInstance>();
+                l.Add(new CombineInstance { mesh = mf.sharedMesh, transform = inv * mf.transform.localToWorldMatrix });
+            }
+            for (int i = 0; i < root.childCount; i++) old.Add(root.GetChild(i).gameObject);
+            foreach (var kv in groups)
+            {
+                var mesh = new Mesh { name = "gun_" + kv.Key.name }; mesh.CombineMeshes(kv.Value.ToArray(), true, true); mesh.RecalculateBounds();
+                var go = new GameObject("Merged"); go.transform.SetParent(root, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = kv.Key; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            }
+            foreach (var o in old) { o.SetActive(false); Object.Destroy(o); }
         }
 
         static GameObject Pistol()

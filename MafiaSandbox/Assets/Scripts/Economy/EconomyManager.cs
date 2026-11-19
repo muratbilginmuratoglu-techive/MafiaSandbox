@@ -112,6 +112,7 @@ namespace MafiaSandbox.Economy
                 Consume(it); gm.Say($"Used {def.name} (health +{def.heal}%)"); Sfx.At("click", gm.player.transform.position);
             }
             else if (def.kind == "ride") { if (MafiaSandbox.Vehicles.Rides.I && MafiaSandbox.Vehicles.Rides.I.Deploy(it.id)) Consume(it); }
+            else if (MafiaSandbox.Player.Highs.Get(it.id) != null) { if (MafiaSandbox.Player.Highs.I && MafiaSandbox.Player.Highs.I.Take(it.id)) Consume(it); }
             else gm.Say("You can't use this; sell it at the gun shop");
         }
 

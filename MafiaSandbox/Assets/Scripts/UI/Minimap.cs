@@ -29,20 +29,24 @@ namespace MafiaSandbox.UI
             { "barber", new Color(0.55f, 0.75f, 0.95f) }, { "house", new Color(0.72f, 0.72f, 0.70f) }, { "police", new Color(0.30f, 0.45f, 0.90f) }, { "home", new Color(0.95f, 0.85f, 0.40f) }
         };
 
-        void Start() { Build(); dot = Texture2D.whiteTexture; }
+        void Start() { self = this; Build(); dot = Texture2D.whiteTexture; }
+        static Minimap self;
+        /// <summary>Repaints the map (turf changed hands).</summary>
+        public static void Refresh() { if (self) self.Build(); }
 
         Vector2 ToPx(Vector3 w) => new Vector2((w.x - worldMinX) / (worldMaxX - worldMinX) * TexSize, (w.z - worldMinZ) / (worldMaxZ - worldMinZ) * TexSize);
         float PxPerM => TexSize / (worldMaxX - worldMinX);
 
         void Build()
         {
+            if (map) Destroy(map);
             map = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             px = new Color32[TexSize * TexSize]; var grass = new Color32(118, 150, 104, 255); for (int i = 0; i < px.Length; i++) px[i] = grass;
             // faction territories: a light tint of the crew's colour
             foreach (var f in FactionDefs.All)
             {
                 var a = ToPx(Data.Coords.ToUnity(f.territory.xMin, 0f, f.territory.yMin)); var b = ToPx(Data.Coords.ToUnity(f.territory.xMax, 0f, f.territory.yMax));
-                var tint = Color.Lerp(grass, f.color, 0.28f); FillRect(a, b, tint);
+                var tint = MafiaSandbox.Gang.Empire.Owns(f.id) ? Color.Lerp(grass, new Color(1f, 0.82f, 0.2f), 0.5f) : Color.Lerp(grass, f.color, 0.28f); FillRect(a, b, tint);
             }
             var graph = FindAnyObjectByType<RoadGraph>();
             if (graph && graph.roadNodes != null)
@@ -186,7 +190,7 @@ namespace MafiaSandbox.UI
             }
             var lab = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }; lab.normal.textColor = Color.white;
             foreach (var bi in FindObjectsByType<BuildingInfo>(FindObjectsSortMode.None)) { if (bi.kind == "house") continue; var s = Sp(bi.footprint.center); GUI.color = new Color(0, 0, 0, 0.55f); GUI.DrawTexture(new Rect(s.x - 42, s.y - 9, 84, 18), dot); GUI.color = Color.white; GUI.Label(new Rect(s.x - 42, s.y - 9, 84, 18), bi.label, lab); }
-            foreach (var f in FactionDefs.All) { var c = Data.Coords.ToUnity(f.territory.center.x, 0f, f.territory.center.y + 18f); var s = Sp(c); var ts = new GUIStyle(lab) { fontSize = 13 }; ts.normal.textColor = Color.Lerp(f.color, Color.white, 0.35f); GUI.Label(new Rect(s.x - 60, s.y - 9, 120, 18), f.name, ts); }
+            foreach (var f in FactionDefs.All) { var c = Data.Coords.ToUnity(f.territory.center.x, 0f, f.territory.center.y + 18f); var s = Sp(c); var ts = new GUIStyle(lab) { fontSize = 13 }; ts.normal.textColor = Color.Lerp(f.color, Color.white, 0.35f); if (MafiaSandbox.Gang.Empire.Owns(f.id)) ts.normal.textColor = new Color(1f, 0.85f, 0.3f); GUI.Label(new Rect(s.x - 80, s.y - 9, 160, 18), MafiaSandbox.Gang.Empire.Owns(f.id) ? "★ YOURS (" + f.name + ")" : f.name, ts); }
             var wp = Waypoints.I; var ev = Event.current;
             if (wp != null)
             {
