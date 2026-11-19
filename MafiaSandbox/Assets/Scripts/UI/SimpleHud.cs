@@ -21,6 +21,7 @@ namespace MafiaSandbox.UI
         void OnGUI()
         {
             var gm = GameManager.I; if (!gm || !gm.player || CharacterCreator.IsOpen || IntroCinematic.Playing) return;
+            if (MafiaSandbox.Economy.Workshop.Active) return;
             if (!vi) vi = gm.player.GetComponent<VehicleInteraction>();
             if (!combat) combat = gm.player.GetComponent<PlayerCombat>();
             if (!body) body = gm.player.GetComponent<CharacterBody>();

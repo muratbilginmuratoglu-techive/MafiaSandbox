@@ -38,13 +38,16 @@ namespace MafiaSandbox.Economy
             I("ColdMed", "Cold medicine", 22, "material"); I("Solvent", "Chemical solvent", 18, "material"); I("Precursor", "Chemical precursor", 120, "material");
             I("KitStill", "Copper still kit", 350, "equipment"); I("KitLab", "Chemistry table kit", 380, "equipment"); I("KitBench", "Gunsmith bench kit", 420, "equipment");
             I("MetalParts", "Machined metal parts", 55, "material"); I("Gunpowder", "Gunpowder", 40, "material");
+            I("Kaykay", "Skateboard", 120, "ride"); I("Skuter", "Kick scooter", 260, "ride"); I("Bisiklet", "Bicycle", 480, "ride");
+            I("OakChips", "Charred oak chips", 12, "material"); I("Juniper", "Botanicals", 10, "material"); I("WoodStock", "Walnut stock blank", 60, "material");
+            I("Whiskey", "Barrel whiskey", 140, "drug"); I("Gin", "Bathtub gin", 105, "drug"); I("Crystal", "Blue crystal", 420, "drug"); I("Revolvers", "Smuggled revolvers", 420, "arms"); I("Shotguns", "Pump shotguns", 720, "arms");
 
             ShopDef S(string kind, string title, string[] stock, string[] shelf, int r0, int r1, string[] buys) { var d = new ShopDef { title = title, stock = stock, shelf = shelf, registerMin = r0, registerMax = r1, buysKinds = buys }; Shops[kind] = d; return d; }
             string[] N = new string[0];
             // the trimmed map has no pharmacy: the market carries its medicine and chemistry stock too
-            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Corn", "Sugar", "Yeast", "Seeds", "PlantFood", "Ilac", "ColdMed", "Solvent", "Precursor", "KitLab" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Ilac" }, 60, 180, new[] { "food", "med" });
+            S("market", "Market", new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Kaykay", "Skuter", "Bisiklet", "Corn", "Sugar", "Yeast", "Seeds", "PlantFood", "OakChips", "Juniper", "Ilac", "ColdMed", "Solvent", "Precursor", "KitLab" }, new[] { "Kola", "Ekmek", "Konserve", "Sigara", "Ilac" }, 60, 180, new[] { "food", "med" });
             // ... and no pawn shop: the gun dealer fences goods and sells the metal parts and the still kit
-            var gun = S("gun", "Gun Shop", new[] { "Gunpowder", "KitBench", "MetalParts", "KitStill" }, new[] { "Mermi", "Mermi", "Saat", "Kulaklik" }, 300, 900, new[] { "misc", "valuable", "contraband", "food", "med" }); gun.fence = true;
+            var gun = S("gun", "Gun Shop", new[] { "Gunpowder", "KitBench", "MetalParts", "WoodStock", "KitStill" }, new[] { "Mermi", "Mermi", "Saat", "Kulaklik" }, 300, 900, new[] { "misc", "valuable", "contraband", "food", "med" }); gun.fence = true;
             gun.weapons = new Dictionary<WeaponKind, int> { { WeaponKind.Rifle, 2400 }, { WeaponKind.Shotgun, 1800 }, { WeaponKind.Revolver, 900 }, { WeaponKind.Bat, 40 } };
             S("pawn", "Pawn Shop", new[] { "Saat", "Kulaklik", "MetalParts", "KitStill" }, new[] { "Saat", "Kulaklik", "Laptop", "Tablo", "Telefon" }, 200, 600, new[] { "valuable", "misc", "contraband", "food", "med" }).fence = true;
             S("cafe", "Cafe", new[] { "Kahve", "Burger" }, new[] { "Kahve" }, 50, 160, N);

@@ -25,7 +25,8 @@ namespace MafiaSandbox.Vehicles
         {
             if (Current)
             {
-                transform.position = Current.transform.position;   // ride along (hidden)
+                if (Current.openRide) transform.SetPositionAndRotation(Current.transform.TransformPoint(Current.seat), Current.transform.rotation * Quaternion.Euler(0f, Current.seatYaw, 0f));   // on the saddle / deck, in plain sight
+                else transform.position = Current.transform.position;   // ride along (hidden)
                 if (Input.GetKeyDown(KeyCode.E)) Exit();
                 return;
             }
@@ -53,7 +54,8 @@ namespace MafiaSandbox.Vehicles
             renderers = GetComponentsInChildren<Renderer>(); ownColliders = GetComponentsInChildren<Collider>();   // cached here: hitboxes are built in Awake order-independently
             Current = v; Nearby = null;
             pc.InputLocked = true; cc.enabled = false;
-            foreach (var r in renderers) r.enabled = false;
+            if (!v.openRide) foreach (var r in renderers) r.enabled = false;
+            else { var an = GetComponent<MafiaSandbox.Player.CharacterAnimator>(); if (an) an.Play(v.ridePose); }
             foreach (var c in ownColliders) c.enabled = false;
             v.SetControlled(true);
             // a former traffic car ignores every other AI car; when you drive it, it must hit them like any car

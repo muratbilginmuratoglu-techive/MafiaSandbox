@@ -94,6 +94,7 @@ namespace MafiaSandbox.UI
         void OnGUI()
         {
             if (CharacterCreator.IsOpen || IntroCinematic.Playing) return;
+            if (MafiaSandbox.Economy.Workshop.Active) return;
             float W = Screen.width, H = Screen.height;
             if (!open)
             {

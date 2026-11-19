@@ -85,6 +85,7 @@ namespace MafiaSandbox.UI
         void OnGUI()
         {
             var gm = GameManager.I; if (!gm || !gm.player || map == null || CharacterCreator.IsOpen || IntroCinematic.Playing) return;
+            if (MafiaSandbox.Economy.Workshop.Active) return;
             if (GameUI.I && GameUI.I.MapOpen) DrawBig(gm); else DrawMini(gm);
         }
 

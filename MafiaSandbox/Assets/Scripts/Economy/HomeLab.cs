@@ -24,7 +24,7 @@ namespace MafiaSandbox.Economy
         public static readonly Vector3 StationSize = new Vector3(1.5f, 0.95f, 0.8f);
         public int CountStations(int kind) { int n = 0; foreach (var st in stations) if (st.kind == kind) n++; return n; }
         public int NearStation(Vector3 p, float r) { int best = -1; float bd = r * r; for (int i = 0; i < stations.Count; i++) { var d = stations[i].pos - p; d.y = 0f; if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; } } return best; }
-        public static int[] RecipesFor(int station) { switch (station) { case 0: return new[] { 0 }; case 1: return new[] { 1, 2, 3 }; case 2: return new[] { 4, 5 }; default: return new[] { 0, 1, 2, 3, 4, 5 }; } }
+        public static int[] RecipesFor(int station) { switch (station) { case 0: return new[] { 0, 6, 7 }; case 1: return new[] { 1, 2, 3, 8 }; case 2: return new[] { 4, 9, 10, 5 }; default: return new[] { 0, 6, 7, 1, 2, 3, 8, 4, 9, 10, 5 }; } }
         public Vector3 BedPos { get; private set; }
         public bool Ready { get; private set; }
         bool sleeping; float fade; string wakeText = "";
@@ -41,6 +41,12 @@ namespace MafiaSandbox.Economy
             new Recipe { id = "pow",   name = "White powder",     product = "Powder",    yield = 4, rank = 2, hours = 4f, puzzle = "timing",   level = 5, blurb = "A delicate reaction. Hit the window every time.",    inputs = new[] { ("Precursor", 1), ("Solvent", 2) } },
             new Recipe { id = "gun",   name = "Pistols",          product = "Guns",      yield = 2, rank = 2, hours = 3f, puzzle = "assembly", level = 5, blurb = "Assemble the parts in blueprint order.",              inputs = new[] { ("MetalParts", 3), ("Gunpowder", 1) } },
             new Recipe { id = "rifle", name = "Assault rifle",    product = "Rifles",    yield = 1, rank = 3, hours = 5f, puzzle = "assembly", level = 7, blurb = "Seven parts and the blueprint fades. Remember it.", inputs = new[] { ("MetalParts", 6), ("Gunpowder", 2) } },
+            // appended (the save file stores batches by index): more to make at each station
+            new Recipe { id = "whisk",    name = "Barrel whiskey", product = "Whiskey",   yield = 4, rank = 1, hours = 5f, puzzle = "heat",     level = 10, blurb = "Run the still, then rest the spirit on charred oak.",   inputs = new[] { ("Corn", 3), ("Sugar", 1), ("Yeast", 1), ("OakChips", 1) } },
+            new Recipe { id = "gin",      name = "Bathtub gin",    product = "Gin",       yield = 5, rank = 1, hours = 3f, puzzle = "heat",     level = 8,  blurb = "A neutral run, sharpened with botanicals and a few drops of essence.", inputs = new[] { ("Sugar", 2), ("Yeast", 1), ("Juniper", 2) } },
+            new Recipe { id = "crystal",  name = "Blue crystal",   product = "Crystal",   yield = 3, rank = 3, hours = 5f, puzzle = "timing",   level = 8,  blurb = "The hardest cook in town. Every step has to land.",        inputs = new[] { ("Precursor", 2), ("Solvent", 1), ("ColdMed", 2) } },
+            new Recipe { id = "revolver", name = "Revolvers",      product = "Revolvers", yield = 2, rank = 2, hours = 3f, puzzle = "assembly", level = 6,  blurb = "Six chambers, five parts. Old and dependable.",           inputs = new[] { ("MetalParts", 3), ("Gunpowder", 1), ("WoodStock", 1) } },
+            new Recipe { id = "shotgun",  name = "Pump shotguns",  product = "Shotguns",  yield = 1, rank = 3, hours = 4f, puzzle = "assembly", level = 7,  blurb = "Receiver, bolt, barrel, forend and a walnut stock.",       inputs = new[] { ("MetalParts", 5), ("Gunpowder", 2), ("WoodStock", 1) } },
         };
         public class Batch { public int state; public float readyAt; public int yield; public float score; }   // 0 idle, 1 cooking, 2 ready
         public readonly Batch[] batches = new Batch[Recipes.Length];
@@ -95,29 +101,7 @@ namespace MafiaSandbox.Economy
             var wood = new Color(0.45f, 0.3f, 0.16f); var steel = new Color(0.55f, 0.58f, 0.62f); var copper = new Color(0.72f, 0.42f, 0.2f);
             Part(r, "Top", new Vector3(0, 0.9f, 0), new Vector3(1.5f, 0.08f, 0.75f), kind == 2 ? steel : wood);
             foreach (var x in new[] { -0.65f, 0.65f }) foreach (var z in new[] { -0.3f, 0.3f }) Part(r, "Leg", new Vector3(x, 0.44f, z), new Vector3(0.08f, 0.88f, 0.08f), kind == 2 ? new Color(0.25f, 0.25f, 0.28f) : wood);
-            if (kind == 0)
-            {
-                Part(r, "Pot", new Vector3(-0.4f, 1.12f, 0), new Vector3(0.4f, 0.36f, 0.4f), copper, PrimitiveType.Cylinder);
-                Part(r, "Pipe", new Vector3(-0.1f, 1.3f, 0), new Vector3(0.06f, 0.3f, 0.06f), copper, PrimitiveType.Cylinder).transform.localRotation = Quaternion.Euler(0, 0, 80f);
-                Part(r, "Jug", new Vector3(0.35f, 1.05f, 0.1f), new Vector3(0.2f, 0.26f, 0.2f), new Color(0.75f, 0.6f, 0.3f), PrimitiveType.Cylinder);
-                Part(r, "Barrel", new Vector3(0.1f, 0.3f, -0.55f), new Vector3(0.5f, 0.6f, 0.5f), new Color(0.38f, 0.24f, 0.12f), PrimitiveType.Cylinder);
-            }
-            else if (kind == 1)
-            {
-                Part(r, "Flask", new Vector3(-0.35f, 1.08f, 0.05f), new Vector3(0.2f, 0.24f, 0.2f), new Color(0.6f, 0.9f, 0.7f), PrimitiveType.Sphere);
-                Part(r, "Flask2", new Vector3(0.0f, 1.05f, -0.1f), new Vector3(0.16f, 0.18f, 0.16f), new Color(0.9f, 0.7f, 0.9f), PrimitiveType.Sphere);
-                Part(r, "Burner", new Vector3(0.4f, 0.97f, 0.05f), new Vector3(0.3f, 0.08f, 0.3f), new Color(0.2f, 0.2f, 0.22f));
-                Part(r, "Plant", new Vector3(0.62f, 1.1f, -0.2f), new Vector3(0.22f, 0.3f, 0.22f), new Color(0.2f, 0.6f, 0.25f), PrimitiveType.Cylinder);
-                Part(r, "Lamp", new Vector3(0.62f, 1.55f, -0.2f), new Vector3(0.5f, 0.06f, 0.4f), new Color(0.9f, 0.3f, 0.8f));
-            }
-            else
-            {
-                Part(r, "Vice", new Vector3(0.55f, 0.99f, -0.15f), new Vector3(0.2f, 0.12f, 0.14f), steel);
-                Part(r, "Anvil", new Vector3(-0.35f, 1.0f, 0f), new Vector3(0.4f, 0.14f, 0.18f), new Color(0.18f, 0.18f, 0.2f));
-                Part(r, "Parts", new Vector3(0.1f, 0.97f, 0.15f), new Vector3(0.45f, 0.06f, 0.2f), new Color(0.3f, 0.32f, 0.35f));
-                Part(r, "Box", new Vector3(0.5f, 0.99f, 0.18f), new Vector3(0.26f, 0.12f, 0.2f), new Color(0.2f, 0.25f, 0.2f));
-                Part(r, "Rack", new Vector3(0f, 1.6f, 0.36f), new Vector3(1.3f, 0.5f, 0.05f), new Color(0.35f, 0.3f, 0.22f));
-            }
+            WorkshopModels.StationDecor(kind, r);
             var col = r.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0f, StationSize.y / 2f, 0f); col.size = StationSize;
             return r.gameObject;
         }
@@ -131,10 +115,10 @@ namespace MafiaSandbox.Economy
         }
 
         // ------------------------------------------------------------------ ingredients & batches
-        public int Have(string id) { var eco = EconomyManager.I; int n = eco ? eco.Count(id) : 0; if (Stash.I) foreach (var s in Stash.I.items) if (s.id == id) n += s.qty; return n; }
+        public int Have(string id) { if (Admin.Unlimited) return 999; var eco = EconomyManager.I; int n = eco ? eco.Count(id) : 0; if (Stash.I) foreach (var s in Stash.I.items) if (s.id == id) n += s.qty; return n; }
         void Use(string id, int n)
         {
-            var eco = EconomyManager.I;
+            var eco = EconomyManager.I; if (Admin.Unlimited) return;
             for (int k = 0; k < n; k++)
             {
                 var it = eco.inv.Find(x => x.id == id);
@@ -143,20 +127,28 @@ namespace MafiaSandbox.Economy
             }
             if (Stash.I) Stash.I.SavePublic();
         }
-        public string CanStart(int r)
+        /// <summary>How many batches the ingredients in the backpack and the cupboard allow.</summary>
+        public int MaxBatches(int r) { int m = 99; foreach (var (id, n) in Recipes[r].inputs) m = Mathf.Min(m, Have(id) / n); return m; }
+        public static bool Locked(Recipe rc) => !Admin.UnlockAll && Respect.Rank < rc.rank && !Career.IsStarterRecipe(rc.id);
+        public static int YieldFor(Recipe rc, float score)
         {
-            var rc = Recipes[r]; if (Respect.Rank < rc.rank && !Career.IsStarterRecipe(rc.id)) return $"Needs rank {Respect.Ranks[Mathf.Min(5, rc.rank)]}";
+            float f = score < 0.25f ? 0.3f : 0.55f + score * 0.65f + (score >= 0.9f ? 0.15f : 0f);
+            int y = Mathf.Max(1, Mathf.RoundToInt(rc.yield * f)); if (score >= 0.9f && rc.yield <= 2) y = rc.yield + 1; return y;
+        }
+        public void CollectNow(int r) { if (batches[r].state == 1) batches[r].state = 2; Collect(r); }
+        public string CanStart(int r, int mult = 1)
+        {
+            var rc = Recipes[r]; if (Locked(rc)) return $"Needs rank {Respect.Ranks[Mathf.Min(5, rc.rank)]}";
             if (batches[r].state != 0) return batches[r].state == 1 ? "Already cooking" : "Collect the finished batch first";
-            foreach (var (id, n) in rc.inputs) if (Have(id) < n) return $"Missing {Items.Get(id).name}";
+            foreach (var (id, n) in rc.inputs) if (Have(id) < n * mult) return $"Missing {Items.Get(id).name}";
             return null;
         }
-        public void StartBatch(int r, float score)
+        public void StartBatch(int r, float score, int mult = 1)
         {
-            var rc = Recipes[r]; var gm = GameManager.I; if (CanStart(r) != null) return;
-            foreach (var (id, n) in rc.inputs) Use(id, n);
-            float f = score < 0.25f ? 0.3f : 0.55f + score * 0.65f + (score >= 0.9f ? 0.15f : 0f);
-            int y = Mathf.Max(1, Mathf.RoundToInt(rc.yield * f)); if (score >= 0.9f && rc.yield <= 2) y = rc.yield + 1;
-            batches[r].state = 1; batches[r].yield = y; batches[r].score = score; batches[r].readyAt = DayNightCycle.I.TotalHours + rc.hours; Save();
+            var rc = Recipes[r]; var gm = GameManager.I; mult = Mathf.Max(1, mult); if (CanStart(r, mult) != null) return;
+            foreach (var (id, n) in rc.inputs) Use(id, n * mult);
+            int y = YieldFor(rc, score) * mult;
+            batches[r].state = 1; batches[r].yield = y; batches[r].score = score; batches[r].readyAt = DayNightCycle.I.TotalHours + (Admin.Instant ? 0f : rc.hours); Save();
             gm.Say(score < 0.25f ? $"You botched the {rc.name}. Maybe {y} usable." : score >= 0.9f ? $"Perfect work! {rc.name} will yield {y}." : $"{rc.name} is cooking: expect {y}.");
         }
         public void Collect(int r)

@@ -21,6 +21,8 @@ namespace MafiaSandbox.Vehicles
         public float maxSteerDeg = 32f;
         public float wheelBase = 2.7f;
         public float length = 4.4f, width = 1.8f;
+        /// <summary>Bicycle / scooter / skateboard: the rider stays visible, no drifting, and bumping into people only shoves them.</summary>
+        public bool light, openRide; public Vector3 seat; public float seatYaw; public string ridePose = "Idle";
 
         public static readonly System.Collections.Generic.List<VehicleController> All = new System.Collections.Generic.List<VehicleController>();
         void OnEnable() { if (!All.Contains(this)) All.Add(this); }
@@ -202,7 +204,7 @@ namespace MafiaSandbox.Vehicles
             float dt = Time.fixedDeltaTime;
             { Vector3 was = rb.linearVelocity; was.y = 0f; if (Mathf.Abs(speed) > 1f && was.magnitude < 0.35f && Time.time - LastContactT < 0.25f) WallT += dt; else WallT = 0f; }
             // drift: Space while turning at speed (player only) lets the tail swing out. Heading keeps rotating, the velocity lags behind it.
-            bool wantDrift = Controlled && handbrake && Mathf.Abs(speed) > 5f && (Mathf.Abs(steer) > 0.12f || Drifting);
+            bool wantDrift = !light && Controlled && handbrake && Mathf.Abs(speed) > 5f && (Mathf.Abs(steer) > 0.12f || Drifting);
             Drifting = wantDrift;
             // longitudinal
             if (Drifting) { if (Mathf.Abs(throttle) > 0.01f && Mathf.Sign(throttle) == Mathf.Sign(speed)) speed = Mathf.MoveTowards(speed, Mathf.Sign(speed) * maxSpeed * 0.92f, acceleration * 0.6f * dt); else speed = Mathf.MoveTowards(speed, 0f, 2.2f * dt); }
@@ -262,7 +264,7 @@ namespace MafiaSandbox.Vehicles
         /// <summary>Running people over without the physics ever touching them: a box just ahead of the bumper finds bodies, they get hit and fly, the car doesn't notice.</summary>
         void SweepPedestrians(float dt)
         {
-            float v = Mathf.Abs(speed); if (v < 2.5f) return;
+            float v = Mathf.Abs(speed); if (v < (light ? 4.5f : 2.5f)) return;
             if (pedMask < 0) { int ch = LayerMask.NameToLayer("Characters"), hb = LayerMask.NameToLayer("Hitbox"), pl = LayerMask.NameToLayer("Player"); pedMask = (ch >= 0 ? 1 << ch : 0) | (hb >= 0 ? 1 << hb : 0) | (pl >= 0 ? 1 << pl : 0); }
             Vector3 dirF = transform.forward * Mathf.Sign(speed); float reach = 0.5f + v * dt * 2f;
             Vector3 c = rb.position + dirF * (length * 0.5f + reach * 0.5f) + Vector3.up * 0.9f;
@@ -274,7 +276,8 @@ namespace MafiaSandbox.Vehicles
                 var vi = body.GetComponent<VehicleInteraction>(); if (vi && vi.Current) continue;   // the driver of another car
                 Vector3 dir = body.transform.position - rb.position; dir.y = 0f; dir = (dir.normalized * 0.6f + dirF * 0.8f + Vector3.up * 0.35f).normalized;
                 Vector3 contact = body.ChestPos;
-                body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle");
+                if (light) body.Hit(body.ZoneNear(contact), contact, dir, 1, false, 2.5f, Controlled ? "player" : "vehicle");
+                else body.Hit(body.ZoneNear(contact), contact, dir, v > 7f ? 99 : 1, v > 7f, Mathf.Clamp(v * 0.8f, 2f, 13f), Controlled ? "player" : "vehicle");
                 MafiaSandbox.Core.Sfx.At("thud", contact);
                 StartCoroutine(PassThrough(body, 2.5f));
             }

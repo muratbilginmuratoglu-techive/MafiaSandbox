@@ -38,6 +38,36 @@ namespace MafiaSandbox.Economy
         }
         static Vector3 V(float x, float y, float z) => new Vector3(x, y, z);
 
+        /// <summary>Workshop products and their ingredients (built with the workshop's modelling kit).</summary>
+        static GameObject Extra(string id)
+        {
+            var root = new GameObject("Item " + id); var t = root.transform;
+            void Bottle(Color glass, Color cap) { Kit.La(t, 0f, 0f, 0f, new[] { 0f, 0f, 0.035f, 0f, 0.037f, 0.008f, 0.037f, 0.11f, 0.026f, 0.14f, 0.014f, 0.155f, 0.014f, 0.19f }, glass, 0.9f); Kit.Cy(t, 0f, 0.197f, 0f, 0.034f, 0.018f, cap, 1, 0.4f); Kit.Box(t, 0f, 0.06f, 0.038f, 0.05f, 0.05f, 0.002f, Kit.H(0xe9dcc0)); }
+            void Baggie(Color c) { Kit.Box(t, 0f, 0.012f, 0f, 0.09f, 0.022f, 0.07f, c, 0.2f); Kit.Box(t, 0f, 0.014f, 0f, 0.1f, 0.024f, 0.076f, Kit.H(0xdfe8ee, 0.3f), 0.9f); Kit.Box(t, -0.048f, 0.014f, 0f, 0.006f, 0.026f, 0.078f, Kit.H(0x3a6fc4)); }
+            void Crate(Color mark) { Kit.Box(t, 0f, 0.07f, 0f, 0.42f, 0.14f, 0.2f, Kit.H(0x7a5a36), 0.1f); foreach (float x in new[] { -0.16f, 0.16f }) Kit.Box(t, x, 0.07f, 0f, 0.03f, 0.146f, 0.206f, Kit.H(0x5c4330), 0.1f); Kit.Box(t, 0f, 0.142f, 0f, 0.16f, 0.004f, 0.08f, mark); }
+            void Sack(Color c) { Kit.Box(t, 0f, 0.06f, 0f, 0.12f, 0.12f, 0.07f, c, 0.05f); Kit.Box(t, 0f, 0.13f, 0f, 0.08f, 0.03f, 0.05f, new Color(c.r * 0.8f, c.g * 0.8f, c.b * 0.8f), 0.05f); }
+            switch (id)
+            {
+                case "Moonshine": Kit.La(t, 0f, 0f, 0f, new[] { 0f, 0f, 0.045f, 0f, 0.047f, 0.01f, 0.047f, 0.1f, 0.036f, 0.118f, 0.036f, 0.136f }, Kit.H(0xd8eef0, 0.45f), 0.9f); Kit.Cy(t, 0f, 0.142f, 0f, 0.08f, 0.016f, Kit.H(0xc9b25a), 1, 0.7f, 0.9f); Kit.Box(t, 0f, 0.06f, 0.048f, 0.06f, 0.05f, 0.002f, Kit.H(0xe9dcc0)); break;
+                case "Whiskey": Bottle(Kit.H(0x9a4f12, 0.85f), Kit.H(0x3a2416)); break;
+                case "Gin": Bottle(Kit.H(0xa9dcc8, 0.55f), Kit.H(0xc8ccd2)); break;
+                case "Weed": Baggie(Kit.H(0x6fa63f)); break;
+                case "Powder": Baggie(Kit.H(0xf4f4f0)); break;
+                case "Crystal": Baggie(Kit.H(0x58c4f2)); break;
+                case "Pills": Kit.La(t, 0f, 0f, 0f, new[] { 0f, 0f, 0.028f, 0f, 0.028f, 0.065f, 0.024f, 0.07f, 0.024f, 0.08f }, Kit.H(0xe07a1c, 0.7f), 0.9f); Kit.Cy(t, 0f, 0.088f, 0f, 0.056f, 0.018f, Kit.H(0xf1f1ec), 1, 0.4f); Kit.Box(t, 0f, 0.035f, 0.029f, 0.04f, 0.035f, 0.002f, Kit.H(0xf1f1ec)); break;
+                case "Guns": case "Revolvers": Crate(Kit.H(0x2a2420)); break;
+                case "Rifles": case "Shotguns": Crate(Kit.H(0x8a2f22)); break;
+                case "KitStill": case "KitBench": Crate(Kit.H(0x2d7dd2)); break;
+                case "MetalParts": Kit.Box(t, 0f, 0.02f, 0f, 0.16f, 0.04f, 0.1f, Kit.H(0x3a3d42), 0.4f, 0.6f); for (int i = 0; i < 5; i++) Kit.Cy(t, -0.05f + i * 0.025f, 0.05f, 0f, 0.02f, 0.08f, Kit.H(0x8d9299), 2, 0.7f, 0.9f); break;
+                case "Gunpowder": Kit.Cy(t, 0f, 0.05f, 0f, 0.07f, 0.1f, Kit.H(0x1c1c1e), 1, 0.4f, 0.4f); Kit.Cy(t, 0f, 0.105f, 0f, 0.03f, 0.014f, Kit.H(0xb23a2e)); Kit.Box(t, 0f, 0.05f, 0.036f, 0.045f, 0.04f, 0.002f, Kit.H(0xe9b824)); break;
+                case "OakChips": Sack(Kit.H(0x5a3a22)); break;
+                case "Juniper": Sack(Kit.H(0x4f7a4a)); break;
+                case "WoodStock": Kit.Box(t, 0f, 0.025f, 0f, 0.3f, 0.05f, 0.08f, Kit.H(0x6a3f20), 0.3f); break;
+                default: Object.Destroy(root); return null;
+            }
+            return root;
+        }
+
         public static GameObject Build(string id)
         {
             var root = new GameObject("Item " + id); var t = root.transform;
@@ -103,7 +133,7 @@ namespace MafiaSandbox.Economy
                     Part(t, false, V(0, 0.11f, 0), V(0.4f, 0.22f, 0.28f), H(0x6c7480), 0.4f, 0.3f);
                     Part(t, false, V(0, 0.11f, 0), V(0.405f, 0.05f, 0.285f), H(0x2d7dd2));
                     Part(t, false, V(0, 0.23f, 0), V(0.3f, 0.02f, 0.06f), black); break;
-                default: Object.Destroy(root); return null;
+                default: Object.Destroy(root); return Extra(id);
             }
             return root;
         }

@@ -201,6 +201,7 @@ namespace MafiaSandbox.UI
         void OnGUI()
         {
             PanelBottom = 124f;
+            if (MafiaSandbox.Economy.Workshop.Active) return;
             if (!started || IntroCinematic.Playing || Prologue.Active || CharacterCreator.IsOpen || !pc) return;
             float W = Screen.width;
             if (AllDone) return;

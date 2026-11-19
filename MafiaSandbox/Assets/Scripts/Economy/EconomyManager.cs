@@ -111,12 +111,14 @@ namespace MafiaSandbox.Economy
                 if (body) body.Treat(Mathf.Max(1, Mathf.RoundToInt(def.heal * 0.1f)));
                 Consume(it); gm.Say($"Used {def.name} (health +{def.heal}%)"); Sfx.At("click", gm.player.transform.position);
             }
-            else gm.Say("You can't use this; sell it at the pawn shop");
+            else if (def.kind == "ride") { if (MafiaSandbox.Vehicles.Rides.I && MafiaSandbox.Vehicles.Rides.I.Deploy(it.id)) Consume(it); }
+            else gm.Say("You can't use this; sell it at the gun shop");
         }
 
         public void DropItem(InvItem it)
         {
             var gm = GameManager.I; if (!gm) return; var t = gm.player.transform;
+            if (it != null && Items.Get(it.id).kind == "ride") { UseItem(it); return; }
             Consume(it);
             var pk = SpawnPickable(it.id, t.position + t.forward * 0.8f + Vector3.up * 0.05f, t.eulerAngles.y, null, false, false);
             if (pk) pk.cashAmount = 0;

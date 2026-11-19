@@ -29,11 +29,11 @@ namespace MafiaSandbox.Gang
         void Awake() { I = this; DebtPaid = PlayerPrefs.GetInt("ms_debt_paid_v1", 0); }
 
         // ------------------------------------------------------------------ products
-        public static readonly string[] Products = { "Weed", "Pills", "Powder", "Guns", "Rifles", "Moonshine" };   // 0-2 drugs (sold to civilians), 3-4 arms (sold to gang members)
-        static readonly int[] Wholesale = { 20, 55, 120, 180, 500, 25 }; static readonly int[] Street = { 45, 110, 240, 340, 950, 70 }; static readonly int[] UnlockRank = { 0, 1, 2, 2, 3, 0 };
+        public static readonly string[] Products = { "Weed", "Pills", "Powder", "Guns", "Rifles", "Moonshine", "Crystal", "Whiskey", "Gin", "Revolvers", "Shotguns" };   // 0-2 drugs (sold to civilians), 3-4 arms (sold to gang members)
+        static readonly int[] Wholesale = { 20, 55, 120, 180, 500, 25, 230, 60, 45, 220, 380 }; static readonly int[] Street = { 45, 110, 240, 340, 950, 70, 420, 140, 105, 420, 720 }; static readonly int[] UnlockRank = { 0, 1, 2, 2, 3, 0, 3, 1, 1, 2, 3 };
         /// <summary>Market mood per product (0.7..1.4): drifts every shift, shifts both what Sal charges and what the street pays.</summary>
-        public readonly float[] Mood = { 1f, 1f, 1f, 1f, 1f, 1f };
-        public static bool IsArms(int i) => i == 3 || i == 4;
+        public readonly float[] Mood = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        public static bool IsArms(int i) => i == 3 || i == 4 || i == 9 || i == 10;
         public static int UnlockAt(int i) => UnlockRank[i];
         public int WholeNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Wholesale[i] * Mood[i]));
         public int StreetNow(int i) => Mathf.Max(1, Mathf.RoundToInt(Street[i] * Mood[i]));
@@ -57,7 +57,7 @@ namespace MafiaSandbox.Gang
             for (int k = 0; k < n; k++) { var it = eco.inv.Find(x => x.id == id); if (it == null) break; it.qty--; if (it.qty <= 0) eco.inv.Remove(it); }
             return true;
         }
-        static readonly int[] SaleOrder = { 2, 1, 5, 0 };   // best first: powder, pills, moonshine, weed
+        static readonly int[] SaleOrder = { 6, 2, 7, 1, 8, 5, 0 };   // best first: powder, pills, moonshine, weed
         int BestProduct() { foreach (int i in SaleOrder) if (Unlocked(i) && Stock(i) > 0) return i; return -1; }
 
         /// <summary>Offer something to a civilian: who is buying, how much, and who might be watching.</summary>
@@ -85,13 +85,13 @@ namespace MafiaSandbox.Gang
         public void SellArms(MafiaSandbox.Factions.FactionBrain fb)
         {
             var gm = GameManager.I; var eco = EconomyManager.I; var fm = MafiaSandbox.Factions.FactionManager.I; if (!fb || !eco) return;
-            int p = Stock(4) > 0 && Unlocked(4) ? 4 : Stock(3) > 0 && Unlocked(3) ? 3 : -1;
+            int p = -1; foreach (int k in new[] { 4, 10, 9, 3 }) if (Stock(k) > 0 && Unlocked(k)) { p = k; break; }
             if (p < 0) { gm.Say("You've got no guns to sell. Order them from Sal (K ▸ Supplies)."); return; }
             if (fm != null && fb.Def != null && fm.Hostile(fb.Def)) { gm.Say($"{fb.displayName}: Get lost, we don't deal with you."); return; }
             var pp = gm.player.transform.position;
             if (WantedSystem.I && WantedSystem.I.CopWitness(pp, 22f, 1, "arms dealing in front of the police")) return;
             int price = Mathf.RoundToInt(StreetNow(p) * Random.Range(0.95f, 1.25f)); Take(Products[p]); eco.cash += price; Deals++;
-            gm.Say($"{fb.displayName} bought {Items.Get(Products[p]).name} for ${price}"); Respect.Add(p == 3 ? 20 : 45); Sfx.At("click", pp);
+            gm.Say($"{fb.displayName} bought {Items.Get(Products[p]).name} for ${price}"); Respect.Add(p == 3 || p == 9 ? 20 : 45); Sfx.At("click", pp);
         }
 
         // ------------------------------------------------------------------ recruiting / arming

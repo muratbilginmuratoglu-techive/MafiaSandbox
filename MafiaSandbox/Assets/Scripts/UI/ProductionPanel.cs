@@ -11,7 +11,8 @@ namespace MafiaSandbox.UI
     public class ProductionPanel : MonoBehaviour
     {
         public static ProductionPanel I { get; private set; }
-        public static bool IsOpen => I && I.open;
+        public static bool IsOpen => (I && I.open) || Workshop.Active || AdminPanel.IsOpen;
+        int mult = 1;
         bool open; int sel; Puzzle puzzle; float resultT; int puzzleRecipe;
         void Awake() { I = this; }
         int station = -1; Vector3 stPos;
@@ -19,12 +20,12 @@ namespace MafiaSandbox.UI
         {
             open = true; puzzle = null; station = st; var lab = HomeLab.I; var gm = GameManager.I; stPos = gm && gm.player ? gm.player.transform.position : Vector3.zero;
             if (lab) { int i = lab.NearStation(stPos, 3f); if (i >= 0) stPos = lab.stations[i].pos; }
-            sel = HomeLab.RecipesFor(st)[0];
+            sel = HomeLab.RecipesFor(st)[0]; mult = 1;
         }
 
         void Update()
         {
-            var gm = GameManager.I; if (!open || !gm || !gm.player) return;
+            var gm = GameManager.I; if (!open || !gm || !gm.player) return; if (Workshop.Active) { open = false; return; }
             if (puzzle != null) { puzzle.Tick(Time.unscaledDeltaTime); if (puzzle.Done && resultT <= 0f) resultT = 1.6f; if (resultT > 0f) { resultT -= Time.unscaledDeltaTime; if (resultT <= 0f) { HomeLab.I.StartBatch(puzzleRecipe, puzzle.Score); puzzle = null; } } return; }
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.F) || HomeLab.I == null || (gm.player.transform.position - stPos).sqrMagnitude > 5f * 5f) open = false;
         }
@@ -42,25 +43,28 @@ namespace MafiaSandbox.UI
             GUILayout.BeginVertical(GUILayout.Width(300));
             foreach (int i in HomeLab.RecipesFor(station))
             {
-                var rc = HomeLab.Recipes[i]; var b = lab.batches[i]; bool locked = Respect.Rank < rc.rank && !Career.IsStarterRecipe(rc.id);
+                var rc = HomeLab.Recipes[i]; var b = lab.batches[i]; bool locked = HomeLab.Locked(rc);
                 string tag = locked ? $"  (needs {Respect.Ranks[Mathf.Min(5, rc.rank)]})" : b.state == 1 ? $"  · {lab.HoursLeft(i):0.0} h" : b.state == 2 ? "  · READY" : "";
-                if (GUILayout.Button(rc.name + tag, sel == i ? UiSkin.ButtonOn : UiSkin.Button, GUILayout.Height(32))) sel = i;
+                if (GUILayout.Button(rc.name + tag, sel == i ? UiSkin.ButtonOn : UiSkin.Button, GUILayout.Height(32))) { sel = i; mult = 1; }
             }
             GUILayout.EndVertical(); GUILayout.Space(14);
             GUILayout.BeginVertical();
             var s = HomeLab.Recipes[sel]; var sb = lab.batches[sel];
             GUILayout.Label(s.name, UiSkin.H2); GUILayout.Label(s.blurb, UiSkin.LabelDim);
-            GUILayout.Space(6); GUILayout.Label("INGREDIENTS (backpack + stash)", UiSkin.H2);
-            foreach (var (id, n) in s.inputs) { int have = lab.Have(id); GUILayout.Label($"{Items.Get(id).name}   {have} / {n}", have >= n ? UiSkin.Label : UiSkin.LabelDim); }
-            GUILayout.Label($"Makes {s.yield} × {Items.Get(s.product).name} (better work = more)  ·  {s.hours:0} game hours", UiSkin.LabelDim);
-            GUILayout.Label("Buy ingredients: market (corn, sugar, yeast, seeds), pharmacy (medicine, solvent, precursor), pawn shop (metal parts), gun shop (gunpowder).", UiSkin.LabelDim);
+            GUILayout.Space(6); GUILayout.Label(Admin.Unlimited ? "INGREDIENTS (admin: unlimited)" : "INGREDIENTS (backpack + home cupboard)", UiSkin.H2);
+            int maxB = Mathf.Clamp(lab.MaxBatches(sel), 1, 5); mult = Mathf.Clamp(mult, 1, maxB);
+            foreach (var (id, n) in s.inputs) { int have = lab.Have(id); GUILayout.Label($"{Items.Get(id).name}   {(Admin.Unlimited ? "∞" : have.ToString())} / {n * mult}", have >= n * mult ? UiSkin.Label : UiSkin.LabelDim); }
+            GUILayout.BeginHorizontal(); GUILayout.Label($"Batch size  ×{mult}   (you have enough for ×{Mathf.Min(5, lab.MaxBatches(sel))})", UiSkin.LabelDim, GUILayout.Width(300));
+            if (GUILayout.Button("−", UiSkin.Button, GUILayout.Width(36))) mult = Mathf.Max(1, mult - 1); if (GUILayout.Button("+", UiSkin.Button, GUILayout.Width(36))) mult = Mathf.Min(maxB, mult + 1); GUILayout.EndHorizontal();
+            GUILayout.Label($"Makes about {s.yield * mult} × {Items.Get(s.product).name} (better handiwork = more)  ·  {s.hours:0} game hours", UiSkin.LabelDim);
+            GUILayout.Label("Buy ingredients at the market (mash, sugar, yeast, oak, botanicals, seeds, medicine, solvent, precursor) and the gun shop (metal parts, gunpowder, stock blanks). Keep them in your backpack or the cupboard at home.", UiSkin.LabelDim);
             GUILayout.Space(8);
             if (sb.state == 1) { GUILayout.Label($"Cooking… {sb.yield} units expected", UiSkin.Label); var pr = GUILayoutUtility.GetRect(10, 16, GUILayout.ExpandWidth(true)); UiSkin.DrawBar(pr, lab.Progress(sel), UiSkin.Accent); GUILayout.Label("Sleep to speed up the wait.", UiSkin.LabelDim); }
             else if (sb.state == 2) { if (GUILayout.Button($"Collect {sb.yield} × {Items.Get(s.product).name}", UiSkin.ButtonOn, GUILayout.Height(38))) lab.Collect(sel); }
             else
             {
-                string err = lab.CanStart(sel); GUI.enabled = err == null;
-                if (GUILayout.Button(err == null ? "Start (play the puzzle)" : err, UiSkin.ButtonOn, GUILayout.Height(38))) { puzzleRecipe = sel; puzzle = MakePuzzle(s); resultT = 0f; }
+                string err = lab.CanStart(sel, mult); GUI.enabled = err == null;
+                if (GUILayout.Button(err == null ? "Get to work at the bench" : err, UiSkin.ButtonOn, GUILayout.Height(38))) { if (Workshop.I && Workshop.I.Begin(sel, mult)) open = false; }
                 GUI.enabled = true;
             }
             GUILayout.EndVertical(); GUILayout.EndHorizontal();
