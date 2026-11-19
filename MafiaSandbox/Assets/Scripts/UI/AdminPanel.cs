@@ -6,7 +6,7 @@ using MafiaSandbox.Gang;
 namespace MafiaSandbox.UI
 {
     /// <summary>
-    /// Admin / test mode (F10): unlimited ingredients, instant batches, every recipe unlocked, and a button per product that opens
+    /// Admin / test mode (P): unlimited ingredients, instant batches, every recipe unlocked, and a button per product that opens
     /// its workshop job right where you stand. Also stocks the cupboard, hands out cash and sets up the three stations at home.
     /// </summary>
     public class AdminPanel : MonoBehaviour
@@ -19,7 +19,13 @@ namespace MafiaSandbox.UI
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) { open = false; return; }
-            if (Input.GetKeyDown(KeyCode.F10) && !Workshop.Active && !CharacterCreator.IsOpen && !IntroCinematic.Playing && !HomeLab.Sleeping) open = !open;
+            bool key = Input.GetKeyDown(KeyCode.P); bool debugOpen = DebugPanel.I && DebugPanel.I.Open;
+            if (key && !debugOpen && !Workshop.Active && !CharacterCreator.IsOpen && !IntroCinematic.Playing && !HomeLab.Sleeping && !PhonePanel.IsOpen && !CrewPanel.IsOpen && !StashPanel.IsOpen && !(GameUI.I && GameUI.I.MapOpen) && !(ProductionPanel.I && ProductionPanel.I.PanelOpen))
+            {
+                open = !open;
+                // P = admin mode: everything can be made straight away (unlimited ingredients, no waiting, every recipe)
+                if (open && !Admin.On) { Admin.On = Admin.Unlimited = Admin.Instant = Admin.UnlockAll = true; gm.Say("Admin mode on: unlimited ingredients, instant batches, every recipe unlocked."); }
+            }
             if (open && Input.GetKeyDown(KeyCode.Escape)) open = false;
         }
 
@@ -55,11 +61,11 @@ namespace MafiaSandbox.UI
         void OnGUI()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
-            if (Admin.On && !open && !Workshop.Active) { var chip = new Rect(Screen.width / 2f - 150, 36, 300, 22); UiSkin.DrawChip(chip, "ADMIN MODE  ·  F10 opens the panel", new Color(1f, 0.6f, 0.35f)); }
+            if (Admin.On && !open && !Workshop.Active) { var chip = new Rect(Screen.width / 2f - 150, 36, 300, 22); UiSkin.DrawChip(chip, "ADMIN MODE  ·  P opens the panel", new Color(1f, 0.6f, 0.35f)); }
             if (!open) return; GUI.depth = -40; var lab = HomeLab.I; var eco = EconomyManager.I;
             float W = Screen.width, H = Screen.height; var r = new Rect(W / 2f - 380, 40, 760, Mathf.Min(H - 70, 640)); UiSkin.DrawPanel(r, true);
             GUILayout.BeginArea(new Rect(r.x + 16, r.y + 12, r.width - 32, r.height - 24));
-            GUILayout.BeginHorizontal(); GUILayout.Label("Admin mode", UiSkin.Title); GUILayout.FlexibleSpace(); GUILayout.Label("F10 / Esc closes", UiSkin.LabelDim); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); GUILayout.Label("Admin mode", UiSkin.Title); GUILayout.FlexibleSpace(); if (GUILayout.Button("Debug panel (teleport, time, weather)", UiSkin.Button) && DebugPanel.I) { open = false; DebugPanel.I.Show(); } GUILayout.Space(10); GUILayout.Label("P / Esc closes", UiSkin.LabelDim); GUILayout.EndHorizontal();
             GUILayout.Label("SWITCHES", UiSkin.H2); GUILayout.BeginHorizontal();
             bool on = GUILayout.Toggle(Admin.On, Admin.On ? "Admin: ON" : "Admin: OFF", UiSkin.Button, GUILayout.Height(34));
             if (on != Admin.On) { Admin.On = Admin.Unlimited = Admin.Instant = Admin.UnlockAll = on; gm.Say(on ? "Admin mode on: unlimited ingredients, instant batches, all recipes." : "Admin mode off."); }
@@ -73,7 +79,7 @@ namespace MafiaSandbox.UI
             GUILayout.Space(6); GUILayout.Label("HOME AND SUPPLIES", UiSkin.H2); GUILayout.BeginHorizontal();
             if (GUILayout.Button("+$5,000", UiSkin.Button) && eco) eco.cash += 5000;
             if (GUILayout.Button("Cupboard: 20 of every ingredient", UiSkin.Button)) { foreach (var kv in Items.All) if (kv.Value.kind == "material") Stock(kv.Key, 20); gm.Say("The cupboard at home is stocked."); }
-            if (GUILayout.Button("Backpack: 5 of every product", UiSkin.Button) && eco) { foreach (var p in CrewManager.Products) eco.AddItem(p, 5, false); gm.Say("Five of every product in your backpack."); }
+            if (GUILayout.Button("Backpack: products + rides", UiSkin.Button) && eco) { foreach (var p in CrewManager.Products) eco.AddItem(p, 5, false); foreach (var ride in new[] { "Kaykay", "Skuter", "Bisiklet" }) if (eco.Count(ride) == 0) eco.AddItem(ride, 1, false); gm.Say("Five of every product, plus a skateboard, a scooter and a bicycle, in your backpack."); }
             GUILayout.EndHorizontal(); GUILayout.BeginHorizontal();
             if (GUILayout.Button("Set up the three stations at home", UiSkin.Button) && lab && lab.Ready && eco && eco.homeShop != null) PlaceStations(lab, eco.homeShop.info);
             if (GUILayout.Button("Teleport inside home", UiSkin.Button))

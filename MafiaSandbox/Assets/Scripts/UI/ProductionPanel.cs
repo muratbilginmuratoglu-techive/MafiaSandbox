@@ -13,6 +13,7 @@ namespace MafiaSandbox.UI
         public static ProductionPanel I { get; private set; }
         public static bool IsOpen => (I && I.open) || Workshop.Active || AdminPanel.IsOpen;
         int mult = 1;
+        public bool PanelOpen => open;
         bool open; int sel; Puzzle puzzle; float resultT; int puzzleRecipe;
         void Awake() { I = this; }
         int station = -1; Vector3 stPos;

@@ -31,7 +31,7 @@ namespace MafiaSandbox.Economy
         bool carry, grip; float turns, prevAng, level, flow, heatV, heatT, heatIn, clock, stepT, speedPen; int shakeI, shakeErr, drops, spilled, clicksLeft; int[] shakePat; Vector2 anchor;
         float tilt, dropMeter, pullL, pullR; int stretchDrag; bool creased, snapped; Transform stream, src; Vector3 srcHome; readonly List<(Transform t, float vy, bool ok)> falling = new List<(Transform, float, bool)>();
         readonly List<Transform> targets = new List<Transform>(), decoys = new List<Transform>(); readonly List<(Transform t, Vector3 p)> group = new List<(Transform, Vector3)>(); Vector3 groupC;
-        float needle, skipCd; bool wheelTilt;
+        float needle, skipCd, snipT; bool wheelTilt; Transform scissors; readonly List<(Transform t, float vy)> debris = new List<(Transform, float)>();
 
         void Awake() { I = this; Camera.onPreCull += PreCull; Camera.onPostRender += PostRender; }
         void OnDestroy() { Camera.onPreCull -= PreCull; Camera.onPostRender -= PostRender; }
@@ -72,7 +72,7 @@ namespace MafiaSandbox.Economy
 
         void Close()
         {
-            active = false; result = false; carry = grip = false; parts.Clear(); falling.Clear(); targets.Clear(); decoys.Clear(); group.Clear(); ghost = null; stream = null; src = null;
+            active = false; result = false; carry = grip = false; parts.Clear(); falling.Clear(); targets.Clear(); decoys.Clear(); group.Clear(); debris.Clear(); scissors = null; ghost = null; stream = null; src = null;
             if (swapped) { swapped = false; if (sun) sun.enabled = sunWas; RenderSettings.ambientMode = modeWas; RenderSettings.ambientLight = ambWas; RenderSettings.fog = fogWas; }
             if (root) Destroy(root.gameObject); root = null; cam = null; def = null;
         }
@@ -132,7 +132,7 @@ namespace MafiaSandbox.Economy
         {
             var s = Step; carry = grip = false; turns = 0f; level = 0f; flow = 0f; heatV = 0.15f; heatT = 0f; heatIn = 0f; clock = 0f; stepT = 0f; speedPen = 0f; shakeI = 0; shakeErr = 0; drops = 0; spilled = 0;
             tilt = 0f; dropMeter = 0f; pullL = pullR = 0f; stretchDrag = 0; creased = false; snapped = false; src = null; targets.Clear(); decoys.Clear(); group.Clear();
-            if (ghost) { ghost.SetActive(false); ghost.transform.SetParent(null); Destroy(ghost); } ghost = null; if (stream) Destroy(stream.gameObject); stream = null;
+            if (ghost) { ghost.SetActive(false); ghost.transform.SetParent(null); Destroy(ghost); } ghost = null; if (scissors) Destroy(scissors.gameObject); scissors = null; if (stream) Destroy(stream.gameObject); stream = null;
             if (s == null) { result = true; return; }
             Toggle(s.pre, true);
             switch (s.k)
@@ -152,7 +152,7 @@ namespace MafiaSandbox.Economy
                 case WK.Drops: src = Kit.Find(root, s.a); if (src) srcHome = src.position; break;
                 case WK.Clicks:
                     foreach (var t in root.GetComponentsInChildren<Transform>(false)) { if (t.name.StartsWith(s.a) && t.name.Length <= s.a.Length + 2 && t.name != s.a + "s") targets.Add(t); else if (!string.IsNullOrEmpty(s.b) && t.name.StartsWith(s.b) && t.name.Length <= s.b.Length + 2) decoys.Add(t); }
-                    clicksLeft = targets.Count; break;
+                    clicksLeft = targets.Count; if (!string.IsNullOrEmpty(s.b)) BuildScissors(); break;
             }
         }
         void CompleteStep(string msg = null)
@@ -178,8 +178,13 @@ namespace MafiaSandbox.Economy
             if (Input.GetMouseButtonDown(1)) { orbit = true; dragStart = Input.mousePosition; yaw0 = camYaw; elev0 = camElev; }
             if (Input.GetMouseButtonUp(1)) orbit = false;
             if (orbit) { camYaw = Mathf.Clamp(yaw0 + (Input.mousePosition.x - dragStart.x) * 0.18f, -35f, 35f); camElev = Mathf.Clamp(elev0 - (Input.mousePosition.y - dragStart.y) * 0.14f, 16f, 62f); }
-            float wheel = Input.mouseScrollDelta.y; bool tipping = carry && Step != null && Step.k == WK.Drops; if (tipping && Mathf.Abs(wheel) > 0.01f) { tilt = Mathf.Clamp(tilt + wheel * 8f, 0f, 55f); wheelTilt = true; } else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
+            float wheel = Input.mouseScrollDelta.y; bool tipping = carry && Step != null && Step.k == WK.Drops; if (tipping && Mathf.Abs(wheel) > 0.01f) { tilt = Mathf.Clamp(tilt + wheel * 9f, 0f, 78f); wheelTilt = true; } else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
             PlaceCamera();
+            for (int i = debris.Count - 1; i >= 0; i--)   // snipped leaves flutter down to the bench
+            {
+                var d = debris[i]; if (!d.t) { debris.RemoveAt(i); continue; } d.vy += 3.2f * dt; d.t.position += Vector3.down * d.vy * dt; d.t.Rotate(140f * dt, 60f * dt, 200f * dt); debris[i] = d;
+                if (d.t.position.y < BasePos.y + TableY + 0.02f) { d.t.gameObject.SetActive(false); debris.RemoveAt(i); }
+            }
             if (ghost) { float a = 0.22f + 0.12f * Mathf.Sin(Time.unscaledTime * 4f); foreach (var rd in ghost.GetComponentsInChildren<Renderer>()) rd.sharedMaterial.color = new Color(0.8f, 1f, 0.45f, a); }
             if (Input.GetKeyDown(KeyCode.Escape)) { Close(); GameManager.I?.Say("You put the work down. Nothing was used."); return; }
             if (result) { if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)) Finish(); return; }
@@ -209,7 +214,7 @@ namespace MafiaSandbox.Economy
             if (s.k == WK.Place) { var rp = parts[s.part]; rp.placed = true; rp.scale = 1f; rp.t.localScale = Vector3.one; rp.t.position = OriginW; if (def.parts[s.part].hide) rp.t.gameObject.SetActive(false); }
             if (s.k == WK.Fill) { var l = Kit.Find(root, s.a); if (l) l.localScale = new Vector3(1f, s.f, 1f); }
             if (s.k == WK.Clicks) foreach (var t in targets) if (t && !string.IsNullOrEmpty(s.b)) t.gameObject.SetActive(false);
-            if (s.k == WK.Pack) { foreach (var p in parts) if (p.placed) p.t.gameObject.SetActive(false); Toggle("CrateLid", true); }
+            if (s.k == WK.Pack) { for (int i = Mathf.Max(0, s.part); i < parts.Count; i++) if (parts[i].placed) parts[i].t.gameObject.SetActive(false); Toggle("CrateLid", true); }
             CompleteStep("Step skipped (admin)");
         }
 
@@ -300,11 +305,11 @@ namespace MafiaSandbox.Economy
             Vector3 nozzle = src.position + src.rotation * (Vector3.up * h);
             if (carry)
             {
-                if (Input.GetKey(KeyCode.Space)) { tilt = Mathf.Min(55f, tilt + 55f * dt); wheelTilt = false; } else if (!wheelTilt) tilt = Mathf.Max(0f, tilt - 130f * dt);
-                Vector3 want = OnPlane(mouth.y + 0.1f); want.x = Mathf.Clamp(want.x, BasePos.x - 0.9f, BasePos.x + 1.1f); want.z = Mathf.Clamp(want.z, BasePos.z - 0.6f, BasePos.z + 0.6f);
-                Vector3 over = new Vector3(mouth.x, mouth.y + 0.1f, mouth.z); snapped = Vector2.Distance(new Vector2(want.x, want.z), new Vector2(over.x, over.z)) < 0.09f || SD(over) < 0.06f; if (snapped) want = over;
-                var q = Quaternion.Euler(0f, 0f, -(75f + tilt)); src.rotation = q;   // carried lying on its side next to the mouth, tipped past level to pour src.position = want - q * (Vector3.up * h); nozzle = want;
-                float rate = tilt < 22f ? 0f : tilt < 38f ? 1.3f : tilt < 50f ? 3f : 6.5f; dropMeter += rate * dt;
+                if (Input.GetKey(KeyCode.Space)) { tilt = Mathf.Min(78f, tilt + 60f * dt); wheelTilt = false; } else if (!wheelTilt) tilt = Mathf.Max(0f, tilt - 150f * dt);
+                Vector3 want = OnPlane(mouth.y + 0.22f); want.x = Mathf.Clamp(want.x, BasePos.x - 0.9f, BasePos.x + 1.1f); want.z = Mathf.Clamp(want.z, BasePos.z - 0.6f, BasePos.z + 0.6f);
+                Vector3 over = new Vector3(mouth.x, mouth.y + 0.22f, mouth.z); snapped = Vector2.Distance(new Vector2(want.x, want.z), new Vector2(over.x, over.z)) < 0.1f || SD(over) < 0.07f; if (snapped) want = over;
+                var q = Quaternion.Euler(0f, 0f, tilt); src.rotation = q;   // tips to the left around its own mouth, which stays over the target src.position = want - q * (Vector3.up * h); nozzle = want;
+                float rate = tilt < 26f ? 0f : tilt < 47f ? 1f : tilt < 65f ? 2.6f : 5.8f; dropMeter += rate * dt;
                 while (dropMeter >= 1f) { dropMeter -= 1f; var d = Kit.Ball(root, 0f, 0f, 0f, 0.016f, 0.024f, 0.016f, new Color(0.45f, 0.8f, 0.5f), 0.9f, 0f, "Drop", 0.4f); d.position = nozzle; falling.Add((d, 0f, snapped)); }
             }
             for (int i = falling.Count - 1; i >= 0; i--)
@@ -352,8 +357,31 @@ namespace MafiaSandbox.Economy
             CompleteStep(loss <= 0f ? "Perfect timing!" : $"Timing slipped: -{loss:0} quality");
         }
 
+        void BuildScissors()
+        {
+            scissors = Kit.Node(root, "Scissors"); scissors.localScale = Vector3.one * 1.5f; Color steel = Kit.H(0xc8ccd2), grip = Kit.H(0xd0452f);
+            foreach (int side in new[] { -1, 1 })
+            {
+                var half = Kit.Node(scissors, side < 0 ? "BladeA" : "BladeB");
+                Kit.Mk(half, "Blade", Kit.Prism(new[] { -0.008f, 0f, 0.008f, 0f, 0.002f, 0.12f, -0.002f, 0.12f }, 0.004f), new Vector3(0f, 0f, side * 0.003f), Vector3.one, Quaternion.identity, Kit.Mat(steel, 0.8f, 0.9f));
+                Kit.Box(half, side * 0.012f, -0.035f, side * 0.003f, 0.008f, 0.06f, 0.006f, grip, 0.3f).localRotation = Quaternion.Euler(0f, 0f, side * -18f);
+                Kit.Cy(half, side * 0.03f, -0.075f, side * 0.003f, 0.045f, 0.008f, grip, 2, 0.3f); Kit.Cy(half, side * 0.03f, -0.075f, side * 0.003f, 0.028f, 0.01f, Kit.H(0x26302b), 2, 0.1f);
+            }
+            Kit.Cy(scissors, 0f, 0f, 0f, 0.012f, 0.014f, Kit.H(0x5a5f66), 2, 0.7f, 0.9f);
+        }
+        void MoveScissors(float dt)
+        {
+            if (!scissors || targets.Count == 0) return; if (snipT > 0f) snipT -= dt;
+            // the scissors ride the mouse on a pane just in front of the plant, tips at the pointer, and snap shut on a cut
+            float pz = BasePos.z - 0.12f; var ray = cam.ScreenPointToRay(Input.mousePosition); float t = Mathf.Abs(ray.direction.z) < 0.0001f ? 0f : (pz - ray.origin.z) / ray.direction.z; Vector3 tip = ray.origin + ray.direction * Mathf.Max(0f, t);
+            var rot = Quaternion.Euler(0f, 0f, 35f); scissors.rotation = rot; scissors.position = tip - rot * (Vector3.up * 0.15f);
+            float open = snipT > 0f ? 1f : 13f; var a = scissors.Find("BladeA"); var b = scissors.Find("BladeB");
+            if (a) a.localRotation = Quaternion.Euler(0f, 0f, open); if (b) b.localRotation = Quaternion.Euler(0f, 0f, -open);
+        }
+
         void DoClicks(WStep s, bool down)
         {
+            MoveScissors(Time.unscaledDeltaTime);
             if (stepT > s.f + 2f) { stepT = s.f; Lose(1f, "Taking too long"); }
             if (!down) return; Transform best = null; float bd = 0.045f; bool decoy = false;
             foreach (var t in targets) if (t && t.gameObject.activeInHierarchy && t.name != "Done") { float d = SD(Kit.BoundsOf(t).center); if (d < bd) { bd = d; best = t; decoy = false; } }
@@ -361,7 +389,7 @@ namespace MafiaSandbox.Economy
             if (!best) return;
             if (decoy) { Lose(5f, "You nicked a bud"); return; }
             if (string.IsNullOrEmpty(s.b)) { best.name = "Done"; best.localRotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(-25f, 25f)); best.localScale = Vector3.one * 0.8f; best.localPosition += new Vector3(Random.Range(-0.012f, 0.012f), 0.004f, Random.Range(-0.012f, 0.012f)); }
-            else best.gameObject.SetActive(false);
+            else { best.name = "Done"; debris.Add((best, 0f)); snipT = 0.18f; }
             Click(); clicksLeft--; if (clicksLeft <= 0) CompleteStep("Clean work.");
         }
 
@@ -369,18 +397,19 @@ namespace MafiaSandbox.Economy
         {
             if (group.Count == 0)
             {
-                var b = new Bounds(); bool any = false; foreach (var p in parts) if (p.placed && p.t.gameObject.activeSelf) { var pb = Kit.BoundsOf(p.t); if (!any) { b = pb; any = true; } else b.Encapsulate(pb); group.Add((p.t, p.t.position)); }
+                var b = new Bounds(); bool any = false; int first = Step.part;   // part >= 0: only that part and the ones fitted after it are the product (the bag, not the plant)
+                for (int i = 0; i < parts.Count; i++) { var p = parts[i]; if (i < first || !p.placed || !p.t.gameObject.activeSelf) continue; var pb = Kit.BoundsOf(p.t); if (!any) { b = pb; any = true; } else b.Encapsulate(pb); group.Add((p.t, p.t.position)); }
                 if (!any) { CompleteStep(); return; } groupC = b.center;
             }
             Vector3 crate = W(CratePos) + Vector3.up * 0.08f;
-            if (down && !carry && SD(groupC) < 0.13f) carry = true;
+            if (down && !carry && SD(groupC) < 0.16f) carry = true;
             if (!carry) return;
             Vector3 hit = OnPlane(groupC.y); foreach (var g in group) g.t.position = g.p + (hit - groupC);
             if (up)
             {
                 carry = false;
-                if (SD(crate) < 0.12f) { foreach (var g in group) g.t.gameObject.SetActive(false); Toggle("CrateLid", true); CompleteStep("Packed."); }
-                else { foreach (var g in group) g.t.position = g.p; Lose(3f, "That's not the crate"); }
+                if (SD(crate) < 0.2f) { foreach (var g in group) g.t.gameObject.SetActive(false); Toggle("CrateLid", true); CompleteStep("Packed."); }
+                else { foreach (var g in group) g.t.position = g.p; Say("Drop it into the crate on the right."); }
             }
         }
 
@@ -429,7 +458,7 @@ namespace MafiaSandbox.Economy
                         break;
                     }
                 case WK.Fill: Gauge(W, H, $"{Mathf.Min(level, 1f) * 100f:0}%   (mark at {s.f * 100f:0}%)   ENTER when done", Mathf.Clamp01(level), s.f); break;
-                case WK.Drops: Gauge(W, H, $"{drops} / {s.f:0} drops   spilled {spilled}   {(carry ? (snapped ? "over the mouth: hold SPACE or roll the wheel" : "move over the bottle's mouth") : "pick up the little bottle")}   ENTER when done", Mathf.Clamp01(drops / s.f), 1f); break;
+                case WK.Drops: Gauge(W, H, $"{drops} / {s.f:0} drops   spilled {spilled}   {(carry ? (snapped ? "over the mouth: roll the mouse wheel up to tip it (down to stop)" : "move over the bottle's mouth") : "pick up the little bottle")}   ENTER when done", Mathf.Clamp01(drops / s.f), 1f); break;
                 case WK.Heat:
                     {
                         var r = new Rect(W / 2f - 260, 14, 520, 70); UiSkin.DrawPanel(r, true); var bar = new Rect(r.x + 16, r.y + 30, r.width - 32, 26); Fill(bar, new Color(0.1f, 0.12f, 0.16f));

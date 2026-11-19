@@ -330,7 +330,7 @@ namespace MafiaSandbox.Economy
             }
             else if (kind == 2)
             {
-                steps.Add(S(WK.Drops, "Add the essence", "Carry the little bottle over the mouth, hold SPACE (or roll the mouse wheel) to tip it. 6 drops, then ENTER.", -1, 6f, "Essence", null, null, null, mouth));
+                steps.Add(S(WK.Drops, "Add the essence", "Grab the little bottle, carry it over the mouth (it snaps in place), then roll the mouse wheel to tip it. 6 drops, then ENTER.", -1, 6f, "Essence", null, null, null, mouth));
                 steps.Add(S(WK.Place, "Screw the cap on", drag, 4));
                 steps.Add(S(WK.Place, "Hang the label", drag, 5));
             }
@@ -438,11 +438,11 @@ namespace MafiaSandbox.Economy
             var steps = new[]
             {
                 S(WK.Place, "Set the plant on the bench", "Drag the pot from the tray onto the glowing ring.", 0),
-                S(WK.Clicks, "Trim the fan leaves", "Click every dark fan leaf to snip it. Don't cut the buds.", -1, 14f, "Leaf", "Bud"),
+                S(WK.Clicks, "Trim the fan leaves", "Move the scissors over each dark fan leaf and click to snip it. Don't cut the buds.", -1, 16f, "Leaf", "Bud"),
                 S(WK.Timing, "Dry and cure", "Pull it off the line at the right moment: stop the marker in the green zone (SPACE)."),
                 S(WK.Place, "Put a zip bag on the scale", "Drag it onto the scale.", 1),
                 S(WK.Fill, "Weigh out the bag", "Hold the mouse button (or SPACE) to drop buds in. Stop at the mark, then press ENTER.", -1, 0.8f, "BagFill"),
-                S(WK.Pack, "Box it", "Drag the bag into the crate."),
+                S(WK.Pack, "Box it", "Drag the bag from the scale into the crate on the right.", 1),
             };
             return new WorkDef { title = "Weed", parts = parts, steps = steps, origin = Vector3.zero, apparatus = r => { ScaleUnit(r); Lamp(r); Box(r, 0.55f, TableY + 0.008f, -0.22f, 0.16f, 0.016f, 0.05f, st, 0.7f, 0.9f); Cy(r, 0.47f, TableY + 0.01f, -0.22f, 0.05f, 0.012f, H(0xb23a2e), 1, 0.3f); } };
         }
@@ -471,7 +471,7 @@ namespace MafiaSandbox.Economy
                 S(WK.Place, "Put a pill bottle on the scale", "Drag it onto the scale.", 2),
                 S(WK.Fill, "Count them in", "Hold the mouse button (or SPACE) to pour pills. Stop at the mark, then press ENTER.", -1, 0.75f, "BottleFill", null, null, "Pressed"),
                 S(WK.Place, "Snap the cap on", "Drag it onto the bottle.", 3),
-                S(WK.Pack, "Box it", "Drag the bottle into the crate."),
+                S(WK.Pack, "Box it", "Drag the bottle from the scale into the crate on the right.", 2),
             };
             return new WorkDef
             {
@@ -522,7 +522,7 @@ namespace MafiaSandbox.Economy
             else { var g = S(WK.Grind, "Crush it to powder", "Grab the pestle and stir in steady circles. Too fast and powder flies out.", -1, 3f, "Mortar", "Pestle"); g.pre = "MortarContent,-Slab"; steps.Add(g); }
             steps.Add(S(WK.Place, "Put a zip bag on the scale", "Drag it onto the scale.", bagI));
             steps.Add(S(WK.Fill, "Weigh out the bag", "Hold the mouse button (or SPACE) to fill. Stop at the mark, then press ENTER.", -1, 0.8f, "BagFill", null, null, crystal ? "Shards" : "MortarContent"));
-            steps.Add(S(WK.Pack, "Box it", "Drag the bag into the crate."));
+            steps.Add(S(WK.Pack, "Box it", "Drag the bag from the scale into the crate on the right.", bagI));
             return new WorkDef
             {
                 title = crystal ? "Blue crystal" : "White powder", parts = parts.ToArray(), steps = steps.ToArray(), origin = Vector3.zero,

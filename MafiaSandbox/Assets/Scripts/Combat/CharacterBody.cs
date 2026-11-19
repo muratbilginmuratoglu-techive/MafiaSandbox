@@ -89,6 +89,7 @@ namespace MafiaSandbox.Combat
         }
 
         Transform B(string n) => bones.TryGetValue(n, out var t) ? t : null;
+        public Transform Bone(string n) => B(n);
 
         void BuildRagdoll()
         {

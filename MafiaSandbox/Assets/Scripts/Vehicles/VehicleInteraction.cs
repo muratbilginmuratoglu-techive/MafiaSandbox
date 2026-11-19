@@ -21,6 +21,27 @@ namespace MafiaSandbox.Vehicles
             if (!playerCamera) playerCamera = FindAnyObjectByType<PlayerCamera>();
         }
 
+        void LateUpdate()
+        {
+            if (!Current || !Current.openRide) return;
+            // the animation runs before LateUpdate: follow the ride here so the rider never trails a frame behind, then put the hands on the bars
+            var lean = Current.transform.Find("Model/Lean"); var frame = lean ? lean : Current.transform;
+            transform.SetPositionAndRotation(frame.TransformPoint(Current.seat), frame.rotation * Quaternion.Euler(0f, Current.seatYaw, 0f));
+            if (!Current.hasGrips) return; if (!riderBody) riderBody = GetComponent<MafiaSandbox.Combat.CharacterBody>(); if (!riderBody) return;
+            Reach(riderBody.Bone("LeftArm"), riderBody.Bone("LeftForeArm"), riderBody.Bone("LeftHand"), frame.TransformPoint(Current.gripL));
+            Reach(riderBody.Bone("RightArm"), riderBody.Bone("RightForeArm"), riderBody.Bone("RightHand"), frame.TransformPoint(Current.gripR));
+        }
+        MafiaSandbox.Combat.CharacterBody riderBody;
+        static void Reach(Transform upper, Transform lower, Transform hand, Vector3 target)
+        {
+            if (!upper || !lower || !hand) return;
+            for (int i = 0; i < 6; i++)
+            {
+                lower.rotation = Quaternion.FromToRotation(hand.position - lower.position, target - lower.position) * lower.rotation;
+                upper.rotation = Quaternion.FromToRotation(hand.position - upper.position, target - upper.position) * upper.rotation;
+            }
+        }
+
         void Update()
         {
             if (Current)

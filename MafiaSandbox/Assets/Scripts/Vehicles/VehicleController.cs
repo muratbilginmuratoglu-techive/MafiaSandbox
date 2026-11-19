@@ -23,6 +23,7 @@ namespace MafiaSandbox.Vehicles
         public float length = 4.4f, width = 1.8f;
         /// <summary>Bicycle / scooter / skateboard: the rider stays visible, no drifting, and bumping into people only shoves them.</summary>
         public bool light, openRide; public Vector3 seat; public float seatYaw; public string ridePose = "Idle";
+        public bool hasGrips; public Vector3 gripL, gripR;   // handlebar ends, for the rider's hands
 
         public static readonly System.Collections.Generic.List<VehicleController> All = new System.Collections.Generic.List<VehicleController>();
         void OnEnable() { if (!All.Contains(this)) All.Add(this); }
@@ -34,7 +35,8 @@ namespace MafiaSandbox.Vehicles
         public float Speed => speed;             // signed, m/s along forward
 
         Rigidbody rb; bool lifted; int groundMask; float fallV; static bool layersSet; static readonly Collider[] sweepHits = new Collider[32]; readonly System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float> hitAt = new System.Collections.Generic.Dictionary<MafiaSandbox.Combat.CharacterBody, float>(); int pedMask = -1;
-        float speed, throttle, steer; bool handbrake;
+        float speed, throttle, steer; bool handbrake; bool airborne; float climbV;
+        public float SteerInput => steer; public bool Airborne => airborne;
         Transform[] wheels; Vector3[] wheelAxes;  // optional: nodes named Wheel_* spin for show (axle axis per wheel)
 
         void Awake()
@@ -225,25 +227,48 @@ namespace MafiaSandbox.Vehicles
 
             // ground follow: ride on a raycast instead of resting on the mesh (see Awake)
             float vy; float gy = float.MinValue; float half = length * 0.5f - 0.4f; Vector3 fwd = transform.forward * half;
-            float yNose = float.NaN, yTail = float.NaN;
+            float yNose = float.NaN, yTail = float.NaN, yMid = float.NaN;
             foreach (var off in new[] { Vector3.zero, fwd, -fwd })   // centre, nose and tail
                 if (Physics.Raycast(rb.position + off + Vector3.up * 1.6f, Vector3.down, out var gh, 8f, groundMask, QueryTriggerInteraction.Ignore))
                 {
                     if (gh.point.y > gy) { gy = gh.point.y; DebugGround = gh.collider.name + " y" + gy.ToString("F2"); }
-                    if (off == fwd) yNose = gh.point.y; else if (off == -fwd) yTail = gh.point.y;
+                    if (off == fwd) yNose = gh.point.y; else if (off == -fwd) yTail = gh.point.y; else yMid = gh.point.y;
                 }
             if (!float.IsNaN(yNose) && !float.IsNaN(yTail))
             {
                 gy = (yNose + yTail) * 0.5f;                                   // sit on the slope instead of hovering at the high end
-                bodyPitch = -Mathf.Atan2(yNose - yTail, 2f * half) * Mathf.Rad2Deg;
+                if (!float.IsNaN(yMid) && yMid > gy) gy = yMid;                // ... but never sink the belly into a crest
+                if (!airborne) bodyPitch = -Mathf.Atan2(yNose - yTail, 2f * half) * Mathf.Rad2Deg;
             }
             else bodyPitch = Mathf.MoveTowards(bodyPitch, 0f, 60f * dt);
             if (gy > float.MinValue)
             {
-                float dy = gy - rb.position.y;
-                float ny = Mathf.Abs(dy) > 2.5f ? rb.position.y + Mathf.Sign(dy) * 14f * dt                        // fell off something / teleported: catch up fast
-                         : rb.position.y + dy * Mathf.Clamp01(1f - Mathf.Exp(-9f * dt));                           // otherwise glide onto the slope, no steps
-                vy = (ny - rb.position.y) / dt; fallV = 0f;
+                // Vertical motion is real now: on the ground the car sits exactly on the surface (no sinking into a climb, no floating
+                // down a slope); it remembers how fast it is climbing, and when the road drops away under that momentum it flies and lands.
+                float y = rb.position.y, ny;
+                float slopeV = !float.IsNaN(yNose) && !float.IsNaN(yTail) ? Mathf.Clamp(speed * (yNose - yTail) / Mathf.Max(0.2f, 2f * half), -12f, 9f) : 0f;
+                if (gy - y > 2.5f) { ny = y + 14f * dt; airborne = false; fallV = 0f; climbV = 0f; }                     // teleported under the surface: catch up
+                else if (airborne)
+                {
+                    fallV -= 15f * dt; ny = y + fallV * dt; bodyPitch = Mathf.MoveTowards(bodyPitch, 6f, 25f * dt);       // nose dips a little in the air
+                    if (ny <= gy)
+                    {
+                        ny = gy; airborne = false; climbV = 0f;
+                        if (fallV < -4.5f) { speed *= 0.88f; planarVel *= 0.88f; if (Controlled) MafiaSandbox.Core.Sfx.At("thud", rb.position, Mathf.Clamp01(-fallV / 12f)); }
+                        fallV = 0f;
+                    }
+                }
+                else
+                {
+                    float gap = y - gy;                                                                                  // > 0: the ground fell away below us
+                    if (Controlled && gap > 0.1f && (climbV > 2f || gap > 0.7f)) { airborne = true; fallV = Mathf.Max(0f, climbV); ny = y + fallV * dt; }
+                    else
+                    {
+                        ny = gap <= 0f ? gy : Mathf.Max(gy, y - Mathf.Max(7f, Mathf.Abs(slopeV) * 1.6f + 3f) * dt);     // climb at once, settle quickly
+                        climbV = Mathf.Lerp(climbV, Mathf.Max(0f, slopeV), 1f - Mathf.Exp(-10f * dt));
+                    }
+                }
+                vy = (ny - y) / dt;
             }
             else { fallV -= 9.81f * dt; vy = fallV; }
             Vector3 planar = transform.forward * speed;

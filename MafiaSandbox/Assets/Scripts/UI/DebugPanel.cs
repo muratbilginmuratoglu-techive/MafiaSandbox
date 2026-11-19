@@ -31,11 +31,12 @@ namespace MafiaSandbox.UI
         string[] clips; Vector2 scrollLoc, scrollClip; string showcase;
 
         void Awake() { I = this; }
+        public void Show() { Open = true; }
 
         void Update()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
-            if (Input.GetKeyDown(KeyCode.P) && !(GameUI.I && (GameUI.I.MapOpen)) && !CharacterCreator.IsOpen && !PhonePanel.IsOpen && !IntroCinematic.Playing && !CrewPanel.IsOpen && !StashPanel.IsOpen && !ProductionPanel.IsOpen && !HomeLab.Sleeping) Open = !Open;
+            if (Input.GetKeyDown(KeyCode.P) && Open) { Open = false; return; }   // P now opens the admin panel (which has a button for this one)
             if (Input.GetKeyDown(KeyCode.Escape) && Open) Open = false;
         }
 

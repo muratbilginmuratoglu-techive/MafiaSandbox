@@ -39,7 +39,7 @@ namespace MafiaSandbox.Vehicles
         {
             if (Physics.Raycast(pos + Vector3.up * 3f, Vector3.down, out var h, 12f, 1 << 0, QueryTriggerInteraction.Ignore)) pos.y = h.point.y;
             var go = new GameObject("Ride_" + id); go.SetActive(false); go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
-            var model = new GameObject("Model").transform; model.SetParent(go.transform, false);
+            var body = new GameObject("Model").transform; body.SetParent(go.transform, false); var model = new GameObject("Lean").transform; model.SetParent(body, false);
             float len, wid; string name, pose; Vector3 seat; float seatYaw = 0f;
             if (id == "Bisiklet") { Bicycle(model); len = 1.75f; wid = 0.55f; name = "Bicycle"; pose = "Crouch_Idle"; seat = new Vector3(0f, 0.42f, -0.28f); }
             else if (id == "Skuter") { Scooter(model); len = 1.0f; wid = 0.5f; name = "Kick scooter"; pose = "Idle"; seat = new Vector3(0f, 0.15f, -0.1f); }
@@ -47,6 +47,9 @@ namespace MafiaSandbox.Vehicles
             go.AddComponent<Rigidbody>(); var box = go.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.5f, 0f); box.size = new Vector3(wid, 1.2f, len);
             var vc = go.AddComponent<VehicleController>(); vc.displayName = name; vc.length = len; vc.width = wid; vc.maxSpeed = SpeedOf(id); vc.maxReverse = 1.5f; vc.acceleration = id == "Bisiklet" ? 5f : 4f; vc.brakeDecel = 11f; vc.coastDecel = id == "Bisiklet" ? 1.2f : 1.8f;
             vc.maxSteerDeg = 34f; vc.wheelBase = id == "Bisiklet" ? 1.05f : 0.8f; vc.light = true; vc.openRide = true; vc.seat = seat; vc.seatYaw = seatYaw; vc.ridePose = pose;
+            if (id == "Bisiklet") { vc.hasGrips = true; vc.gripL = new Vector3(-0.22f, 1.0f, 0.34f); vc.gripR = new Vector3(0.22f, 1.0f, 0.34f); }
+            else if (id == "Skuter") { vc.hasGrips = true; vc.gripL = new Vector3(-0.19f, 1.02f, 0.3f); vc.gripR = new Vector3(0.19f, 1.02f, 0.3f); }
+            var vis = go.AddComponent<RideVisual>(); vis.lean = model; vis.maxLean = id == "Bisiklet" ? 22f : id == "Skuter" ? 12f : 16f;
             int vl = LayerMask.NameToLayer("Vehicles"); if (vl >= 0) go.layer = vl;
             go.SetActive(true); return vc;
         }
@@ -56,8 +59,9 @@ namespace MafiaSandbox.Vehicles
         {
             var t = Kit.Mk(p, "Tube", Kit.Cylinder, (a + b) * 0.5f, new Vector3(dia, Vector3.Distance(a, b) * 0.5f, dia), Quaternion.FromToRotation(Vector3.up, (b - a).normalized), Kit.Mat(c, 0.5f, 0.5f)); return t;
         }
-        static void Wheel(Transform p, float y, float z, float dia, float w)
+        static void Wheel(Transform parent, float y, float z, float dia, float w)
         {
+            var p = Kit.Node(parent, "Wheel", 0f, y, z); y = 0f; z = 0f;   // spun by RideVisual
             Kit.Cy(p, 0f, y, z, dia, w, tyre, 0, 0.2f); Kit.Cy(p, 0f, y, z, dia * 0.86f, w + 0.004f, steel, 0, 0.7f, 0.9f); Kit.Cy(p, 0f, y, z, dia * 0.8f, w + 0.008f, Kit.H(0x3a3d42), 0, 0.3f); Kit.Cy(p, 0f, y, z, dia * 0.14f, w + 0.03f, steel, 0, 0.7f, 0.9f);
             for (int i = 0; i < 4; i++) { var s = Kit.Box(p, 0f, y, z, w + 0.01f, dia * 0.8f, 0.012f, steel, 0.7f, 0.9f); s.localRotation = Quaternion.Euler(i * 45f, 0f, 0f); }
         }
@@ -84,7 +88,28 @@ namespace MafiaSandbox.Vehicles
         {
             Kit.Box(m, 0f, 0.1f, 0f, 0.21f, 0.014f, 0.6f, Kit.H(0x8a5a34), 0.3f); Kit.Box(m, 0f, 0.108f, 0f, 0.2f, 0.004f, 0.58f, dark, 0.05f); Kit.Box(m, 0f, 0.092f, 0f, 0.15f, 0.004f, 0.3f, red, 0.3f);
             Kit.Box(m, 0f, 0.118f, 0.36f, 0.2f, 0.014f, 0.14f, Kit.H(0x8a5a34), 0.3f).localRotation = Quaternion.Euler(-18f, 0f, 0f); Kit.Box(m, 0f, 0.118f, -0.36f, 0.2f, 0.014f, 0.14f, Kit.H(0x8a5a34), 0.3f).localRotation = Quaternion.Euler(18f, 0f, 0f);
-            foreach (float z in new[] { -0.22f, 0.22f }) { Kit.Box(m, 0f, 0.075f, z, 0.07f, 0.03f, 0.05f, steel, 0.7f, 0.9f); Kit.Cy(m, 0f, 0.05f, z, 0.012f, 0.2f, steel, 0, 0.7f, 0.9f); foreach (float x in new[] { -0.095f, 0.095f }) Kit.Cy(m, x, 0.03f, z, 0.058f, 0.035f, Kit.H(0xe9dcc0), 0, 0.4f); }
+            foreach (float z in new[] { -0.22f, 0.22f }) { Kit.Box(m, 0f, 0.075f, z, 0.07f, 0.03f, 0.05f, steel, 0.7f, 0.9f); Kit.Cy(m, 0f, 0.05f, z, 0.012f, 0.2f, steel, 0, 0.7f, 0.9f); foreach (float x in new[] { -0.095f, 0.095f }) { var w = Kit.Node(m, "Wheel", x, 0.03f, z); Kit.Cy(w, 0f, 0f, 0f, 0.058f, 0.035f, Kit.H(0xe9dcc0), 0, 0.4f); Kit.Box(w, 0f, 0f, 0f, 0.037f, 0.05f, 0.008f, Kit.H(0xb23a2e)); } }
+        }
+    }
+
+    /// <summary>Spins every "Wheel" node with the ride's speed and leans the frame into corners.</summary>
+    public class RideVisual : MonoBehaviour
+    {
+        public Transform lean; public float maxLean = 18f;
+        VehicleController vc; Transform[] wheels; float[] radius; float roll;
+        void Start()
+        {
+            vc = GetComponent<VehicleController>(); var list = new System.Collections.Generic.List<Transform>();
+            foreach (var t in GetComponentsInChildren<Transform>()) if (t.name == "Wheel") list.Add(t);
+            wheels = list.ToArray(); radius = new float[wheels.Length];
+            for (int i = 0; i < wheels.Length; i++) radius[i] = Mathf.Max(0.02f, Kit.BoundsOf(wheels[i]).size.y * 0.5f);
+        }
+        void Update()
+        {
+            if (!vc) return; float v = vc.Speed, dt = Time.deltaTime;
+            for (int i = 0; i < wheels.Length; i++) wheels[i].Rotate(v / radius[i] * Mathf.Rad2Deg * dt, 0f, 0f, Space.Self);
+            float want = vc.Controlled ? -vc.SteerInput * maxLean * Mathf.Clamp01(Mathf.Abs(v) / Mathf.Max(1f, vc.maxSpeed)) : 0f;
+            roll = Mathf.Lerp(roll, want, 1f - Mathf.Exp(-6f * dt)); if (lean) lean.localRotation = Quaternion.Euler(0f, 0f, roll);
         }
     }
 }
