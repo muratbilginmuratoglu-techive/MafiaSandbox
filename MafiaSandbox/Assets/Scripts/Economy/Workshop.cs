@@ -43,7 +43,7 @@ namespace MafiaSandbox.Economy
             if (!sun) { sun = RenderSettings.sun; if (!sun) { var g = GameObject.Find("Directional Light"); if (g) sun = g.GetComponent<Light>(); } }
             if (sun) { sunWas = sun.enabled; sun.enabled = false; }
             ambWas = RenderSettings.ambientLight; modeWas = RenderSettings.ambientMode; fogWas = RenderSettings.fog;
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(0.27f, 0.29f, 0.3f); RenderSettings.fog = false;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(0.22f, 0.24f, 0.25f); RenderSettings.fog = false;
         }
         void PostRender(Camera c)
         {
@@ -100,7 +100,7 @@ namespace MafiaSandbox.Economy
             var lid = Kit.Box(r, c.x, TableY + 0.21f, c.z, 0.36f, 0.02f, 0.28f, Kit.H(0xb08a60), 0.1f, 0f, "CrateLid"); Kit.Box(lid, 0f, 0.6f, 0f, 0.5f, 0.2f, 0.4f, Kit.H(0x2a2420)); lid.gameObject.SetActive(false);
             // lights and the camera
             void Lamp(float x, float y, float z, float inten, Color col) { var l = new GameObject("WorkLight").AddComponent<Light>(); l.transform.SetParent(r, false); l.transform.localPosition = new Vector3(x, y, z); l.type = LightType.Point; l.range = 9f; l.intensity = inten; l.color = col; l.shadows = LightShadows.None; }
-            Lamp(0.2f, 2.3f, -0.6f, 1.9f, new Color(1f, 0.95f, 0.86f)); Lamp(-1.4f, 1.9f, -1.5f, 0.9f, new Color(0.85f, 0.92f, 1f)); Lamp(1.5f, 1.8f, -1.2f, 0.8f, new Color(1f, 0.9f, 0.8f));
+            Lamp(0.2f, 2.3f, -0.6f, 1.5f, new Color(1f, 0.95f, 0.86f)); Lamp(-1.4f, 1.9f, -1.5f, 0.7f, new Color(0.85f, 0.92f, 1f)); Lamp(1.5f, 1.8f, -1.2f, 0.6f, new Color(1f, 0.9f, 0.8f));
             Kit.Box(r, 0.2f, 2.75f, -0.2f, 1.2f, 0.05f, 0.4f, Kit.H(0xf0dcae), 0.1f, 0f, "Tube", 1.4f);
             cam = new GameObject("WorkshopCamera").AddComponent<Camera>(); cam.transform.SetParent(r, false); cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.08f, 0.11f, 0.1f); cam.fieldOfView = 40f; cam.nearClipPlane = 0.05f; cam.farClipPlane = 40f; cam.depth = 50f;
             def.apparatus?.Invoke(r);
@@ -178,7 +178,7 @@ namespace MafiaSandbox.Economy
             if (Input.GetMouseButtonDown(1)) { orbit = true; dragStart = Input.mousePosition; yaw0 = camYaw; elev0 = camElev; }
             if (Input.GetMouseButtonUp(1)) orbit = false;
             if (orbit) { camYaw = Mathf.Clamp(yaw0 + (Input.mousePosition.x - dragStart.x) * 0.18f, -35f, 35f); camElev = Mathf.Clamp(elev0 - (Input.mousePosition.y - dragStart.y) * 0.14f, 16f, 62f); }
-            float wheel = Input.mouseScrollDelta.y; bool tipping = carry && Step != null && Step.k == WK.Drops; if (tipping && Mathf.Abs(wheel) > 0.01f) { tilt = Mathf.Clamp(tilt + wheel * 12f, 0f, 105f); wheelTilt = true; } else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
+            float wheel = Input.mouseScrollDelta.y; bool tipping = carry && Step != null && Step.k == WK.Drops; if (tipping && Mathf.Abs(wheel) > 0.01f) { tilt = Mathf.Clamp(tilt + wheel * 8f, 0f, 55f); wheelTilt = true; } else if (Mathf.Abs(wheel) > 0.01f) camDist = Mathf.Clamp(camDist - wheel * 0.16f, 1.1f, 3.2f);
             PlaceCamera();
             if (ghost) { float a = 0.22f + 0.12f * Mathf.Sin(Time.unscaledTime * 4f); foreach (var rd in ghost.GetComponentsInChildren<Renderer>()) rd.sharedMaterial.color = new Color(0.8f, 1f, 0.45f, a); }
             if (Input.GetKeyDown(KeyCode.Escape)) { Close(); GameManager.I?.Say("You put the work down. Nothing was used."); return; }
@@ -300,11 +300,11 @@ namespace MafiaSandbox.Economy
             Vector3 nozzle = src.position + src.rotation * (Vector3.up * h);
             if (carry)
             {
-                if (Input.GetKey(KeyCode.Space)) { tilt = Mathf.Min(105f, tilt + 95f * dt); wheelTilt = false; } else if (!wheelTilt) tilt = Mathf.Max(0f, tilt - 160f * dt);
+                if (Input.GetKey(KeyCode.Space)) { tilt = Mathf.Min(55f, tilt + 55f * dt); wheelTilt = false; } else if (!wheelTilt) tilt = Mathf.Max(0f, tilt - 130f * dt);
                 Vector3 want = OnPlane(mouth.y + 0.1f); want.x = Mathf.Clamp(want.x, BasePos.x - 0.9f, BasePos.x + 1.1f); want.z = Mathf.Clamp(want.z, BasePos.z - 0.6f, BasePos.z + 0.6f);
                 Vector3 over = new Vector3(mouth.x, mouth.y + 0.1f, mouth.z); snapped = Vector2.Distance(new Vector2(want.x, want.z), new Vector2(over.x, over.z)) < 0.09f || SD(over) < 0.06f; if (snapped) want = over;
-                var q = Quaternion.Euler(0f, 0f, -tilt); src.rotation = q; src.position = want - q * (Vector3.up * h); nozzle = want;
-                float rate = tilt < 40f ? 0f : tilt < 65f ? 1.3f : tilt < 90f ? 3f : 6.5f; dropMeter += rate * dt;
+                var q = Quaternion.Euler(0f, 0f, -(75f + tilt)); src.rotation = q;   // carried lying on its side next to the mouth, tipped past level to pour src.position = want - q * (Vector3.up * h); nozzle = want;
+                float rate = tilt < 22f ? 0f : tilt < 38f ? 1.3f : tilt < 50f ? 3f : 6.5f; dropMeter += rate * dt;
                 while (dropMeter >= 1f) { dropMeter -= 1f; var d = Kit.Ball(root, 0f, 0f, 0f, 0.016f, 0.024f, 0.016f, new Color(0.45f, 0.8f, 0.5f), 0.9f, 0f, "Drop", 0.4f); d.position = nozzle; falling.Add((d, 0f, snapped)); }
             }
             for (int i = falling.Count - 1; i >= 0; i--)
@@ -454,7 +454,7 @@ namespace MafiaSandbox.Economy
                 case WK.Clicks: Gauge(W, H, $"{targets.Count - clicksLeft} / {targets.Count}", 1f - clicksLeft / (float)Mathf.Max(1, targets.Count), -1f); break;
             }
             // buttons
-            var br = ButtonsRect; if (GUI.Button(new Rect(br.x, br.y, br.width, br.height), "Put it down  (Esc)", UiSkin.Button)) { Close(); GameManager.I?.Say("You put the work down. Nothing was used."); return; }
+            var br = ButtonsRect; GUI.color = Color.white; GUI.enabled = true; Fill(new Rect(br.x - 8, br.y - (Admin.On ? 60 : 8), br.width + 16, br.height + (Admin.On ? 68 : 16)), new Color(0.05f, 0.07f, 0.1f, 0.9f)); if (GUI.Button(new Rect(br.x, br.y, br.width, br.height), "Put it down  (Esc)", UiSkin.Button)) { Close(); GameManager.I?.Say("You put the work down. Nothing was used."); return; }
             if (Admin.On) { if (GUI.Button(new Rect(br.x, br.y - 52, 114, 46), "Skip step (N)", UiSkin.ButtonOn)) { AutoStep(); return; } if (GUI.Button(new Rect(br.x + 122, br.y - 52, 114, 46), "Finish now", UiSkin.ButtonOn)) { result = true; return; } }
             GUI.Label(new Rect(14, H - 30, 520, 20), "Left mouse: grab and drag   ·   Right mouse: look around   ·   Wheel: zoom", UiSkin.Small);
             DrawToast(W);

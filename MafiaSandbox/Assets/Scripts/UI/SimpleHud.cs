@@ -118,9 +118,9 @@ namespace MafiaSandbox.UI
                 var sr = new Rect(W / 2f - 70, H - 92, 140, 44); UiSkin.DrawPanel(sr);
                 var ss = new GUIStyle(UiSkin.Big) { fontSize = 24 }; GUI.Label(new Rect(sr.x, sr.y + 2, sr.width, 28), $"{Mathf.Abs(vi.Current.Speed) * 3.6f:0}", ss);
                 GUI.Label(new Rect(sr.x, sr.y + 26, sr.width, 14), "km/h", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
-                Prompt(W / 2f, H - 36, $"<b>E</b>  get out of the {vi.Current.displayName}");
+                Prompt(W / 2f, H - 36, vi.Current.openRide ? $"<b>E</b>  get off the {vi.Current.displayName.ToLower()}" : $"<b>E</b>  get out of the {vi.Current.displayName}");
             }
-            else if (vi && vi.Nearby && !GameUI.Blocking) Prompt(W / 2f, H - 112, $"<b>E</b>  get in — {vi.Nearby.displayName}");
+            else if (vi && vi.Nearby && !GameUI.Blocking) Prompt(W / 2f, H - 112, vi.Nearby.openRide ? $"<b>E</b>  ride the {vi.Nearby.displayName.ToLower()}" : $"<b>E</b>  get in — {vi.Nearby.displayName}");
 
             // log (bottom right)
             float y = H - 16;
