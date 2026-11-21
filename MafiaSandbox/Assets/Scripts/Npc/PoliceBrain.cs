@@ -191,6 +191,21 @@ namespace MafiaSandbox.Npc
             if (State != "engage" && State != "gunwarn") idleClip = idleClip == "Pistol_Aim" ? "Idle" : idleClip;
         }
 
+        /// <summary>The player said hello or mouthed off: a nod, then a warning, then the cuffs.</summary>
+        public override void HearPlayer(bool rude)
+        {
+            if (Dead || !Player) return;
+            headTarget = Player.transform.position + Vector3.up * 1.5f;
+            if (!IsIdle && State != "gunwarn") { if (rude) ReplyLater("Not now.", 0.6f, Barks.Police); return; }
+            if (!rude) { ReplyLater(Barks.Pick("Afternoon.", "Stay out of trouble.", "Move along.", "Evening, citizen.", "Have a good one."), 0.8f, Barks.Police, Random.value < 0.3f); Invoke(nameof(ForgetPlayerHead), 3f); return; }
+            _ = HeckleCount; heckled++; heckleAt = Time.time;
+            if (heckled == 1) { ReplyLater(Barks.Pick("Watch your mouth.", "Funny guy, huh?", "Keep it moving."), 0.8f, Barks.Police); Invoke(nameof(ForgetPlayerHead), 3f); return; }
+            if (heckled == 2 || WantedSystem.PoliceOff) { Stop(); lookAt = Player.transform.position; pose = ArmPose.Hips; Invoke(nameof(DropHips), 4f); ReplyLater(WantedSystem.PoliceOff ? "I'm not paid enough for this." : "One more word and you're coming with me.", 0.8f, Barks.Police); return; }
+            ReplyLater("That's it. You're under arrest!", 0.6f, Barks.Police);
+            Wanted.Raise(1, "insulting an officer"); Wanted.Seen(Player.transform.position); StartChase();
+        }
+        void DropHips() { if (pose == ArmPose.Hips) pose = ArmPose.None; }
+
         /// <summary>Where to run: straight at him if close; otherwise where he's heading. The second officer of a pair swings wide to cut him off.</summary>
         Vector3 ChaseTarget(float dp)
         {

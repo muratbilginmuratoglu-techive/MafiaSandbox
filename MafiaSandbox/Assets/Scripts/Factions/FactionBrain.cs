@@ -208,6 +208,34 @@ namespace MafiaSandbox.Factions
             return NavMesh.SamplePosition(p, out var h, 1.2f, NavMesh.AllAreas) ? h.position : t.transform.position;
         }
 
+        static readonly Dictionary<string, float> greetRepAt = new Dictionary<string, float>();
+        /// <summary>The player said hello or threw a jibe: a nod for a friend, a warning for a stranger, a fight for a second insult.</summary>
+        public override void HearPlayer(bool rude)
+        {
+            var fm = FactionManager.I; var d = Def; if (Dead || !Player || fm == null || d == null || State == "attack" || State == "retreat") return;
+            headTarget = Player.transform.position + Vector3.up * 1.5f; lookAt = Player.transform.position;
+            if (!rude)
+            {
+                if (fm.Hostile(d)) ReplyLater(Barks.Pick("You've got some nerve.", "Get out of here while you can."), 0.8f, Barks.Gang);
+                else if (fm.Wary(d)) ReplyLater(Barks.Pick("Keep walking.", "We're not friends.", "Do I know you?"), 0.8f, Barks.Gang);
+                else
+                {
+                    ReplyLater(Barks.Pick("Yo.", "Sup.", "Alright?", "What's good?", "Hey, man."), 0.7f, Barks.Gang, Random.value < 0.5f);
+                    if (!greetRepAt.TryGetValue(factionId, out var t) || Time.time - t > 90f) { greetRepAt[factionId] = Time.time; fm.Change(d, 1f, true); }   // being friendly helps, a little
+                }
+                return;
+            }
+            _ = HeckleCount; heckled++; heckleAt = Time.time; fm.Change(d, -3f, true);
+            if (heckled >= 2 || fm.Hostile(d))
+            {
+                ReplyLater(Barks.Pick("That's it. You're dead!", "Get him!", "You just made a big mistake."), 0.6f, Barks.Gang);
+                fm.Alert(d, 30f); Invoke(nameof(FightPlayer), 1.1f); return;
+            }
+            ReplyLater(Barks.Pick("What did you say?!", "Say that again.", "You got a death wish?", "Careful, friend."), 0.7f, Barks.Gang);
+            Stop(); SetState("warn"); warnStage = 2; pose = ArmPose.Point; pointAt = Player.transform.position + Vector3.up; if (armed) ShowGun(true);
+        }
+        void FightPlayer() { if (!Dead && PlayerBody && !PlayerBody.Dead) Engage(PlayerBody); }
+
         CharacterBody NearestRival(float range)
         {
             CharacterBody best = null; float bd = range * range;

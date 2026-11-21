@@ -54,6 +54,14 @@ namespace MafiaSandbox.Npc
         protected override Vector3 RespawnPoint() => spawnPos;
 
         protected override void OnHit(string zone, Vector3 point) { Flee(point); }
+        public override void HearPlayer(bool rude)
+        {
+            if (Dead || !Player || State != "keeper") return;
+            headTarget = Player.transform.position + Vector3.up * 1.5f; serveAt = Player.transform.position; serveT = 3f;
+            if (!rude) { ReplyLater(role == "keeper" ? Barks.Pick("Hello! What can I get you?", "Welcome!", "Good to see you.") : Barks.Pick("Can I help you?", "Hello...?"), 0.7f, null, true); return; }
+            _ = HeckleCount; heckled++; heckleAt = Time.time;
+            ReplyLater(heckled >= 3 ? "Get out of my shop!" : heckled == 2 ? Barks.Pick("I don't need this.", "Buy something or leave.") : Barks.Pick("No need to be rude.", "Excuse me?", "Charming."), 0.8f);
+        }
         protected override void OnNoise(Vector3 pos, float radius, GameObject src, bool melee)
         {
             if (State == "dead" || melee) return;

@@ -32,7 +32,7 @@ namespace MafiaSandbox.Npc
         string activity = "";
 
         /// <summary>Walking about, shopping, chatting: the player can talk to them and nobody minds them being switched off at night.</summary>
-        public bool Calm => State == "shelter" || State == "wander" || State == "wait" || State == "chat" || State == "browse" || State == "errand" || State == "enter" || State == "leave" || State == "together" || State == "look" || State == "cautious" || State == "avoid" || State == "curious";
+        public bool Calm => State == "chatplayer" || State == "shelter" || State == "wander" || State == "wait" || State == "chat" || State == "browse" || State == "errand" || State == "enter" || State == "leave" || State == "together" || State == "look" || State == "cautious" || State == "avoid" || State == "curious";
         public bool Busy => !Calm;
         protected override bool AllowGlance => Calm || State == "watch";
         protected override float ThinkInterval => DistToPlayer < 70f ? 0.2f : 0.5f;
@@ -328,6 +328,7 @@ namespace MafiaSandbox.Npc
         protected override void Think()
         {
             float dt = thinkDt;
+            if (poseClearT > 0f) { poseClearT -= dt; if (poseClearT <= 0f && (pose == ArmPose.Hips || pose == ArmPose.Point)) pose = ArmPose.None; }
             if (!weatherKnown) { weatherKnown = true; seenWeather = Weather; }
             else if (seenWeather != Weather)
             {
@@ -399,6 +400,15 @@ namespace MafiaSandbox.Npc
                     }
                     else if (paid && stateT > browseLen * 0.55f + 2.5f) idleClip = "Idle";
                     if (stateT > browseLen) { idleClip = "Idle"; headTarget = null; GoTo(shopOut + (shopOut - errandShop.info.door).normalized * 1.5f, walkSpeed); SetState("leave"); }
+                    break;
+                case "chatplayer":   // a few words with the player, who stopped to say hello
+                    if (!Player) { NextActivity(); break; }
+                    {
+                        Vector3 pp = Player.transform.position; lookAt = pp; headTarget = pp + Vector3.up * 1.5f; float dpl = Vector3.Distance(transform.position, pp);
+                        idleClip = stateT % 5f < 2.6f ? "Talk" : "Idle"; nod = idleClip == "Idle" ? 0.6f : 0f;
+                        talkT -= dt; if (talkT <= 0f && dpl < 5f) { talkT = Random.Range(2.6f, 3.6f); Bark(SmallTalk(), null, 2.4f); }
+                        if (dpl > 6f || stateT > chatLen) { nod = 0f; idleClip = "Idle"; if (dpl < 8f) { anim.PlayUpper("Wave"); Bark(Barks.Pick("Well, see you around!", "Nice talking to you.", "Take care!", "Bye now."), null, 2f); } NextActivity(); }
+                    }
                     break;
                 case "shelter":   // waiting out the weather in a doorway, watching the street
                     if (Arrived(0.8f) && !Moving) { lookAt = noisePoint; pose = Weather == Atmosphere.WeatherKind.Snow ? ArmPose.Crossed : (stateT % 20f < 8f && phoneHabit > 0.3f ? ArmPose.PhoneText : ArmPose.None); headDown = pose == ArmPose.PhoneText; }
@@ -542,7 +552,61 @@ namespace MafiaSandbox.Npc
         {
             if (WantedSystem.PoliceOff && (witnessed == null || witnessed.kind != "body")) return;
             Stop(); SetState("phone"); pose = ArmPose.PhoneCall; idleClip = "Talk";
-            Bark(witnessed != null && witnessed.kind == "body" ? Barks.Pick("Hello? There's a body here!", "I need an ambulance, and the police!") : Barks.Pick("Police? Someone's shooting!", "Hello, police? There's a man with a gun!", "Please send someone, quick!"), Barks.Alarm, 2.6f);
+            Bark(witnessed != null && witnessed.kind == "harassment" ? Barks.Pick("Hello, police? A man is harassing people here.", "Yes, he won't leave me alone.") : witnessed != null && witnessed.kind == "body" ? Barks.Pick("Hello? There's a body here!", "I need an ambulance, and the police!") : Barks.Pick("Police? Someone's shooting!", "Hello, police? There's a man with a gun!", "Please send someone, quick!"), Barks.Alarm, 2.6f);
+        }
+
+        float poseClearT;
+        /// <summary>The player said hello or threw a jibe at us.</summary>
+        public override void HearPlayer(bool rude)
+        {
+            if (Dead || !Player) return;
+            Vector3 pp = Player.transform.position;
+            if (isMedic && State.StartsWith("medic")) { ReplyLater("Not now, I'm working!"); return; }
+            if (!Calm && State != "watch")
+            {
+                if (State == "hide" || State == "flee" || State == "tohide" || State == "cower" || State == "handsup") ReplyLater(Barks.Pick("Leave me alone!", "Please, go away!", "Not now!"), 0.5f, Barks.Alarm);
+                return;
+            }
+            bool wanted = Wanted && Wanted.Level > 0; int rank = Gang.Respect.Rank;
+            headTarget = pp + Vector3.up * 1.5f; glanceHold = 3f;
+            if (!rude)
+            {
+                Stat("civ.greeted");
+                if (wanted || PlayerGunUp) { ReplyLater(Barks.Pick("Uh... hi.", "P-please, I don't want any trouble.", "I didn't see anything."), 0.6f, Barks.Alarm); BackOff(1.4f); return; }
+                if (rank >= 3) { ReplyLater(Barks.Pick("Good day, sir!", "An honour, sir.", "Whatever you need, boss.", "Sir. Nice to see you."), 0.7f, null, true); return; }
+                if (social > 0.5f && (State == "wait" || State == "wander") && !follower && !companion)
+                {
+                    ClearErrand(); Stop(); lookAt = pp; pose = ArmPose.None; headDown = false; SetState("chatplayer"); chatLen = Random.Range(6f, 10f); talkT = 2.8f;
+                    ReplyLater(Barks.Pick("Oh, hello! How are you?", "Hey! Nice to see a friendly face.", "Hi! Do I know you?", "Well, hello there!"), 0.7f, null, true);
+                    return;
+                }
+                ReplyLater(Random.value < 0.5f ? Greeting() : Barks.Pick("Hi there.", "Hello!", "Hey, how are you?", "Afternoon.", "Oh, hi."), 0.8f, null, Random.value < 0.6f);
+                return;
+            }
+            // a jibe
+            _ = HeckleCount; heckled++; heckleAt = Time.time; int n = heckled; Stat("civ.heckled");
+            if (State == "chatplayer") { idleClip = "Idle"; SetState("wait"); stateT = -2f; }
+            if (chatWith) { var o = chatWith; if (o.State == "chat") o.ReplyLater(Barks.Pick("Ignore him.", "Who is this guy?", "Unbelievable."), 1.6f); }
+            if (wanted || PlayerGunUp || (rank >= 3 && personality < 0.7f)) { ReplyLater(Barks.Pick("Sorry! Sorry!", "I don't want trouble!", "Okay, okay..."), 0.6f, Barks.Alarm); BackOff(1.6f); return; }
+            if (n >= 3 && personality > 0.45f && !WantedSystem.PoliceOff)
+            {
+                ReplyLater("That's it, I'm calling the police!", 0.7f, Barks.Alarm); witnessed = AddIncident(transform.position, "harassment", true); threat = pp; ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet(); Invoke(nameof(StartPhoneReport), 1.2f); return;
+            }
+            if (personality < 0.35f) { ReplyLater(Barks.Pick("Leave me alone!", "Why would you say that?", "What did I ever do to you?", "Jerk..."), 0.8f); BackOff(1.4f); return; }
+            if (personality < 0.75f || n == 1 && personality < 0.85f)
+            {
+                ReplyLater(n >= 2 ? Barks.Pick("Seriously, stop.", "Again? Grow up.", "Leave it, will you?") : Barks.Pick("Excuse me?!", "Rude!", "Charming.", "What's your problem?", "Wow. Okay."), 0.8f);
+                if (State == "wait" || State == "wander") { Stop(); lookAt = pp; pose = ArmPose.Hips; poseClearT = 3f; }
+                return;
+            }
+            // the tough ones fire back
+            ReplyLater(Barks.Pick("Get lost, punk!", "Look who's talking!", "Say that again, I dare you.", "Keep walking, clown.", "Your mother dresses you funny."), 0.7f);
+            if (State == "wait" || State == "wander") { Stop(); lookAt = pp; pose = ArmPose.Point; pointAt = pp + Vector3.up * 1.2f; poseClearT = 2.5f; }
+        }
+        void BackOff(float pace)
+        {
+            if (!Player) return; ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();
+            var p = EscapePoint(Player.transform.position, 10f, false); if (p.HasValue && GoTo(p.Value, walkSpeed * pace)) { SetState("avoid"); threat = Player.transform.position; }
         }
 
         protected override void OnStuck(int times) { if (times <= 1) base.OnStuck(times); else if (Calm && State != "together") NextActivity(); else base.OnStuck(times); }

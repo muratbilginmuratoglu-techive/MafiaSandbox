@@ -267,6 +267,29 @@ namespace MafiaSandbox.Npc
             if (feed) GameManager.I?.Say($"{displayName}: {text}");
         }
 
+        // ------------------------------------------------------------ the player talking to us (Y greet, U heckle)
+        /// <summary>How many times the player has needled this person lately (cools off after a minute).</summary>
+        protected int heckled; protected float heckleAt = -99f;
+        protected int HeckleCount { get { if (Time.time - heckleAt > 60f) heckled = 0; return heckled; } }
+        /// <summary>The player said something to us: rude = a jibe, otherwise a greeting. Default: turn the head, answer.</summary>
+        public virtual void HearPlayer(bool rude)
+        {
+            if (Dead || !Player) return;
+            if (rude) { _ = HeckleCount; heckled++; heckleAt = Time.time; }
+            headTarget = Player.transform.position + Vector3.up * 1.5f; CancelInvoke(nameof(ForgetPlayerHead)); Invoke(nameof(ForgetPlayerHead), 3f);
+            ReplyLater(rude ? Barks.Pick("Hey!", "Whatever.", "Real nice.") : Barks.Pick("Hi.", "Hey.", "Hello."));
+        }
+        protected void ForgetPlayerHead() { if (Player && headTarget.HasValue && (headTarget.Value - Player.transform.position).sqrMagnitude < 9f) headTarget = null; }
+        /// <summary>Answer after a short beat, so it reads like a conversation.</summary>
+        protected void ReplyLater(string text, float delay = 0.8f, Color? col = null, bool wave = false) { if (isActiveAndEnabled) StartCoroutine(Reply(text, delay, col, wave)); }
+        System.Collections.IEnumerator Reply(string text, float delay, Color? col, bool wave)
+        {
+            yield return new WaitForSeconds(delay);
+            if (Dead) yield break;
+            if (wave && !anim.UpperBusy) anim.PlayUpper("Wave");
+            Bark(text, col, 2.6f);
+        }
+
         // ------------------------------------------------------------ counters for the NPC report (admin)
         public static readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
         public static void Stat(string key) { Stats.TryGetValue(key, out var n); Stats[key] = n + 1; }

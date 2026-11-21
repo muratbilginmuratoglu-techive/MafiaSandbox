@@ -20,6 +20,14 @@ namespace MafiaSandbox.Npc
         protected override Vector3 RespawnPoint() => homeSpot;
 
         protected override void OnHit(string zone, Vector3 point) { alertUntil = Time.time + 30f; }
+        public override void HearPlayer(bool rude)
+        {
+            if (Dead || !Player || State == "attack") return; headTarget = Player.transform.position + Vector3.up * 1.5f;
+            if (!rude) { ReplyLater(Barks.Pick("This is a construction site, pal.", "Yeah, hi. Now beat it.", "What do you want?"), 0.7f, Barks.Gang); return; }
+            _ = HeckleCount; heckled++; heckleAt = Time.time;
+            if (heckled >= 2) { ReplyLater("Oh, you want trouble?", 0.6f, Barks.Gang); alertUntil = Time.time + 20f; return; }
+            ReplyLater(Barks.Pick("Say that again.", "You lost, smart guy?", "Careful."), 0.7f, Barks.Gang);
+        }
         protected override void OnDied(string by) { if (by == "player") alertUntil = Time.time + 40f; }
         protected override void OnNoise(Vector3 pos, float radius, GameObject src, bool melee)
         {

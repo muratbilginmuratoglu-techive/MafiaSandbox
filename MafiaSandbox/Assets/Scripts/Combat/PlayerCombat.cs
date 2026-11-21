@@ -90,25 +90,63 @@ namespace MafiaSandbox.Combat
         }
 
         /// <summary>
-        /// First person: the body is hidden (shadows only) and the hand hangs below the view, so the weapon becomes a view model:
-        /// the holder rides the camera, barrel forward (the model is built with +Y along the barrel and +Z up), lower right, centred when aiming.
+        /// First person: the body is hidden (shadows only) and the hand hangs below the view, so the weapon becomes a view model riding
+        /// the camera, barrel forward (the model is built with +Y along the barrel and +Z up). It is shown at its real size (the
+        /// third-person model is enlarged so the blocky hand doesn't swallow it), and placed from the model's own measurements:
+        /// aiming, the top of the gun (the sights) sits just under the crosshair and the barrel points straight at it; at the hip it
+        /// rests low on the right. The near clip plane is pulled in so the gun can sit close to the eye.
         /// </summary>
+        readonly Dictionary<WeaponKind, Bounds> viewBounds = new Dictionary<WeaponKind, Bounds>();
+        Camera viewCam; float baseNear = -1f;
+        /// <summary>The gun's extent in holder space (independent of how it is currently rotated), measured once per weapon.</summary>
+        Bounds ViewBounds()
+        {
+            if (viewBounds.TryGetValue(current, out var b)) return b;
+            bool init = false; b = new Bounds(Vector3.zero, Vector3.zero); var mt = model.transform;
+            foreach (var mf in model.GetComponentsInChildren<MeshFilter>(false))
+            {
+                if (!mf.sharedMesh) continue; var mb = mf.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 c = mb.center + Vector3.Scale(mb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    Vector3 ml = mt.InverseTransformPoint(mf.transform.TransformPoint(c));
+                    Vector3 hl = mt.localPosition + Vector3.Scale(mt.localScale, ml);
+                    if (!init) { b = new Bounds(hl, Vector3.zero); init = true; } else b.Encapsulate(hl);
+                }
+            }
+            if (!init) return new Bounds(new Vector3(0f, 0.1f, 0.03f), new Vector3(0.04f, 0.25f, 0.12f));   // not measurable this frame: try again next one
+            viewBounds[current] = b; return b;
+        }
+
         void LateUpdate()
         {
             if (!holder || !cam) return;
+            if (!viewCam) { viewCam = cam.GetComponent<Camera>(); if (viewCam && baseNear < 0f) baseNear = viewCam.nearClipPlane; }
             bool fp = cam.FirstPerson;
             if (fp != fpView)
             {
                 fpView = fp;
                 holder.SetParent(fp ? cam.transform : handAnchor, false);
                 if (!fp) { holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity; holder.localScale = Vector3.one; }
+                if (viewCam && baseNear > 0f) viewCam.nearClipPlane = fp ? Mathf.Min(baseNear, 0.03f) : baseNear;
             }
-            if (!fp) return;
-            var goal = Aiming ? new Vector3(0.0f, -0.115f, 0.5f) : new Vector3(0.2f, -0.2f, 0.55f);
+            if (!fp || !model) return;
+            float sc = 1f / Mathf.Max(0.01f, model.transform.localScale.x);   // real size
+            var b = ViewBounds();
+            // holder-local p maps to camera space as (-p.x, p.z, p.y) * sc + holder position
+            float len = b.size.y * sc; bool longGun = len > 0.45f;
+            bool melee = Weapon.melee;
+            Vector3 aim = new Vector3(b.center.x * sc, -0.008f - b.max.z * sc, (longGun ? 0.06f : 0.3f) - b.min.y * sc);
+            Vector3 hip = melee ? new Vector3(0.24f + b.center.x * sc, -0.24f - b.center.z * sc, 0.3f - b.center.y * sc)
+                                : new Vector3(0.15f + b.center.x * sc, -0.1f - b.max.z * sc, (longGun ? 0.1f : 0.22f) - b.min.y * sc);
+            var goal = Aiming ? aim : hip;
             fpPos = Vector3.Lerp(fpPos, goal, 1f - Mathf.Exp(-16f * Time.deltaTime));
-            holder.localPosition = fpPos;
-            holder.localRotation = Quaternion.AngleAxis(180f, Vector3.forward) * Quaternion.AngleAxis(90f, Vector3.right);   // model +Y -> view forward, +Z -> view up
-            if (model) foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // the camera hides the body's renderers, not the gun
+            holder.localPosition = fpPos; holder.localScale = Vector3.one * sc;
+            var rot = Quaternion.AngleAxis(180f, Vector3.forward) * Quaternion.AngleAxis(90f, Vector3.right);   // model +Y -> view forward, +Z -> view up
+            if (!Aiming && !melee) rot = Quaternion.Euler(4f, -6f, 0f) * rot;   // at the hip the muzzle angles in slightly, like a hand holding it
+            if (melee) rot = Quaternion.Euler(-25f, -15f, 10f) * rot;
+            holder.localRotation = rot;
+            foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // the camera hides the body's renderers, not the gun
         }
 
         void Update()

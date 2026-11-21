@@ -31,6 +31,11 @@ namespace MafiaSandbox.Gang
         protected override void OnDisable() { base.OnDisable(); followers.Remove(this); }
         protected override void OnHit(string zone, Vector3 point) { if (Random.value < 0.5f) Bark(Barks.Pick("Agh! Boss, I'm hit!", "They got me!", "Argh!"), Barks.Alarm, 1.8f); }
         protected override Vector3 RespawnPoint() => transform.position;
+        public override void HearPlayer(bool rude)
+        {
+            if (Dead || !Player) return; headTarget = Player.transform.position + Vector3.up * 1.5f; Invoke(nameof(ClearHead), 2.5f);
+            ReplyLater(rude ? Barks.Pick("Easy, boss.", "Ouch.", "Yes, boss... sorry, boss.", "Whatever you say.") : Barks.Pick("Boss.", "Yes, boss?", "All good here.", "Ready when you are."), 0.6f, Barks.Gang, !rude && Random.value < 0.4f);
+        }
 
         /// <summary>This member's place behind the boss: two by two, a step apart.</summary>
         Vector3 Slot()
