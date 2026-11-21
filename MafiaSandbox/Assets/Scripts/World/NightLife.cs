@@ -28,7 +28,14 @@ namespace MafiaSandbox.World
                 foreach (var d in FindObjectsByType<TrafficDriver>(FindObjectsInactive.Include, FindObjectsSortMode.None)) cars.Add(d.gameObject);
             }
             float f = Fraction(dn.timeOfDay); Vector3 p = gm.player.transform.position;
-            foreach (var g in civs) { if (!g) continue; var cb = g.GetComponent<CivilianBrain>(); if (!cb || cb.isMedic || (cb.GetComponent<CharacterBody>()?.Dead ?? false)) continue; Toggle(g, Rank(g) < f, p, cb.State != "wander" && cb.State != "wait" && cb.State != "look" && cb.State != "cautious" && cb.State != "chat"); }
+            foreach (var g in civs)
+            {
+                if (!g) continue; var cb = g.GetComponent<CivilianBrain>(); if (!cb || cb.isMedic || (cb.GetComponent<CharacterBody>()?.Dead ?? false)) continue;
+                bool want = Rank(g) < f;
+                // close to the player a person doesn't just vanish: they walk to a front door and go inside
+                if (g.activeSelf && !want && (g.transform.position - p).sqrMagnitude <= 45f * 45f) { if (!cb.Busy) cb.GoHome(); continue; }
+                Toggle(g, want, p, cb.Busy && cb.State != "home");
+            }
             float cf = Mathf.Max(0.15f, f * 0.7f);
             foreach (var g in cars) { if (!g) continue; var vc = g.GetComponent<VehicleController>(); if (vc && (vc.Controlled || vc.isPlayerCar)) continue; Toggle(g, Rank(g) < cf, p, false); }
         }

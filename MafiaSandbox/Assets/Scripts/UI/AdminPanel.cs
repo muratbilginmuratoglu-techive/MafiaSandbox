@@ -75,6 +75,19 @@ namespace MafiaSandbox.UI
             Vector3 look = centre - bp; lab.AddStation(kind, bp, Mathf.Abs(look.x) > Mathf.Abs(look.z) ? (look.x > 0f ? 90f : -90f) : (look.z > 0f ? 0f : 180f)); return true;
         }
 
+        /// <summary>The person nearest to the player shows every arm pose in turn, 3 seconds each, facing the player.</summary>
+        System.Collections.IEnumerator PoseTest()
+        {
+            var gm = GameManager.I; if (!gm || !gm.player) yield break; Npc.NpcBrain best = null; float bd = 20f * 20f; Vector3 pp = gm.player.transform.position;
+            foreach (var n in FindObjectsByType<Npc.NpcBrain>(FindObjectsSortMode.None)) { if (!n || n.Dead || n is Npc.JeremyBrain) continue; float d = (n.transform.position - pp).sqrMagnitude; if (d < bd) { bd = d; best = n; } }
+            if (!best) { gm.Say("Nobody close enough for a pose test."); yield break; }
+            foreach (Npc.ArmPose p in System.Enum.GetValues(typeof(Npc.ArmPose)))
+            {
+                if (!best || best.Dead) yield break; best.DebugPose(p, gm.player.transform.position + Vector3.up * 1.5f); gm.Say($"Pose test: {best.displayName} · {p}"); yield return new WaitForSeconds(3f);
+            }
+            if (best) best.DebugPose(null, null);
+        }
+
         void OnGUI()
         {
             var gm = GameManager.I; if (!gm || !gm.player) return;
@@ -119,6 +132,8 @@ namespace MafiaSandbox.UI
             if (GUILayout.Button("Raid at next shift", UiSkin.Button) && emp) { emp.RaidDue = true; gm.Say("A raid will hit the house at the next shift."); }
             if (GUILayout.Button("Counterattack at next shift", UiSkin.Button) && emp) { emp.CounterDue = true; gm.Say("One of your blocks will be attacked at the next shift."); }
             if (GUILayout.Button("Teleport to the nearest rival HQ", UiSkin.Button) && emp) { var tgt = emp.NearestTarget(); if (tgt != null) { gm.player.Teleport(tgt.HqUnity + new Vector3(0f, 0f, 6f), 180f); open = false; } }
+            if (GUILayout.Button("Pose test", UiSkin.Button)) { open = false; StartCoroutine(PoseTest()); }
+            if (GUILayout.Button(Npc.Barks.Reporting ? "NPC report..." : "NPC report (60 s)", UiSkin.Button) && !Npc.Barks.Reporting) { open = false; Npc.Barks.RunReport(60f, 3f); }
             if (GUILayout.Button("Rank 0", UiSkin.Button)) { Respect.Reset(); gm.Say("Respect reset: you are a Street Rat again."); }
             if (GUILayout.Button("Rank up", UiSkin.Button)) { int rk = Respect.Rank; if (rk < Respect.Thresholds.Length - 1) Respect.Add(Respect.Thresholds[rk + 1] - Respect.XP); }
             GUILayout.EndHorizontal();

@@ -56,11 +56,15 @@ namespace MafiaSandbox.Npc
                 if (cp.pose == "Talk") { if (talkPartner) { c.partner = talkPartner; talkPartner.partner = c; } else talkPartner = c; }
             }
             // police
+            PoliceBrain prevCop = null;
             for (int i = 0; i < police; i++)
             {
                 var p = policeStation + new Vector3(Random.Range(-6f, 6f), 0f, Random.Range(-6f, 6f));
                 if (i >= 3) p = graph.pedNodes[Random.Range(0, graph.pedNodes.Length)].pos;   // some already out on patrol
+                bool second = prevCop && i % 2 == 0;   // officers walk the beat in pairs: 1+2, 3+4, ...
+                if (second && i >= 3) p = prevCop.transform.position + prevCop.transform.right * 1.1f;
                 var b = Spawn<PoliceBrain>(Pick("Polis"), p, Random.Range(0f, 360f)); b.stationPos = policeStation; b.walkSpeed = 1.9f; b.runSpeed = 5.3f;
+                if (second) { b.partner = prevCop; prevCop.partner = b; prevCop = null; } else prevCop = b;
             }
             // gang
             for (int i = 0; i < gang; i++)

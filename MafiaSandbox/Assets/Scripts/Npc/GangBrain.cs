@@ -15,6 +15,7 @@ namespace MafiaSandbox.Npc
         public static float alertUntil;          // shared alarm (Time.time)
         float swingCd, warnedAt = -99f;
 
+        protected override bool AllowGlance => State == "loiter";
         protected override void OnSpawned() { EquipGun(WeaponKind.Bat, true); SetState("loiter"); idleClip = "Bat_Idle"; homeSpot = spawnPos; }
         protected override Vector3 RespawnPoint() => homeSpot;
 
@@ -33,13 +34,13 @@ namespace MafiaSandbox.Npc
             switch (State)
             {
                 case "loiter":
-                    idleClip = "Bat_Idle";
+                    idleClip = "Bat_Idle"; headTarget = null;
                     if ((alert && dp < giveUpRadius) || (see && dp < attackRadius && !PlayerInVehicle)) { Attack(); break; }
-                    if (see && dp < warnRadius && !PlayerInVehicle) { SetState("warn"); Stop(); lookAt = Player.transform.position; if (Time.time - warnedAt > 12f) { warnedAt = Time.time; GameManager.I?.Say($"{displayName}: Hey! Private property, get lost."); } break; }
+                    if (see && dp < warnRadius && !PlayerInVehicle) { SetState("warn"); Stop(); lookAt = Player.transform.position; if (Time.time - warnedAt > 12f) { warnedAt = Time.time; Bark(Barks.Pick("Hey! Private property, get lost.", "Construction site. Beat it.", "You lost, pal?"), Barks.Gang, 2.6f, true); } break; }
                     if (stateT > Random.Range(6f, 14f)) { var p = homeSpot + new Vector3(Random.Range(-5f, 5f), 0f, Random.Range(-5f, 5f)); GoTo(p, walkSpeed * 0.8f); stateT = 0f; }
                     break;
                 case "warn":
-                    idleClip = "Bat_Idle"; lookAt = Player.transform.position;
+                    idleClip = "Bat_Idle"; lookAt = Player.transform.position; headTarget = Player.transform.position + Vector3.up * 1.5f;
                     if ((alert && dp < giveUpRadius) || (dp < attackRadius && !PlayerInVehicle)) { Attack(); break; }
                     if (dp > warnRadius + 4f || !see) { SetState("loiter"); }
                     break;
@@ -51,13 +52,14 @@ namespace MafiaSandbox.Npc
                         Stop(); lookAt = Player.transform.position;
                         if (swingCd <= 0f) { swingCd = 1.2f; anim.PlayUpper("Bat_Attack"); Invoke(nameof(Swing), 0.42f); }
                     }
-                    else if (Arrived(1.5f) || stateT % 1f < 0.25f) GoTo(Player.transform.position, runSpeed);
+                    else if (Arrived(1.5f) || stateT % 1f < 0.25f) { Vector3 tp = Player.transform.position; if (dp < 7f) { var ring = tp + Quaternion.Euler(0f, (uid % 6) * 60f, 0f) * Vector3.forward * 1.4f; if (UnityEngine.AI.NavMesh.SamplePosition(ring, out var rh, 1.2f, UnityEngine.AI.NavMesh.AllAreas)) tp = rh.position; } GoTo(tp, runSpeed); }
+                    headTarget = PlayerBody.ChestPos;
                     break;
             }
             swingCd -= 0.2f;
         }
 
-        void Attack() { if (State != "attack") { SetState("attack"); alertUntil = Mathf.Max(alertUntil, Time.time + 20f); GoTo(Player.transform.position, runSpeed); } }
+        void Attack() { if (State != "attack") { SetState("attack"); Bark(Barks.Pick("Get him!", "That's it!", "You asked for it!"), Barks.Gang, 1.8f); alertUntil = Mathf.Max(alertUntil, Time.time + 20f); GoTo(Player.transform.position, runSpeed); } }
 
         void Swing()
         {

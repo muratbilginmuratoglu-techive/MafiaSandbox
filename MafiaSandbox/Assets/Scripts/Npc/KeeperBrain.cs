@@ -17,9 +17,18 @@ namespace MafiaSandbox.Npc
         public BuildingInfo building;
         public Shop shop;
         public string role = "keeper";
-        float heldUpT, robT, calmT, waveT; bool gaveCash, greeted;
+        float heldUpT, robT, calmT, waveT, serveT; bool gaveCash, greeted; Vector3 serveAt;
+        protected override bool AllowGlance => State == "keeper";
 
-        protected override void OnSpawned() { Uniform(); SetState("keeper"); idleClip = "Idle"; Stop(); gaveCash = false; lookAt = building ? building.counter + (building.door - building.counter).normalized * 3f : (Vector3?)null; }
+        /// <summary>A customer at the counter: turn to them, take the money, say the price.</summary>
+        public void Serve(Vector3 customer)
+        {
+            if (State != "keeper" || Dead) return;
+            serveAt = customer; serveT = 3f; anim.PlayUpper("Take");
+            Bark(role == "keeper" ? Barks.Pick("That'll be eight dollars.", "Anything else?", "Here you go.", "Thanks, come again!", "Cash or card?") : "Hm?", null, 2.2f, false, 14f);
+        }
+
+        protected override void OnSpawned() { Uniform(); SetState("keeper"); idleClip = "Idle"; Stop(); gaveCash = false; pose = ArmPose.None; headTarget = null; serveT = 0f; lookAt = building ? building.counter + (building.door - building.counter).normalized * 3f : (Vector3?)null; }
 
         /// <summary>Shop staff wear an apron and a cap in the shop's colour, so the seller is recognisable behind the counter.</summary>
         void Uniform()
@@ -57,8 +66,9 @@ namespace MafiaSandbox.Npc
         void Flee(Vector3 from)
         {
             var p = EscapePoint(from, 25f, true);
-            if (p.HasValue && GoTo(p.Value, runSpeed)) { SetState("flee"); if (role == "keeper") GameManager.I?.Say($"{displayName}: Don't shoot! Take whatever you want!"); }
-            else { SetState("hidden"); Stop(); idleClip = "Crouch_Idle"; }
+            pose = ArmPose.None; headTarget = from + Vector3.up * 1.2f;
+            if (p.HasValue && GoTo(p.Value, runSpeed)) { SetState("flee"); if (role == "keeper") Bark("Don't shoot! Take whatever you want!", Barks.Alarm, 2.4f, true); }
+            else { SetState("hidden"); Stop(); idleClip = "Crouch_Idle"; pose = ArmPose.Cower; }
         }
 
         bool GunOnMe()
@@ -75,32 +85,34 @@ namespace MafiaSandbox.Npc
             switch (State)
             {
                 case "keeper":
-                    idleClip = waveT > 0f ? "Wave" : "Idle";
-                    if (role == "keeper" && gunOnMe) { robT += dt; if (robT > 1.2f) { robT = 0f; SetState("handsup"); heldUpT = 0f; calmT = 0f; gaveCash = false; GameManager.I?.Say($"{displayName}: Don't shoot! Take whatever you want!"); } }
+                    idleClip = waveT > 0f ? "Wave" : "Idle"; pose = ArmPose.None;
+                    if (serveT > 0f) { serveT -= dt; headTarget = serveAt + Vector3.up * 1.5f; if (serveT <= 0f) headTarget = null; }
+                    if (role == "keeper" && gunOnMe) { robT += dt; if (robT > 1.2f) { robT = 0f; SetState("handsup"); heldUpT = 0f; calmT = 0f; gaveCash = false; Bark(Barks.Pick("Don't shoot! Take whatever you want!", "Okay, okay! Easy!", "Please, I have a family!"), Barks.Alarm, 2.6f, true); } }
                     else robT = 0f;
                     if (role == "keeper")
                     {
-                        if (DistToPlayer < 3f && CanSeePlayer(6f, 120f)) { if (!greeted) { greeted = true; waveT = 1.5f; GameManager.I?.Say($"{displayName}: Welcome, how can I help?"); } }
+                        if (DistToPlayer < 3f && CanSeePlayer(6f, 120f)) { if (!greeted) { greeted = true; waveT = 1.5f; headTarget = Player.transform.position + Vector3.up * 1.5f; serveAt = Player.transform.position; serveT = 2.5f; Bark(Shop.IsNight ? Barks.Pick("Evening. What can I get you?", "We close soon.") : Barks.Pick("Welcome, how can I help?", "Hi there!", "Morning! Let me know if you need anything.", "Welcome back."), null, 2.4f); } }
                         else if (DistToPlayer > 8f) greeted = false;
                     }
                     else if (role == "owner" && shop && Player && shop.Contains(Player.transform.position) && CanSeePlayer(14f, 170f) && !(PlayerBody && PlayerBody.Dead))
                     {
-                        GameManager.I?.Say($"{displayName}: THIEF! What are you doing in my house?!");
+                        Bark("THIEF! What are you doing in my house?!", Barks.Alarm, 2.6f, true);
                         EconomyManager.I?.WitnessCrime(shop, Player.transform.position, 1); Flee(Player.transform.position);
                     }
                     break;
                 case "handsup":
-                    idleClip = "Handsup"; lookAt = Player ? Player.transform.position : lookAt;
+                    idleClip = "Idle"; pose = ArmPose.HandsUp; lookAt = Player ? Player.transform.position : lookAt; if (Player) headTarget = Player.transform.position + Vector3.up * 1.5f;
                     if (gunOnMe) { calmT = 0f; heldUpT += dt; }
-                    else { calmT += dt; if (calmT > 3f) { calmT = 0f; SetState("keeper"); idleClip = "Idle"; if (shop) EconomyManager.I?.WitnessCrime(shop, Player ? Player.transform.position : transform.position, 1); break; } }
+                    else { calmT += dt; if (calmT > 3f) { calmT = 0f; SetState("keeper"); idleClip = "Idle"; pose = ArmPose.None; headTarget = null; Bark(Barks.Pick("I'm calling the police!", "Get out of my shop!", "Help! Robbery!"), Barks.Alarm, 2.4f); if (shop) EconomyManager.I?.WitnessCrime(shop, Player ? Player.transform.position : transform.position, 1); break; } }
                     if (gunOnMe && heldUpT > 2.5f && !gaveCash && shop) { gaveCash = true; EconomyManager.I?.Rob(shop, this); Invoke(nameof(FleeFromPlayer), 1.5f + Random.value * 2f); }
                     break;
                 case "flee":
-                    idleClip = "Idle";
-                    if (Arrived() || stateT > 10f) { Stop(); SetState("hidden"); idleClip = "Crouch_Idle"; }
+                    idleClip = "Idle"; pose = ArmPose.None;
+                    if (Arrived() || stateT > 10f) { Stop(); SetState("hidden"); idleClip = "Crouch_Idle"; pose = ArmPose.Cower; }
                     break;
                 case "hidden":
-                    if (stateT > 25f) { SetState("return"); GoTo(spawnPos, walkSpeed); }
+                    if (stateT > 6f) pose = ArmPose.None;
+                    if (stateT > 25f) { SetState("return"); headTarget = null; GoTo(spawnPos, walkSpeed); }
                     break;
                 case "return":
                     idleClip = "Idle";
