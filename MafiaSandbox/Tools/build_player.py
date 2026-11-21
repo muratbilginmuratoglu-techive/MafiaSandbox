@@ -1,7 +1,7 @@
 import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix
 
-OUT = "/home/claude/out/player"
+OUT = os.environ.get("OUT", "/home/claude/out/player")
 os.makedirs(OUT, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -330,6 +330,10 @@ class Builder:
                 obj.vertex_groups[f"mixamorig:{bn}"].add([vi], wt, 'REPLACE')
         animate(arm)
         return obj, arm
+
+# new low-poly body (rounded loft shapes, face, hands, shoes) replaces the box geometry above
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Assets', 'Tools'))
+import char_body; char_body.upgrade(Builder, PAL)
 
 # ------------------------------------------------------------------ armature
 def make_armature(name, S, W):

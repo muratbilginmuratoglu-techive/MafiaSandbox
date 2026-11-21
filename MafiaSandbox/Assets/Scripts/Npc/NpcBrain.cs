@@ -250,7 +250,7 @@ namespace MafiaSandbox.Npc
         protected bool CanSeePlayer(float range, float fov = 120f) => PlayerBody && !PlayerBody.Dead && Perception.CanSee(Eye, transform.forward, PlayerBody, range, fov);
         protected bool CanSee(CharacterBody b, float range, float fov = 120f) => b && Perception.CanSee(Eye, transform.forward, b, range, fov);
         /// <summary>The player has a firearm raised (not necessarily at us).</summary>
-        protected static bool PlayerGunUp { get { var pc = Player ? Player.GetComponent<PlayerCombat>() : null; return pc && pc.Aiming && !pc.Weapon.melee; } }
+        protected static bool PlayerGunUp { get { var pc = Player ? Player.GetComponent<PlayerCombat>() : null; return pc && pc.GunRaised; } }
         /// <summary>The player is aiming a firearm at us, within `range`.</summary>
         protected bool PlayerAimingAtMe(float range)
         {

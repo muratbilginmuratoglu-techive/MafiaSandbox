@@ -65,16 +65,16 @@ namespace MafiaSandbox.Player
             if (t is Factions.FactionBrain || t is GangBrain) return Barks.Pick("Hey, fellas.", "How's business?", "Easy, boys.", "Nice day for it.");
             if (t is Gang.CrewBrain) return Barks.Pick("How we doing?", "Stay sharp.", "Good work today.");
             if (t is KeeperBrain) return Barks.Pick("Hi there.", "How's business?", "Morning!");
-            return h > 5f && h < 11f ? Barks.Pick("Good morning!", "Morning!", "Lovely morning.") : h > 18f || h < 5f ? Barks.Pick("Evening!", "Good evening.", "Nice night.") : Barks.Pick("Hey there!", "Hi!", "How's it going?", "Nice day, huh?", "Hello, friend.");
+            return h > 5f && h < 11f ? Barks.Pick("Good morning!", "Morning!", "Lovely morning.") : h > 18f || h < 5f ? Barks.Pick("Evening!", "Good evening.", "Nice night.") : Barks.Pick("Hey there!", "Hi!", "How's it going?", "Nice day, huh?", "Hello, friend.", "What's new?", "Looking good today!", "Hey, neighbour.", "All good?");
         }
         static string Jibe(NpcBrain t)
         {
             if (!t) return Barks.Pick("Hey! Anybody?", "This town's dead.", "Woo!");
             if (t is PoliceBrain) return Barks.Pick("Donut break, officer?", "Shouldn't you be catching criminals?", "Nice hat, officer.", "Writing tickets again?");
-            if (t is Factions.FactionBrain || t is GangBrain) return Barks.Pick("Your crew's a joke.", "Nice turf. Shame if something happened to it.", "Who dressed you, your mother?", "You lot don't scare me.");
+            if (t is Factions.FactionBrain || t is GangBrain) return Barks.Pick("Your crew's a joke.", "Nice turf. Shame if something happened to it.", "Who dressed you, your mother?", "You lot don't scare me.", "This is my street now.", "Tell your boss I said hi.", "You call that a gang?");
             if (t is Gang.CrewBrain) return Barks.Pick("Look alive!", "Are you sleeping on the job?", "My grandma fights better.");
             if (t is KeeperBrain) return Barks.Pick("Your prices are a robbery.", "Is this place still open?", "Smells funny in here.");
-            return Barks.Pick("Nice shoes, grandpa!", "Hey, look at this guy!", "What are you looking at?", "Move it, slowpoke!", "You lost?", "Nice hat!", "Did you get dressed in the dark?", "Walk much?");
+            return Barks.Pick("Nice shoes, grandpa!", "Hey, look at this guy!", "What are you looking at?", "Move it, slowpoke!", "You lost?", "Nice hat!", "Did you get dressed in the dark?", "Walk much?", "Nice haircut. Did you lose a bet?", "Out of my way, nobody.", "Smile, it might help.", "Is that your face or a mask?", "Go home, loser.", "Hey, ugly!");
         }
 
         void OnGUI()

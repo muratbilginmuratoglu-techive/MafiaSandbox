@@ -1,7 +1,7 @@
 import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix
 
-OUT = "/home/claude/out/crowd"
+OUT = os.environ.get("OUT", "/home/claude/out/crowd")
 os.makedirs(OUT, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -315,6 +315,10 @@ class Builder:
                 obj.vertex_groups[f"mixamorig:{bn}"].add([vi], wt, 'REPLACE')
         animate(arm)
         return obj, arm
+
+# new low-poly body (rounded loft shapes, face, hands, shoes) replaces the box geometry above
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import char_body; char_body.upgrade(Builder, PAL)
 
 # ------------------------------------------------------------------ armature
 def make_armature(name, S, W):
@@ -847,6 +851,33 @@ SPECS = [
     dict(name="Vatandas_25", skin="skin_light", hair="curly", hair_color="hair_red", top="purple", pants="denim", shoes="black",
          sleeves="none", glasses=1, width=0.95),                                                              # genç
 ]
+
+# --- çeteler (renkli eşofman / kapüşon) ve mafya aileleri (takım elbise + fötr)
+def _gang(name, col, i):
+    v = [dict(skin="skin_tan", hair="short", hair_color="hair_black", top=col, pants="black", shoes="white", sleeves="long",
+              hat="bcap", hat_color=col, pant_stripe=col, width=1.04),
+         dict(skin="skin_dark", hair="none", hair_color="hair_black", top=col, pants="charcoal", shoes="black", sleeves="long",
+              hat="hood", hat_color=col, beard=1, width=1.06, torso=1.04),
+         dict(skin="skin_light", hair="short", hair_color="hair_brown", top="black", pants="denim", shoes="white", sleeves="short",
+              hat="beanie", hat_color=col, vest=col, mustache=1, width=1.08, arm=1.1)][i]
+    v["name"] = name; return v
+def _family(name, suit, tie, hatc, i):
+    v = [dict(skin="skin_light", hair="short", hair_color="hair_black", top=suit, pants=suit, shoes="black", sleeves="long",
+              tie=tie, buttons="black", hat="fedora", hat_color=hatc, shoulder=suit, width=1.05),
+         dict(skin="skin_tan", hair="sides", hair_color="hair_grey", top=suit, pants=suit, shoes="black", sleeves="long",
+              tie=tie, buttons="black", mustache=1, torso=1.1, width=1.08, shoulder=suit),
+         dict(skin="skin_pale", hair="short", hair_color="hair_brown", top=suit, pants=suit, shoes="brown", sleeves="long",
+              tie=tie, buttons="black", hat="fedora", hat_color=hatc, beard=1, glasses=1, shoulder=suit)][i]
+    v["name"] = name; return v
+for _c, _k in (("Kirmizi", "gang_red"), ("Mavi", "gang_blue"), ("Sari", "gang_yellow"), ("Yesil", "gang_green")):
+    for _i in range(3): SPECS.append(_gang(f"Cete_{_c}_0{_i + 1}", _k, _i))
+for _i in range(3):
+    SPECS.append(_family(f"Mafya_Moretti_0{_i + 1}", "charcoal", "wine", "black", _i))
+    SPECS.append(_family(f"Mafya_Kaplan_0{_i + 1}", "camel", "black", "ivory", _i))
+# only rebuild what the game uses (first spec of each name wins)
+_seen = set(); SPECS = [s for s in SPECS if not (s["name"] in _seen or _seen.add(s["name"]))]
+if os.environ.get("ONLY"):
+    import re as _re0; SPECS = [s for s in SPECS if _re0.match(os.environ["ONLY"], s["name"])]
 
 built = []
 for sp in SPECS:

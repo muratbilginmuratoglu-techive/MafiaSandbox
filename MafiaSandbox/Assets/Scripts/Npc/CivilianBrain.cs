@@ -27,6 +27,7 @@ namespace MafiaSandbox.Npc
         Vector3 threat; float scared; CharacterBody patient; Vector3 noisePoint; Incident witnessed;
         float personality = -1f, social, phoneHabit, reactT, bodyMemo, greetCd, bumpCd, crowdT, gunCd, activityT, talkT;
         float chatLen = 6f, turnT, browseLen; bool speaking, chatLead, paid;
+        float temper = -1f, swingCd, bumpAt = -99f, pleadT; int bumps; bool armed;   // short fuse; a few carry a pistol
         CivilianBrain chatWith, companion, follower;
         Shop errandShop; Vector3 browseSpot, browseLook, shopOut;
         string activity = "";
@@ -40,6 +41,8 @@ namespace MafiaSandbox.Npc
         protected override void OnSpawned()
         {
             if (personality < 0f) { personality = Random.value; social = Random.value; phoneHabit = Random.value * Random.value; walkSpeed = Random.Range(1.45f, 2.3f); }
+            if (temper < 0f) { temper = Mathf.Clamp01(Random.value * 0.65f + personality * 0.4f); armed = !isMedic && temper > 0.62f && Random.value < 0.4f; }
+            if (gun) ShowGun(false);
             ClearErrand(); EndCompany(false); idleClip = "Idle"; scared = 0f; patient = null; pose = ArmPose.None; headTarget = null; headDown = false; nod = 0f;
             SetState("wander"); NextActivity();
         }
@@ -173,7 +176,15 @@ namespace MafiaSandbox.Npc
             }
         }
 
-        protected override void OnHit(string zone, Vector3 point) { scared = 1f; Panic(point, false); if (Random.value < 0.7f) Bark(Barks.Pick("Aagh!", "Help me!", "I'm hit!", "Please, stop!"), Barks.Alarm, 2f); }
+        protected override void OnHit(string zone, Vector3 point)
+        {
+            if (State == "fight" || State == "draw") { if (Random.value < 0.5f) Bark(Barks.Pick("Argh!", "Is that all you got?", "You'll pay for that!", "Ow! You--"), Barks.Alarm, 1.6f); return; }
+            var pcb = Player ? Player.GetComponent<PlayerCombat>() : null;
+            if (pcb && pcb.Weapon.melee && DistToPlayer < 3f && temper > 0.62f && !dummy) { StartFight(Barks.Pick("You'll pay for that!", "Oh, now you're dead!", "Big mistake!", "Come on then!")); return; }
+            if (armed && temper > 0.75f && !dummy && DistToPlayer < 25f && Random.value < 0.6f) { DrawGun(Barks.Pick("You shot me?! You're dead!", "Now you've done it!")); return; }
+            OnHitScared(zone, point);
+        }
+        void OnHitScared(string zone, Vector3 point) { scared = 1f; Panic(point, false); if (Random.value < 0.7f) Bark(Barks.Pick("Aagh!", "Help me!", "I'm hit!", "Please, stop!"), Barks.Alarm, 2f); }
         public override void Honk(Vector3 carPos, Vector3 carForward)
         {
             if (State == "dead" || dummy) return;
@@ -184,6 +195,7 @@ namespace MafiaSandbox.Npc
         /// <summary>Danger: a timid few freeze and cover their heads first, the rest run (sometimes into a shop), screaming.</summary>
         void Panic(Vector3 from, bool close)
         {
+            if (State == "draw" || (State == "fight" && temper > 0.8f)) return;   // too angry to run
             threat = from; scared = Mathf.Max(scared, 0.6f); if (dummy) return;
             ClearErrand(); if (chatWith) { var o = chatWith; chatWith = null; if (o.chatWith == this) o.chatWith = null; }
             EndCompany(false); headDown = false; nod = 0f; headTarget = from + Vector3.up * 1.2f;
@@ -260,15 +272,18 @@ namespace MafiaSandbox.Npc
                 if (seen && PlayerAimingAtMe(12f))
                 {
                     ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();
-                    if (personality < 0.38f || scared > 0.5f) { StartFlee(pc.transform.position); Bark(Barks.Pick("No no no!", "Don't shoot!", "Help!"), Barks.Alarm, 1.8f); }
-                    else { Stop(); lookAt = pc.transform.position; headTarget = pc.transform.position + Vector3.up * 1.5f; idleClip = "Idle"; pose = ArmPose.HandsUp; SetState("handsup"); Bark(Barks.Pick("Don't shoot!", "Please, I have kids!", "Take my wallet, just don't shoot!", "Easy... easy..."), Barks.Alarm, 2.4f); }
+                    if (armed && temper > 0.6f && scared < 0.5f) { DrawGun(Barks.Pick("Two can play that game!", "Bad idea, pal!", "You picked the wrong guy!", "Oh, you want to do this?", "Mine's bigger.")); return; }
+                    if (dp < 3.5f && temper > 0.86f && scared < 0.3f && Random.value < 0.55f) { StartFight(Barks.Pick("Give me that thing!", "You think that scares me?!", "Big mistake, buddy!", "Point that somewhere else!")); return; }
+                    if (personality < 0.38f || scared > 0.5f) { StartFlee(pc.transform.position); Bark(Barks.Pick("No no no!", "Don't shoot!", "Help! He's got a gun!", "Somebody help me!", "Oh God, oh God!", "Please, no!"), Barks.Alarm, 1.8f); }
+                    else { Stop(); lookAt = pc.transform.position; headTarget = pc.transform.position + Vector3.up * 1.5f; idleClip = "Idle"; pose = ArmPose.HandsUp; SetState("handsup"); pleadT = 2.6f; Bark(Plead(), Barks.Alarm, 2.4f); }
                     return;
                 }
                 if (seen && gunCd <= 0f && PlayerGunUp && dp < 15f)
                 {
                     gunCd = 8f; ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();
-                    if (personality < 0.42f) { StartFlee(pc.transform.position); Bark(Barks.Pick("He's got a gun!", "Gun! Gun!", "Run!"), Barks.Alarm, 2f); }
-                    else { var p = EscapePoint(pc.transform.position, 14f, true); if (p.HasValue && GoTo(p.Value, walkSpeed * 1.7f)) { SetState("avoid"); headTarget = pc.transform.position + Vector3.up * 1.5f; Bark(Barks.Pick("Whoa, whoa...", "Put that thing away!", "I don't want any trouble."), Barks.Alarm, 2.2f); } }
+                    if (personality < 0.42f) { StartFlee(pc.transform.position); Bark(Barks.Pick("He's got a gun!", "Gun! Gun!", "Run!", "Everybody down!", "Call the cops!", "Not again!"), Barks.Alarm, 2f); }
+                    else if (temper > 0.8f && dp > 6f) { Stop(); lookAt = pc.transform.position; headTarget = pc.transform.position + Vector3.up * 1.5f; pose = ArmPose.Point; pointAt = pc.transform.position + Vector3.up * 1.2f; poseClearT = 2.5f; Bark(Barks.Pick("Hey! Put that away, idiot!", "There are kids around here!", "You think you're tough with that?", "Somebody call the police on this guy."), null, 2.4f); }
+                    else { var p = EscapePoint(pc.transform.position, 14f, true); if (p.HasValue && GoTo(p.Value, walkSpeed * 1.7f)) { SetState("avoid"); headTarget = pc.transform.position + Vector3.up * 1.5f; Bark(Barks.Pick("Whoa, whoa...", "Put that thing away!", "I don't want any trouble.", "Easy with that.", "I'm just walking here...", "Not my business, not my business."), Barks.Alarm, 2.2f); } }
                     return;
                 }
                 // 4. the player barges into me
@@ -277,10 +292,12 @@ namespace MafiaSandbox.Npc
                     Vector3 to = pos - pc.transform.position; to.y = 0f;
                     if (Vector3.Dot(pc.Velocity.normalized, to.normalized) > 0.4f)
                     {
-                        bumpCd = 5f; Stat("civ.bumped"); anim.PlayUpper(Vector3.Dot(transform.forward, to) > 0f ? "Hit_Back" : "Hit_Front");
+                        bumpCd = 5f; Stat("civ.bumped");
+                        if (Time.time - bumpAt > 25f) bumps = 0; bumps++; bumpAt = Time.time;
+                        if (bumps >= 2 && temper > 0.7f && !PlayerGunUp) { StartFight(Barks.Pick("That's twice! Come here!", "You did that on purpose!", "Okay, you asked for it!")); return; } anim.PlayUpper(Vector3.Dot(transform.forward, to) > 0f ? "Hit_Back" : "Hit_Front");
                         Vector3 step = pos + to.normalized * 1.1f; if (NavMesh.SamplePosition(step, out var sh, 1f, NavMesh.AllAreas)) { agent.Warp(Vector3.Lerp(pos, sh.position, 0.35f)); }
                         headTarget = pc.transform.position + Vector3.up * 1.5f; glanceHold = 2.5f;
-                        Bark(Barks.Pick("Hey! Watch it!", "Excuse you!", "Ow! Look where you're going!", "What's your problem?", "Rude..."), null, 2.2f);
+                        Bark(bumps >= 2 ? Barks.Pick("Again?!", "Seriously, man?", "Do that once more...") : temper > 0.7f ? Barks.Pick("Hey! Watch it, pal!", "You blind or something?", "Walk around me, genius.") : Barks.Pick("Hey! Watch it!", "Excuse you!", "Ow! Look where you're going!", "What's your problem?", "Rude...", "Sorry-- oh, it was you."), null, 2.2f);
                         return;
                     }
                 }
@@ -435,6 +452,8 @@ namespace MafiaSandbox.Npc
                 case "handsup":
                     pose = ArmPose.HandsUp;
                     if (Player) { lookAt = Player.transform.position; headTarget = Player.transform.position + Vector3.up * 1.5f; }
+                    pleadT -= dt; if (pleadT <= 0f && stateT < 5.5f) { pleadT = Random.Range(2.2f, 3.2f); Bark(Plead(), Barks.Alarm, 2.2f); }
+                    if (stateT > 2f && temper > 0.75f && DistToPlayer < 2.2f && Random.value < 0.05f) { pose = ArmPose.None; StartFight(Barks.Pick("Now!", "Gotcha!", "Not today!")); break; }
                     if (stateT > 6f || !PlayerAimingAtMe(14f))
                     {
                         pose = ArmPose.None; idleClip = "Idle";
@@ -442,6 +461,12 @@ namespace MafiaSandbox.Npc
                         witnessed = AddIncident(transform.position, "threat", true);
                         if (p.HasValue && GoTo(p.Value, walkSpeed * 1.6f)) { SetState("tohide"); threat = Player ? Player.transform.position : transform.position; } else SetState("cautious");
                     }
+                    break;
+                case "fight":   // fists up, going for the player
+                    FightTick(dt);
+                    break;
+                case "draw":    // pulled a pistol on the player
+                    DrawTick();
                     break;
                 case "avoid":   // walking briskly away from an armed man, eyes on him
                     if (Player) headTarget = Player.transform.position + Vector3.up * 1.5f;
@@ -580,7 +605,9 @@ namespace MafiaSandbox.Npc
                     ReplyLater(Barks.Pick("Oh, hello! How are you?", "Hey! Nice to see a friendly face.", "Hi! Do I know you?", "Well, hello there!"), 0.7f, null, true);
                     return;
                 }
-                ReplyLater(Random.value < 0.5f ? Greeting() : Barks.Pick("Hi there.", "Hello!", "Hey, how are you?", "Afternoon.", "Oh, hi."), 0.8f, null, Random.value < 0.6f);
+                if (temper > 0.8f && Random.value < 0.6f) { ReplyLater(Barks.Pick("What do you want?", "Do I know you?", "Hmph.", "Yeah, yeah.", "Not interested."), 0.8f); return; }
+                if (personality < 0.3f) { ReplyLater(Barks.Pick("Oh! H-hi.", "...hello.", "Um, hi?", "Oh, you scared me."), 0.9f); return; }
+                ReplyLater(Random.value < 0.4f ? Greeting() : Barks.Pick("Hi there.", "Hello!", "Hey, how are you?", "Afternoon.", "Oh, hi.", "Hey, you're new around here?", "Lovely day for a walk.", "Nice jacket!", "Howdy.", "Hiya!", "Well hello, stranger."), 0.8f, null, Random.value < 0.6f);
                 return;
             }
             // a jibe
@@ -592,17 +619,89 @@ namespace MafiaSandbox.Npc
             {
                 ReplyLater("That's it, I'm calling the police!", 0.7f, Barks.Alarm); witnessed = AddIncident(transform.position, "harassment", true); threat = pp; ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet(); Invoke(nameof(StartPhoneReport), 1.2f); return;
             }
-            if (personality < 0.35f) { ReplyLater(Barks.Pick("Leave me alone!", "Why would you say that?", "What did I ever do to you?", "Jerk..."), 0.8f); BackOff(1.4f); return; }
+            if (personality < 0.35f) { ReplyLater(Barks.Pick("Leave me alone!", "Why would you say that?", "What did I ever do to you?", "Jerk...", "That's so mean...", "I was having a nice day."), 0.8f); BackOff(1.4f); return; }
             if (personality < 0.75f || n == 1 && personality < 0.85f)
             {
-                ReplyLater(n >= 2 ? Barks.Pick("Seriously, stop.", "Again? Grow up.", "Leave it, will you?") : Barks.Pick("Excuse me?!", "Rude!", "Charming.", "What's your problem?", "Wow. Okay."), 0.8f);
+                ReplyLater(n >= 2 ? Barks.Pick("Seriously, stop.", "Again? Grow up.", "Leave it, will you?") : Barks.Pick("Excuse me?!", "Rude!", "Charming.", "What's your problem?", "Wow. Okay.", "Did your mother teach you that?", "Classy.", "I'm not even going to answer that.", "Sad, really."), 0.8f);
                 if (State == "wait" || State == "wander") { Stop(); lookAt = pp; pose = ArmPose.Hips; poseClearT = 3f; }
                 return;
             }
-            // the tough ones fire back
-            ReplyLater(Barks.Pick("Get lost, punk!", "Look who's talking!", "Say that again, I dare you.", "Keep walking, clown.", "Your mother dresses you funny."), 0.7f);
+            // the tough ones fire back, and a second jibe starts a fight
+            if (n >= 2 && temper > 0.7f && !PlayerGunUp && !wanted) { StartFight(Barks.Pick("That's it, come here!", "You want a piece of me?", "Okay, let's go!", "I'm gonna shut that mouth.")); return; }
+            ReplyLater(Barks.Pick("Get lost, punk!", "Look who's talking!", "Say that again, I dare you.", "Keep walking, clown.", "Your mother dresses you funny.", "Say it to my face.", "You talking to me?", "Big words from a small man.", "One more word..."), 0.7f);
             if (State == "wait" || State == "wander") { Stop(); lookAt = pp; pose = ArmPose.Point; pointAt = pp + Vector3.up * 1.2f; poseClearT = 2.5f; }
         }
+        /// <summary>What someone says with a gun in their face: pleading, bargaining, defiant or stunned, by temperament.</summary>
+        string Plead()
+        {
+            if (temper > 0.7f && Random.value < 0.6f) return Barks.Pick("You won't shoot.", "Go ahead. I dare you.", "Put it down, kid.", "You're making a mistake.", "Look at your hands shaking.");
+            if (personality < 0.5f && Random.value < 0.5f) return Barks.Pick("Please, I have kids!", "Don't shoot, please!", "I'll do whatever you want!", "I'm begging you!", "I haven't seen your face, I swear!");
+            return Barks.Pick("Take my wallet, just don't shoot!", "Here, take my watch!", "I've got fifty bucks, it's yours!", "Easy... easy...", "Okay, okay, I'm not moving.", "Is this a joke?", "Whatever you want, man.");
+        }
+
+        void StartFight(string line)
+        {
+            if (dummy || !Player || !PlayerBody || PlayerBody.Dead || PlayerInVehicle) return;
+            ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();
+            pose = ArmPose.None; headDown = false; nod = 0f; idleClip = "Idle"; activity = ""; swingCd = 0.5f; scared = 0f;
+            SetState("fight"); Bark(line, Barks.Alarm, 2.2f, false, 30f); Stat("civ.fight");
+            witnessed = AddIncident(transform.position, "fight", true);
+            GoTo(Player.transform.position, runSpeed * 0.95f, 2f);
+        }
+        void FightTick(float dt)
+        {
+            if (!Player || !PlayerBody || PlayerBody.Dead) { CalmDown(Barks.Pick("Stay down!", "That'll teach you.", "Had enough?", "Don't get up.")); return; }
+            Vector3 pp = Player.transform.position; float d = Vector3.Distance(transform.position, pp); headTarget = PlayerBody.ChestPos;
+            if (PlayerGunUp && temper < 0.93f && d > 1.6f)
+            {
+                if (armed) { DrawGun(Barks.Pick("Oh, a gun? I've got one too!", "Fine, let's do it your way!")); return; }
+                Bark(Barks.Pick("Whoa, whoa! Okay!", "A gun? That's not fair!", "Alright, you win!", "Okay, okay, I'm going!"), Barks.Alarm, 2f); StartFlee(pp); return;
+            }
+            if (d > 22f || stateT > 25f || PlayerInVehicle) { CalmDown(Barks.Pick("Yeah, run!", "Coward!", "Don't come back!", "That's what I thought.")); return; }
+            if (d < 1.55f)
+            {
+                Stop(); lookAt = pp; swingCd -= dt;
+                if (swingCd <= 0f) { swingCd = Random.Range(0.85f, 1.35f); anim.PlayUpper("Knife_Attack", 1.25f); Invoke(nameof(Punch), 0.26f); }
+                if (Random.value < 0.03f) Bark(Barks.Pick("Come on!", "Take that!", "How do you like it?", "Hit me, I dare you!"), Barks.Alarm, 1.4f);
+            }
+            else if (Arrived(1.2f) || stateT % 0.8f < dt) GoTo(pp, runSpeed * 0.95f, 2f);
+        }
+        void Punch()
+        {
+            if (Dead || State != "fight" || !PlayerBody || PlayerBody.Dead) return;
+            if (DistToPlayer > 2f) { Sfx.At("swing", transform.position, 0.5f); return; }
+            Vector3 dir = (Player.transform.position - transform.position).normalized;
+            Sfx.At("thud", PlayerBody.ChestPos);
+            PlayerBody.Hit("torso", PlayerBody.ChestPos, dir, 1, false, 0.8f, "civ", false);
+            GameManager.I?.PlayerHurt();
+        }
+        void DrawGun(string line)
+        {
+            if (dummy || !Player) return;
+            ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();
+            if (!gun) EquipGun(WeaponKind.Pistol, true); else ShowGun(true);
+            Stop(); pose = ArmPose.None; headDown = false; nod = 0f; idleClip = "Pistol_Aim"; fireCd = Random.Range(0.6f, 1.1f);
+            SetState("draw"); Bark(line, Barks.Alarm, 2.4f, false, 30f); Stat("civ.draw");
+            witnessed = AddIncident(transform.position, "threat", true);
+        }
+        void DrawTick()
+        {
+            if (!Player || !PlayerBody || PlayerBody.Dead) { ShowGun(false); CalmDown(Barks.Pick("Should've left me alone.", "Nobody pushes me around.")); return; }
+            Vector3 pp = Player.transform.position; float d = Vector3.Distance(transform.position, pp);
+            lookAt = pp; headTarget = PlayerBody.ChestPos; idleClip = "Pistol_Aim";
+            if (d > 30f || stateT > 16f) { ShowGun(false); CalmDown(Barks.Pick("And stay away!", "Yeah, keep running.")); return; }
+            if (!PlayerGunUp && stateT > 5f && d > 8f) { ShowGun(false); CalmDown(Barks.Pick("Walk away. Slowly.", "Smart move.", "Next time I won't miss.")); return; }
+            if (d > 14f) { if (Arrived(1f) || stateT % 1f < thinkDt) GoTo(pp, runSpeed * 0.7f, 2f); return; }
+            Stop();
+            if (stateT > 0.8f && Vector3.Angle(transform.forward, pp - transform.position) < 30f && CanSeePlayer(25f, 90f)) ShootAt(PlayerBody, 0.32f, "civ");
+        }
+        void CalmDown(string line)
+        {
+            pose = ArmPose.None; headTarget = null; idleClip = "Idle"; if (gun) ShowGun(false);
+            if (!string.IsNullOrEmpty(line)) Bark(line, null, 2.4f);
+            SetState("cautious"); GoTo(RandomPedNode(transform.position, 40f), walkSpeed);
+        }
+
         void BackOff(float pace)
         {
             if (!Player) return; ClearErrand(); EndCompany(false); if (chatWith) EndChatQuiet();

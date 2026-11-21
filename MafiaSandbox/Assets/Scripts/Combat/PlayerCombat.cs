@@ -97,7 +97,7 @@ namespace MafiaSandbox.Combat
         /// rests low on the right. The near clip plane is pulled in so the gun can sit close to the eye.
         /// </summary>
         readonly Dictionary<WeaponKind, Bounds> viewBounds = new Dictionary<WeaponKind, Bounds>();
-        Camera viewCam; float baseNear = -1f;
+        Camera viewCam; float baseNear = -1f, fpKick, bobT;
         /// <summary>The gun's extent in holder space (independent of how it is currently rotated), measured once per weapon.</summary>
         Bounds ViewBounds()
         {
@@ -138,13 +138,18 @@ namespace MafiaSandbox.Combat
             bool melee = Weapon.melee;
             Vector3 aim = new Vector3(b.center.x * sc, -0.008f - b.max.z * sc, (longGun ? 0.06f : 0.3f) - b.min.y * sc);
             Vector3 hip = melee ? new Vector3(0.24f + b.center.x * sc, -0.24f - b.center.z * sc, 0.3f - b.center.y * sc)
-                                : new Vector3(0.15f + b.center.x * sc, -0.1f - b.max.z * sc, (longGun ? 0.1f : 0.22f) - b.min.y * sc);
+                                : new Vector3((longGun ? 0.17f : 0.2f) + b.center.x * sc, (longGun ? -0.13f : -0.15f) - b.max.z * sc, (longGun ? 0.12f : 0.26f) - b.min.y * sc);
             var goal = Aiming ? aim : hip;
-            fpPos = Vector3.Lerp(fpPos, goal, 1f - Mathf.Exp(-16f * Time.deltaTime));
-            holder.localPosition = fpPos; holder.localScale = Vector3.one * sc;
+            fpPos = Vector3.Lerp(fpPos, goal, 1f - Mathf.Exp(-14f * Time.deltaTime));
+            fpKick = Mathf.MoveTowards(fpKick, 0f, Time.deltaTime * 7f);
+            // walking bob at the hip, recoil push-back on every shot
+            float bob = (!Aiming && pc.Moving) ? 1f : 0f; bobT += Time.deltaTime * (bob > 0f ? 9f : 0f);
+            Vector3 sway = new Vector3(Mathf.Sin(bobT) * 0.006f, -Mathf.Abs(Mathf.Cos(bobT)) * 0.006f, 0f) * bob;
+            holder.localPosition = fpPos + sway + new Vector3(0f, 0.004f, -0.045f) * fpKick; holder.localScale = Vector3.one * sc;
             var rot = Quaternion.AngleAxis(180f, Vector3.forward) * Quaternion.AngleAxis(90f, Vector3.right);   // model +Y -> view forward, +Z -> view up
             if (!Aiming && !melee) rot = Quaternion.Euler(4f, -6f, 0f) * rot;   // at the hip the muzzle angles in slightly, like a hand holding it
             if (melee) rot = Quaternion.Euler(-25f, -15f, 10f) * rot;
+            if (fpKick > 0f) rot = Quaternion.Euler(-7f * fpKick, 0f, 0f) * rot;
             holder.localRotation = rot;
             foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // the camera hides the body's renderers, not the gun
         }
@@ -185,6 +190,10 @@ namespace MafiaSandbox.Combat
             }
         }
 
+        float lastShotT = -99f;
+        /// <summary>A gun is up as far as bystanders can tell: aimed, or just fired (hip fire in first person counts).</summary>
+        public bool GunRaised => !Weapon.melee && (Aiming || Time.time - lastShotT < 3f);
+
         void SetAiming(bool on)
         {
             if (on == Aiming) return;
@@ -195,8 +204,10 @@ namespace MafiaSandbox.Combat
 
         void Fire()
         {
-            var w = Weapon; cooldown = w.rof * MafiaSandbox.Player.Highs.FireRate;
-            if (!Aiming) { SetAiming(true); aimHold = 0.5f; }
+            var w = Weapon; cooldown = w.rof * MafiaSandbox.Player.Highs.FireRate; lastShotT = Time.time;
+            bool fpShot = cam && cam.FirstPerson;
+            if (!Aiming && !fpShot) { SetAiming(true); aimHold = 0.5f; }   // third person raises the gun to shoot; first person fires from the hip
+            if (fpShot) fpKick = 1f;
             anim.PlayUpper(w.clipPrefix + "_Fire");
             heat = Mathf.Min(1.2f, heat + (w.auto ? 0.16f : 0.45f));
             if (cam) cam.AddKick(w.kick);
