@@ -15,7 +15,7 @@ namespace MafiaSandbox.Combat
     {
         public WeaponKind current = WeaponKind.Pistol;
         public LayerMask shootMask;                 // set by CityBuilder: everything except Characters (the capsules) — hitboxes + world
-        public bool[] owned = { true, true, true, true, true, true };   // all unlocked until the economy (step 5)
+        public bool[] owned = { true, true, true, true, true, true, true, true };   // all unlocked until the economy (step 5)
 
         public WeaponDef Weapon => WeaponDef.All[current];
         public bool Aiming { get; private set; }
@@ -37,6 +37,8 @@ namespace MafiaSandbox.Combat
         void Awake()
         {
             pc = GetComponent<PlayerController>(); anim = GetComponent<CharacterAnimator>(); body = GetComponent<CharacterBody>();
+            if (owned == null || owned.Length < WeaponDef.Order.Length)   // the scene was saved with fewer weapons: new ones start unlocked
+            { var o = new bool[WeaponDef.Order.Length]; for (int i = 0; i < o.Length; i++) o[i] = owned == null || i >= owned.Length || owned[i]; owned = o; }
             cam = FindAnyObjectByType<PlayerCamera>();
             pc.LocomotionOverride = Locomotion;
         }
@@ -74,11 +76,81 @@ namespace MafiaSandbox.Combat
 
         public void Equip(WeaponKind k)
         {
+            if (owned.Length < WeaponDef.Order.Length) Awake();
             if (!owned[System.Array.IndexOf(WeaponDef.Order, k)]) return;
             if (model) model.SetActive(false);
-            current = k; model = GetModel(k); model.SetActive(true); muzzle = model.transform.Find("Muzzle");
+            current = k; model = GetModel(k); model.SetActive(true); muzzle = FindDeep(model.transform, "Muzzle"); whipJ = null;
             heat = 0f;
             if (cam) cam.AimFov = Weapon.aimFov;
+        }
+
+        static Transform FindDeep(Transform t, string n) { if (t.name == n) return t; for (int i = 0; i < t.childCount; i++) { var r = FindDeep(t.GetChild(i), n); if (r) return r; } return null; }
+
+        // ---------------------------------------------------------------- fists and whip
+        Transform fpFists, fistL, fistR; float punchT = -9f; int punchN; float lastPunchT = -9f; bool punchLeft;
+        Transform[] whipJ; float whipT = -9f;
+
+        /// <summary>First-person fists: two skin-toned fists with a bit of sleeve, held up in a guard and thrown at the crosshair.</summary>
+        void FpFists(bool show)
+        {
+            if (!show) { if (fpFists) fpFists.gameObject.SetActive(false); return; }
+            if (!fpFists)
+            {
+                fpFists = new GameObject("FpFists").transform; fpFists.SetParent(cam.transform, false);
+                Transform Fist(float side)
+                {
+                    var root = new GameObject(side > 0 ? "R" : "L").transform; root.SetParent(fpFists, false);
+                    var f = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(f.GetComponent<Collider>()); f.name = "fist"; f.transform.SetParent(root, false); f.transform.localScale = new Vector3(0.07f, 0.062f, 0.082f);
+                    var k = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(k.GetComponent<Collider>()); k.name = "thumb"; k.transform.SetParent(root, false); k.transform.localScale = new Vector3(0.024f, 0.024f, 0.05f); k.transform.localPosition = new Vector3(-side * 0.036f, -0.012f, 0.012f);
+                    var a = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(a.GetComponent<Collider>()); a.name = "sleeve"; a.transform.SetParent(root, false); a.transform.localScale = new Vector3(0.068f, 0.066f, 0.32f); a.transform.localPosition = new Vector3(0f, -0.008f, -0.2f);
+                    foreach (var r in root.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.gameObject.layer = gameObject.layer; }
+                    return root;
+                }
+                fistL = Fist(-1f); fistR = Fist(1f);
+            }
+            fpFists.gameObject.SetActive(true);
+            var look = PlayerAppearance.I ? PlayerAppearance.I.Current : null;
+            Color skin = look != null ? look.skin : new Color(0.9f, 0.7f, 0.55f), sleeve = look != null ? look.topCol : new Color(0.8f, 0.12f, 0.1f);
+            foreach (var f in new[] { fistL, fistR })
+            {
+                foreach (var r in f.GetComponentsInChildren<Renderer>()) { var c = r.name == "sleeve" ? sleeve : skin; if (r.material.color != c) r.material.color = c; }
+            }
+            float t = Time.time - punchT;
+            float bob = pc.Moving ? Mathf.Sin(Time.time * 9f) * 0.008f : Mathf.Sin(Time.time * 2f) * 0.004f;
+            for (int i = 0; i < 2; i++)
+            {
+                bool left = i == 0; var f = left ? fistL : fistR; float side = left ? -1f : 1f;
+                Vector3 guard = new Vector3(side * 0.2f, -0.2f + bob, 0.5f);
+                Quaternion rot = Quaternion.Euler(-8f, -side * 8f, side * 12f);
+                bool active = left == punchLeft && t < 0.32f;
+                if (active)
+                {
+                    bool hook = punchN % 3 == 0;
+                    float u = t < 0.1f ? t / 0.1f : 1f - Mathf.Clamp01((t - 0.1f) / 0.22f); u = Mathf.SmoothStep(0f, 1f, u);
+                    Vector3 hit = hook ? new Vector3(side * 0.03f, -0.08f, 0.66f) : new Vector3(side * 0.06f, -0.1f, 0.78f);
+                    guard = Vector3.Lerp(guard, hit, u);
+                    rot = Quaternion.Slerp(rot, hook ? Quaternion.Euler(0f, -side * 60f, side * 80f) : Quaternion.Euler(0f, -side * 4f, side * 70f), u);
+                }
+                f.localPosition = guard; f.localRotation = rot;
+            }
+        }
+
+        /// <summary>The lash hangs and sways; a swing curls it back, then it snaps straight out and cracks.</summary>
+        void AnimateWhip()
+        {
+            if (whipJ == null) { whipJ = new Transform[WeaponModels.WhipJoints]; for (int i = 0; i < whipJ.Length; i++) { whipJ[i] = FindDeep(model.transform, "J" + i); if (!whipJ[i]) { whipJ = new Transform[0]; break; } } }
+            if (whipJ.Length == 0) return;
+            float t = Time.time - whipT, w = Weapon.hitAt / 1.35f;
+            for (int i = 0; i < whipJ.Length; i++)
+            {
+                float k = i / (float)(whipJ.Length - 1);
+                float idle = -9f + Mathf.Sin(Time.time * 2.2f - i * 0.6f) * 3f * k;
+                float a = idle;
+                if (t < w) a = Mathf.Lerp(idle, 16f, Mathf.SmoothStep(0f, 1f, t / w));                     // curled back over the shoulder
+                else if (t < w + 0.18f) { float u = (t - w) / 0.18f; a = Mathf.Lerp(16f, -3f, Mathf.Clamp01(u * 2.5f - k)) ; } // the wave runs down the lash
+                else if (t < w + 0.6f) a = Mathf.Lerp(-3f, idle, (t - w - 0.18f) / 0.42f);
+                whipJ[i].localRotation = Quaternion.Euler(a, 0f, 0f);
+            }
         }
 
         string Locomotion(bool moving, bool running)
@@ -130,7 +202,10 @@ namespace MafiaSandbox.Combat
                 if (!fp) { holder.localPosition = new Vector3(0f, 0.06f, 0f); holder.localRotation = Quaternion.identity; holder.localScale = Vector3.one; }
                 if (viewCam && baseNear > 0f) viewCam.nearClipPlane = fp ? Mathf.Min(baseNear, 0.03f) : baseNear;
             }
-            if (!fp || !model) return;
+            if (current == WeaponKind.Whip && model && model.activeSelf) AnimateWhip();
+            bool fists = current == WeaponKind.Fists;
+            FpFists(fp && fists && model && model.activeSelf);
+            if (!fp || !model || fists) return;
             float sc = 1f / Mathf.Max(0.01f, model.transform.localScale.x);   // real size
             var b = ViewBounds();
             // holder-local p maps to camera space as (-p.x, p.z, p.y) * sc + holder position
@@ -138,7 +213,9 @@ namespace MafiaSandbox.Combat
             bool melee = Weapon.melee;
             Vector3 aim = new Vector3(b.center.x * sc, -0.008f - b.max.z * sc, (longGun ? 0.06f : 0.3f) - b.min.y * sc);
             Vector3 hip = melee ? new Vector3(0.24f + b.center.x * sc, -0.24f - b.center.z * sc, 0.3f - b.center.y * sc)
-                                : new Vector3((longGun ? 0.17f : 0.2f) + b.center.x * sc, (longGun ? -0.13f : -0.15f) - b.max.z * sc, (longGun ? 0.12f : 0.26f) - b.min.y * sc);
+                                : new Vector3((longGun ? 0.3f : 0.27f) + b.center.x * sc, (longGun ? -0.2f : -0.2f) - b.max.z * sc, (longGun ? 0.08f : 0.3f) - b.min.y * sc);   // well over to the right and low, like other shooters
+            bool whipW = current == WeaponKind.Whip;
+            if (whipW) hip = new Vector3(0.2f, -0.17f, 0.36f);              // handle low on the right, lash hanging out of view
             var goal = Aiming ? aim : hip;
             fpPos = Vector3.Lerp(fpPos, goal, 1f - Mathf.Exp(-14f * Time.deltaTime));
             fpKick = Mathf.MoveTowards(fpKick, 0f, Time.deltaTime * 7f);
@@ -147,8 +224,8 @@ namespace MafiaSandbox.Combat
             Vector3 sway = new Vector3(Mathf.Sin(bobT) * 0.006f, -Mathf.Abs(Mathf.Cos(bobT)) * 0.006f, 0f) * bob;
             holder.localPosition = fpPos + sway + new Vector3(0f, 0.004f, -0.045f) * fpKick; holder.localScale = Vector3.one * sc;
             var rot = Quaternion.AngleAxis(180f, Vector3.forward) * Quaternion.AngleAxis(90f, Vector3.right);   // model +Y -> view forward, +Z -> view up
-            if (!Aiming && !melee) rot = Quaternion.Euler(4f, -6f, 0f) * rot;   // at the hip the muzzle angles in slightly, like a hand holding it
-            if (melee) rot = Quaternion.Euler(-25f, -15f, 10f) * rot;
+            if (!Aiming && !melee) rot = Quaternion.Euler(3f, longGun ? 2f : -4f, 0f) * rot;   // long guns point straight ahead from the hip instead of across the screen   // at the hip the muzzle angles in slightly, like a hand holding it
+            if (melee) rot = (whipW ? Quaternion.Euler(Time.time - whipT < 0.6f ? 0f : 14f, -10f, 0f) : Quaternion.Euler(-25f, -15f, 10f)) * rot;   // the whip comes up level to crack at the crosshair
             if (fpKick > 0f) rot = Quaternion.Euler(-7f * fpKick, 0f, 0f) * rot;
             holder.localRotation = rot;
             foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // the camera hides the body's renderers, not the gun
@@ -164,7 +241,7 @@ namespace MafiaSandbox.Combat
 
             if (!locked)
             {
-                for (int i = 0; i < 6; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Equip(WeaponDef.Order[i]);
+                for (int i = 0; i < WeaponDef.Order.Length && i < 9; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Equip(WeaponDef.Order[i]);
             }
 
             bool wantAim = !locked && (Input.GetMouseButton(1) || aimHold > 0f);
@@ -285,19 +362,31 @@ namespace MafiaSandbox.Combat
         IEnumerator Melee()
         {
             var w = Weapon; cooldown = w.rof; swinging = true;
-            const float swingSpeed = 1.35f;   // the generated swing clips are slow; a faster, snappier swing reads better
-            anim.PlayUpper(w.clipPrefix + "_Attack", swingSpeed);
-            yield return new WaitForSeconds(w.hitAt / swingSpeed);
+            float swingSpeed = 1.35f;   // the generated swing clips are slow; a faster, snappier swing reads better
+            bool fists = w.kind == WeaponKind.Fists, whip = w.kind == WeaponKind.Whip, hook = false;
+            int dmg = w.damage; float impulse = w.impulse, range = w.range;
+            if (fists)
+            {
+                if (Time.time - lastPunchT > 1.1f) punchN = 0; punchN++; lastPunchT = Time.time; punchLeft = !punchLeft; punchT = Time.time;
+                hook = punchN % 3 == 0;                                  // jab, jab, hook
+                if (hook) { dmg = 2; impulse = 4f; cooldown = w.rof * 1.6f; }
+                swingSpeed = hook ? 1.5f : 1.9f;
+                anim.PlayUpper(hook ? "Bat_Attack" : "Knife_Attack", swingSpeed);
+            }
+            else anim.PlayUpper(w.clipPrefix + "_Attack", swingSpeed);
+            if (whip) whipT = Time.time;
+            yield return new WaitForSeconds((hook ? 0.3f : w.hitAt) / swingSpeed);
             swinging = false;
             Vector3 fwd = cam ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized : transform.forward;
             Vector3 origin = transform.position + Vector3.up * 1.2f;
             Vector3 tip = muzzle ? muzzle.position : origin + fwd;
-            CombatFx.I?.Slash(tip, fwd); Sfx.At("swing", origin, 0.6f);
+            if (!fists) CombatFx.I?.Slash(tip, fwd);
+            Sfx.At(whip ? "crack" : "swing", whip ? tip : origin, whip ? 0.9f : fists ? 0.35f : 0.6f);
             CharacterBody best = null; float bd = float.MaxValue;
             foreach (var b in CharacterBody.All)
             {
                 if (b == body) continue;
-                Vector3 to = b.ChestPos - origin; float d = to.magnitude; if (d > w.range + 0.4f) continue;
+                Vector3 to = b.ChestPos - origin; float d = to.magnitude; if (d > range + 0.4f) continue;
                 if (Vector3.Dot(to / d, fwd) < w.arcCos) continue;
                 if (d < bd) { bd = d; best = b; }
             }
@@ -305,10 +394,10 @@ namespace MafiaSandbox.Combat
             if (!best) yield break;
             Vector3 point = Vector3.Lerp(tip, best.ChestPos, 0.5f);
             string zone = best.ZoneNear(Vector3.Lerp(best.transform.position + Vector3.up * tip.y - Vector3.up * best.transform.position.y, tip, 0.35f));
-            CombatFx.I?.Blood(point, fwd, w.kind == WeaponKind.Bat ? 5 : 8);
-            if (cam) cam.AddKick(0.6f);
-            bool killed = best.Hit(zone, point, (fwd + Vector3.up * 0.3f).normalized, w.damage, MafiaSandbox.Player.Highs.Berserk, w.impulse / 2.5f * (MafiaSandbox.Player.Highs.Berserk ? 1.8f : 1f), "player", w.headKill);
-            Sfx.At(w.kind == WeaponKind.Bat ? "thud" : "stab", point);
+            CombatFx.I?.Blood(point, fwd, w.kind == WeaponKind.Bat ? 5 : fists ? (hook ? 3 : 1) : whip ? 2 : 8);
+            if (cam) cam.AddKick(fists ? (hook ? 0.7f : 0.3f) : 0.6f);
+            bool killed = best.Hit(zone, point, (fwd + Vector3.up * 0.3f).normalized, dmg, MafiaSandbox.Player.Highs.Berserk, impulse / 2.5f * (MafiaSandbox.Player.Highs.Berserk ? 1.8f : 1f), "player", w.headKill);
+            Sfx.At(w.kind == WeaponKind.Bat ? "thud" : fists ? "punch" : whip ? "crack" : "stab", point);
             HitMarkerT = 0.16f; HitMarkerHead = zone == "Hit_Head";
         }
     }

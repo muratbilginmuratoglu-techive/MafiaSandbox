@@ -16,7 +16,7 @@ namespace MafiaSandbox.Vehicles
         public int maxCars = 16;               // the little grid jams up with more
         public readonly List<TrafficDriver> drivers = new List<TrafficDriver>();
 
-        readonly Dictionary<int, TrafficDriver> tokens = new Dictionary<int, TrafficDriver>();
+        readonly Dictionary<int, List<TrafficDriver>> tokens = new Dictionary<int, List<TrafficDriver>>();
         readonly Dictionary<int, float> tokenSince = new Dictionary<int, float>();
 
         void Awake() { I = this; if (!graph) graph = GetComponent<RoadGraph>() ?? FindAnyObjectByType<RoadGraph>(); }
@@ -77,19 +77,38 @@ namespace MafiaSandbox.Vehicles
             return prev;
         }
 
-        /// <summary>Ask to enter a junction. Granted if free, already ours, or the holder has been sitting on it for too long.</summary>
+        /// <summary>
+        /// Ask to enter a junction. Several cars may be inside at once when their paths don't cross: a platoon from the same street,
+        /// or cars from opposite sides going straight on or turning right. Anyone sitting in a junction too long loses the grant.
+        /// </summary>
         public bool Request(int junction, TrafficDriver who)
         {
-            if (!tokens.TryGetValue(junction, out var holder) || holder == null || holder == who || !holder.isActiveAndEnabled || Time.time - tokenSince[junction] > 6f)
+            if (!tokens.TryGetValue(junction, out var list)) tokens[junction] = list = new List<TrafficDriver>();
+            list.RemoveAll(h => h == null || !h.isActiveAndEnabled || (h.ApproachOf(junction) < 0 && h.ExitOf(junction) < 0));
+            if (list.Contains(who)) return true;
+            if (list.Count == 0 || !tokenSince.TryGetValue(junction, out var since) || Time.time - since > 7f)
             {
-                tokens[junction] = who; if (holder != who) tokenSince[junction] = Time.time; return true;
+                list.Clear(); list.Add(who); tokenSince[junction] = Time.time; return true;
             }
-            // following the holder in from the same street: go with it (platoons clear a junction together instead of one by one)
-            int a = who.ApproachOf(junction), b = holder.ApproachOf(junction);
-            if (a >= 0 && a == b && Vector3.Distance(who.transform.position, holder.transform.position) < 16f) return true;
-            return false;
+            foreach (var h in list) if (!Compatible(junction, who, h)) return false;
+            list.Add(who); return true;
         }
 
-        public void Release(int junction, TrafficDriver who) { if (tokens.TryGetValue(junction, out var h) && h == who) tokens.Remove(junction); }
+        bool Compatible(int j, TrafficDriver a, TrafficDriver b)
+        {
+            int aa = a.ApproachOf(j), ab = b.ApproachOf(j), ea = a.ExitOf(j), eb = b.ExitOf(j);
+            if (aa < 0 || ab < 0) return false;
+            if (aa == ab) return Vector3.Distance(a.transform.position, b.transform.position) < 16f;   // following it in from the same street
+            if (ea < 0 || eb < 0 || ea == eb) return false;                                            // both heading into the same street
+            Vector3 J = Nodes[j].pos;
+            Vector3 inA = Flat(J - Nodes[aa].pos), inB = Flat(J - Nodes[ab].pos), outA = Flat(Nodes[ea].pos - J), outB = Flat(Nodes[eb].pos - J);
+            float tA = Vector3.SignedAngle(inA, outA, Vector3.up), tB = Vector3.SignedAngle(inB, outB, Vector3.up);   // + right, - left
+            if (Vector3.Dot(inA, inB) < -0.7f && tA > -35f && tB > -35f) return true;                 // opposite sides, straight on / right
+            if (tA > 50f && tB > 50f) return true;                                                     // two right turns hug their own corners
+            return false;
+        }
+        static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 1e-4f ? v.normalized : Vector3.forward; }
+
+        public void Release(int junction, TrafficDriver who) { if (tokens.TryGetValue(junction, out var l)) l.Remove(who); }
     }
 }

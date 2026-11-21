@@ -69,6 +69,8 @@ namespace MafiaSandbox.Combat
                 case WeaponKind.Rifle: g = Bench("Rifle", k, 1.11f, -0.19f, 0f, 0.14f, 0.045f, 0.6f, new Vector3(0f, -0.02f, 0f)) ?? Rifle(); break;
                 case WeaponKind.Shotgun: g = Bench("Shotgun", k, 1.03f, -0.2f, 0.022f, 0.14f, 0.052f, 0.5165f, new Vector3(0f, -0.02f, 0f)) ?? Shotgun(); break;
                 case WeaponKind.Knife: g = Knife(); g.transform.localScale = Vector3.one * 1.3f; break;
+                case WeaponKind.Fists: g = new GameObject("Fists"); break;                 // nothing in the hand: the fists are the weapon
+                case WeaponKind.Whip: g = Whip(); break;
                 default: g = Bat(); break;
             }
             return g;
@@ -203,6 +205,28 @@ namespace MafiaSandbox.Combat
             for (int i = 0; i < 3; i++) Bx(t, 0.032f, 0.006f, 0.006f, 0, -0.04f + i * 0.04f, 0.008f, brass);
             Bx(t, 0.05f, 0.015f, 0.06f, 0, 0.068f, 0, metal); Bx(t, 0.01f, 0.21f, 0.04f, 0, 0.18f, 0.004f, blade); Bx(t, 0.004f, 0.21f, 0.012f, 0, 0.18f, -0.02f, chrome);
             Bx(t, 0.01f, 0.05f, 0.02f, 0, 0.3f, 0.012f, blade); Bx(t, 0.03f, 0.02f, 0.03f, 0, -0.07f, 0, metal);
+            return g;
+        }
+
+        static readonly Color leather = Hex(0x3b2414), leatherLight = Hex(0x5c3a20);
+        public const int WhipJoints = 12;
+        /// <summary>A bullwhip: wrapped handle and a tapering lash made of jointed segments (J0..J11) that the player's script curls and cracks.</summary>
+        static GameObject Whip()
+        {
+            var g = Root("Whip", new Vector3(0, 0.3f, 0), new Vector3(0, 0.02f, 0)); var t = g.transform;
+            Cy(t, 0.02f, 0.26f, 0, 0.1f, 0, leather);
+            for (int i = 0; i < 5; i++) Cy(t, 0.022f, 0.012f, 0, 0.0f + i * 0.05f, 0, leatherLight);
+            Cy(t, 0.026f, 0.03f, 0, -0.04f, 0, metal);
+            Transform parent = t; float y = 0.23f;
+            for (int i = 0; i < WhipJoints; i++)
+            {
+                var j = new GameObject("J" + i).transform; j.SetParent(parent, false); j.localPosition = new Vector3(0, y, 0); j.localRotation = Quaternion.Euler(-9f, 0f, 0f);
+                float r = Mathf.Lerp(0.014f, 0.004f, i / (float)(WhipJoints - 1)), len = 0.11f;
+                Bx(j, r * 2f, len, r * 2f, 0, len * 0.5f, 0, i % 2 == 0 ? leather : leatherLight);
+                parent = j; y = len;
+            }
+            var tip = new GameObject("Tip").transform; tip.SetParent(parent, false); tip.localPosition = new Vector3(0, 0.11f, 0);
+            g.transform.Find("Muzzle").SetParent(tip, false);
             return g;
         }
 

@@ -7,6 +7,10 @@ namespace MafiaSandbox.Vehicles
     /// AI driver for a <see cref="VehicleController"/>: follows the road graph lane by lane (pure-pursuit steering on a
     /// right-hand lane offset), slows for corners, stops for anything in front (cars, pedestrians, the player), waits for a
     /// junction grant, U-turns at dead ends, backs out when wedged, and floors it for a few seconds after hearing gunfire.
+    /// Each driver has a style (calm .. pushy): cruise speed and following gap differ. Speed is planned, not switched: it follows
+    /// the car ahead at a time gap matched to that car's speed, brakes on a curve for anything standing in the lane and for a
+    /// junction it may not enter yet, eases off near people at the kerb, and steers smoothly. Drivers honk and shout at a
+    /// player blocking the road or ramming them, and floor it away from a gun pointed at them.
     /// </summary>
     [RequireComponent(typeof(VehicleController))]
     public class TrafficDriver : MonoBehaviour
@@ -21,6 +25,7 @@ namespace MafiaSandbox.Vehicles
         int prev = -1, cur = -1, next = -1, after = -1, heldJunction = -1;
         float waitT, scareT, stuckT, reverseT, uturnT, blockedT, overtakeT, troubleT, honkT, pedBlockT, wallT, idleT;
         static readonly RaycastHit[] hits = new RaycastHit[8];
+        float style, gapTime = 1.3f, steerSm, threatT, cautionT, shoutCd, rageT; bool caution; int rams; float ramAt = -99f;
 
         bool wasControlled;
 
@@ -35,7 +40,7 @@ namespace MafiaSandbox.Vehicles
             foreach (var d in tm.drivers) if (d) foreach (var oc in d.GetComponentsInChildren<Collider>(true)) foreach (var mc in myCols) Physics.IgnoreCollision(mc, oc, true);
             tm.drivers.Add(this);
             WorldEvents.OnNoise += OnNoise;
-            cruise *= Random.Range(0.9f, 1.1f);
+            style = Random.value; cruise *= Mathf.Lerp(0.82f, 1.2f, style) * Random.Range(0.95f, 1.05f); gapTime = Mathf.Lerp(1.7f, 0.9f, style);
             Reinit(); SnapToLane();
         }
 
@@ -91,6 +96,22 @@ namespace MafiaSandbox.Vehicles
 
         /// <summary>The node this car comes from on its way into (or through) `junction`; -1 if it isn't heading there.</summary>
         public int ApproachOf(int junction) => next == junction ? cur : cur == junction ? prev : -1;
+        /// <summary>The node this car leaves `junction` towards; -1 if it isn't heading through it.</summary>
+        public int ExitOf(int junction) => next == junction ? after : cur == junction ? next : -1;
+
+        void Shout(string line) { if (shoutCd > 0f) return; shoutCd = 4f; MafiaSandbox.Npc.Barks.Say(transform, line, 2.4f, null, 30f); }
+        void Horn() { if (honkT > 0f) return; honkT = 1.6f; MafiaSandbox.Core.Sfx.At("horn", transform.position + transform.forward * 2f); }
+
+        void OnCollisionEnter(Collision c)
+        {
+            if (vc == null || vc.Controlled) return;
+            var other = c.collider.GetComponentInParent<VehicleController>();
+            if (!other || !other.Controlled || c.relativeVelocity.magnitude < 2f) return;
+            if (Time.time - ramAt > 20f) rams = 0; rams++; ramAt = Time.time; honkT = 0f; Horn();
+            Shout(rams >= 3 ? Pick("Are you insane?!", "I'm calling the cops!", "That's it, I'm out of here!") : rams == 2 ? Pick("Again?!", "What is wrong with you?!", "Stop hitting my car!") : Pick("Hey! Learn to drive!", "Watch it, idiot!", "My car!", "Are you blind?!"));
+            if (rams >= 3) { scareT = 8f; rageT = 0f; } else if (style > 0.6f) rageT = 6f;   // pushy drivers lean on the horn and tailgate for a bit
+        }
+        static string Pick(params string[] a) => a[Random.Range(0, a.Length)];
 
         void OnGUI()
         {
@@ -121,7 +142,27 @@ namespace MafiaSandbox.Vehicles
         {
             if (vc.Controlled) { wasControlled = true; if (heldJunction >= 0) { tm.Release(heldJunction, this); heldJunction = -1; } return; }
             if (wasControlled) { wasControlled = false; Reinit(); }
-            float dt = Time.deltaTime; scareT -= dt;
+            float dt = Time.deltaTime; scareT -= dt; shoutCd -= dt; rageT -= dt;
+            // a gun pointed at the car: floor it out of there
+            threatT -= dt;
+            if (threatT <= 0f)
+            {
+                threatT = 0.25f; var gm = MafiaSandbox.Core.GameManager.I;
+                if (gm && gm.player)
+                {
+                    var pcb = gm.player.GetComponent<PlayerCombat>(); Vector3 tp = transform.position - gm.player.transform.position; tp.y = 0f;
+                    if (pcb && pcb.GunRaised && tp.sqrMagnitude < 20f * 20f && Vector3.Dot(gm.player.transform.forward, tp.normalized) > 0.85f)
+                    { if (scareT < 1f) { Horn(); Shout(Pick("Whoa! Don't shoot!", "He's got a gun!", "Go, go, go!", "Not my car, please!")); } scareT = 8f; }
+                }
+                // people at the kerb right next to our lane: ease off in case one steps out
+                caution = false;
+                foreach (var b in CharacterBody.All)
+                {
+                    if (!b || b.Dead) continue; Vector3 r = b.transform.position - transform.position; if (Mathf.Abs(r.y) > 2f) continue;
+                    float f = Vector3.Dot(r, transform.forward); if (f < 2f || f > 14f) continue;
+                    float l = Mathf.Abs(Vector3.Dot(r, transform.right)); if (l > vc.width * 0.5f + 0.5f && l < vc.width * 0.5f + 1.4f) { caution = true; break; }
+                }
+            }
             if (transform.position.y < -15f) { Reinit(); SnapToLane(); var rbF = GetComponent<Rigidbody>(); if (rbF) rbF.position = new Vector3(rbF.position.x, tm.Nodes[cur].pos.y + 0.3f, rbF.position.z); return; }   // fell through the world
             if (cur < 0 || next < 0 || cur == next) { vc.SetInput(0f, 0f, true); return; }
 
@@ -158,14 +199,16 @@ namespace MafiaSandbox.Vehicles
             {
                 if (after >= 0 && after != next) { float turn = Vector3.Angle(segDir, (tm.Nodes[after].pos - pb).normalized); desired = Mathf.Min(desired, Mathf.Lerp(cruise, 3.5f, Mathf.Clamp01(turn / 90f))); }
             }
-            if (tm.IsJunction(next) && distNext < 11f)
+            if (tm.IsJunction(next) && distNext < 13f && scareT <= 0f)
             {
                 if (heldJunction != next)
                 {
                     if (tm.Request(next, this)) { heldJunction = next; waitT = 0f; }
-                    else { waitT += dt; if (distNext < 7.5f) desired = 0f; }
+                    else { waitT += dt; desired = Mathf.Min(desired, distNext < 7.5f ? 0f : Mathf.Sqrt(2f * 4f * (distNext - 7.5f))); }   // roll up to the line instead of stopping dead
                 }
             }
+            if (caution && scareT <= 0f) desired = Mathf.Min(desired, 5.5f);
+            if (rageT > 0f) desired *= 1.2f;
             if (tm.IsDeadEnd(next) && distNext < 14f) desired = Mathf.Min(desired, 3f);   // dead end ahead: crawl, turn around before the road runs out
             if (uturnT > 0f) { uturnT -= dt; desired = Mathf.Min(desired, 3f); }
 
@@ -173,7 +216,7 @@ namespace MafiaSandbox.Vehicles
             float sense = 3f + Mathf.Abs(vc.Speed) * 1.1f;
             Vector3 origin = transform.position + Vector3.up * 0.95f + transform.forward * (vc.length * 0.5f - 0.3f);
             int n = Physics.BoxCastNonAlloc(origin, new Vector3(vc.width * 0.5f + 0.15f, 0.5f, 0.3f), transform.forward, hits, transform.rotation, sense, obstacleMask, QueryTriggerInteraction.Ignore);
-            float nearest = float.MaxValue; string obsName = "-"; bool yieldToOncoming = false, queued = false, wallAhead = false; CharacterBody pedAhead = null;
+            float nearest = float.MaxValue, leaderV = 0f; string obsName = "-"; bool yieldToOncoming = false, queued = false, wallAhead = false; CharacterBody pedAhead = null;
             for (int i = 0; i < n; i++)
             {
                 var h = hits[i]; if (h.collider.transform.IsChildOf(transform)) continue;
@@ -188,17 +231,26 @@ namespace MafiaSandbox.Vehicles
                     float facing = other ? Vector3.Dot(transform.forward, other.transform.forward) : 0f;
                     yieldToOncoming = other && other.enabled && !other.vc.Controlled && facing < -0.3f && GetEntityId() > other.GetEntityId();
                     queued = other && facing > 0.5f;                                                                       // same direction: it's a queue, be patient
+                    var ov = h.collider.GetComponentInParent<VehicleController>();
+                    leaderV = ov && Vector3.Dot(transform.forward, ov.transform.forward) > 0.5f ? Mathf.Max(0f, ov.Speed) : 0f;   // the car ahead, going our way
                     wallAhead = !other && !body && h.collider.gameObject.layer == 0 && !h.collider.GetComponent<MafiaSandbox.World.CityCollider>() && h.normal.y < 0.55f;   // static world geometry
                 }
             }
             bool blockedByObstacle = false;
-            if (nearest < float.MaxValue) { float lim = nearest < 2.2f ? 0f : Mathf.Lerp(0f, cruise, (nearest - 2.2f) / 9f); if (lim < desired) { desired = lim; blockedByObstacle = lim < 0.5f; } }
+            if (nearest < float.MaxValue)
+            {
+                float gap = nearest - 2f, lim;
+                if (leaderV > 0.5f) { float want = 1.5f + leaderV * gapTime; lim = gap < 0.4f ? 0f : Mathf.Clamp(leaderV + (gap - want) * 0.6f, 0f, cruise * 1.1f); }   // follow at a time gap
+                else lim = gap <= 0.2f ? 0f : Mathf.Sqrt(2f * 5f * gap) * 0.85f;                                                      // brake on a curve for a standing obstacle
+                if (lim < desired) { desired = lim; blockedByObstacle = lim < 0.5f; }
+            }
             // standing behind something for a while (head-on with another car, a parked car in the lane): back up a bit with the nose
             // swinging right, then pass on the left for a few seconds
             overtakeT -= dt;
             if (blockedByObstacle && Mathf.Abs(vc.Speed) < 0.3f && reverseT <= 0f) blockedT += dt; else blockedT = Mathf.Max(0f, blockedT - dt);
             // a pedestrian standing in the lane: honk after a moment and they step aside
             honkT -= dt;
+            if (pedAhead && pedAhead.isPlayer && blockedByObstacle && pedBlockT > 0.8f) { Horn(); Shout(Pick("Get off the road!", "Move it, buddy!", "Are you trying to get killed?", "Some of us have jobs!")); }
             if (pedAhead && blockedByObstacle) { pedBlockT += dt; if (pedBlockT > 1.5f && honkT <= 0f) { honkT = 2.5f; var brain = pedAhead.GetComponent<MafiaSandbox.Npc.NpcBrain>(); if (brain) brain.Honk(transform.position, transform.forward); MafiaSandbox.Core.Sfx.At("horn", transform.position + transform.forward * 2f); } }
             else pedBlockT = 0f;
             if (pedAhead) blockedT = Mathf.Min(blockedT, 2f);                                                               // don't ram around people, wait for them
@@ -225,15 +277,16 @@ namespace MafiaSandbox.Vehicles
             float ang = Vector3.SignedAngle(transform.forward, to, Vector3.up);
             float steer = Mathf.Clamp(ang / 30f, -1f, 1f);
             if (uturnT > 0f && Mathf.Abs(ang) > 60f) steer = ang > 0f ? 1f : -1f;
+            else { steerSm = Mathf.MoveTowards(steerSm, steer, dt * (2.5f + Mathf.Abs(steer - steerSm) * 4f)); steer = steerSm; }   // no twitching at the wheel
 
             // stuck → back out for a moment
             float speed = vc.Speed;
             if (desired > 1.5f && Mathf.Abs(speed) < 0.3f) stuckT += dt; else stuckT = Mathf.Max(0f, stuckT - dt);
             if (stuckT > 5f) { reverseT = 1.6f; stuckT = 0f; }
             float throttle; bool brake = false;
-            if (reverseT > 0f) { reverseT -= dt; throttle = -1f; steer = overtakeT > 0f ? -0.7f : -steer; }
+            if (reverseT > 0f) { reverseT -= dt; throttle = -1f; steer = overtakeT > 0f ? -0.7f : -steer; steerSm = steer; }
             else if (desired <= 0.05f) { throttle = 0f; brake = Mathf.Abs(speed) < 2f; if (speed > 0.5f) throttle = -1f; }
-            else throttle = desired > speed + 0.4f ? 1f : desired < speed - 0.6f ? -0.6f : 0.15f;
+            else { float e = desired - speed; throttle = e > 0f ? Mathf.Clamp(e * 0.6f + 0.15f, 0.15f, 1f) : e < -0.4f ? Mathf.Clamp(e * 0.35f, -1f, -0.15f) : 0.1f; }   // ease on and off the pedals
             vc.SetInput(throttle, steer, brake);
             State = $"{cur}>{next}>{after} v{speed:0.0} want{desired:0.0} bl{blockedT:0} ov{overtakeT:0} tr{troubleT:0} obs{(nearest < float.MaxValue ? nearest.ToString("0.0") + ":" + obsName : "-")} j{(heldJunction >= 0 ? "H" : tm.IsJunction(next) && distNext < 11f ? "W" + waitT.ToString("0") : "-")} st{stuckT:0} rv{reverseT:0.0} ut{uturnT:0}";
             if (debugDraw) { Debug.DrawLine(transform.position + Vector3.up, target + Vector3.up, Color.yellow); Debug.DrawRay(origin, transform.forward * sense, nearest < float.MaxValue ? Color.red : Color.green); }

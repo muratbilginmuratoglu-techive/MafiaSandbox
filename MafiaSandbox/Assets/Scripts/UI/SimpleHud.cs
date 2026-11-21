@@ -39,7 +39,7 @@ namespace MafiaSandbox.UI
                 var r = new Rect(12, 42, 470, 108); UiSkin.DrawPanel(r);
                 GUI.Label(new Rect(r.x + 12, r.y + 6, r.width - 24, r.height - 12),
                     "<b>Move</b> WASD   <b>Sprint</b> Shift   <b>Crouch</b> C   <b>Jump</b> Space   <b>View</b> V   <b>Home</b> R\n" +
-                    "<b>Weapons</b> 1–6   <b>Aim</b> RMB   <b>Fire / swing</b> LMB   <b>Emote</b> hold Tab   <b>Car</b> E\n" +
+                    "<b>Weapons</b> 1–8 (7 fists, 8 whip)   <b>Aim</b> RMB   <b>Fire / swing</b> LMB   <b>Emote</b> hold Tab   <b>Car</b> E\n" +
                     "<b>Take / buy / trade / search</b> F   <b>Steal</b> G   <b>Backpack</b> I   <b>Map</b> M\n" +
                     "<b>In a car</b> W/S gas · A/D steer · Space handbrake", UiSkin.LabelDim);
             }
@@ -59,13 +59,13 @@ namespace MafiaSandbox.UI
             // weapon strip (1–6)
             if (combat)
             {
-                float sx = px + 12, sy = py + 70, sw = (panel.width - 24 - 10) / 6f;
+                float sx = px + 12, sy = py + 70, sw = (panel.width - 24 - 10) / WeaponDef.Order.Length;
                 for (int i = 0; i < WeaponDef.Order.Length; i++)
                 {
                     var k = WeaponDef.Order[i]; bool cur = combat.Weapon.kind == k; bool own = combat.owned[i];
                     var rr = new Rect(sx + i * (sw + 2), sy, sw, 20);
                     GUI.color = cur ? new Color(UiSkin.Accent.r, UiSkin.Accent.g, UiSkin.Accent.b, 0.9f) : new Color(1f, 1f, 1f, own ? 0.08f : 0.03f); GUI.DrawTexture(rr, UiSkin.BarFillTex(), ScaleMode.StretchToFill, true, 0f, GUI.color, 0f, 4f); GUI.color = Color.white;
-                    var st = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 10 }; st.normal.textColor = cur ? new Color(0.1f, 0.08f, 0.02f) : own ? UiSkin.Text : new Color(1f, 1f, 1f, 0.3f);
+                    var st = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 9, clipping = TextClipping.Clip }; st.normal.textColor = cur ? new Color(0.1f, 0.08f, 0.02f) : own ? UiSkin.Text : new Color(1f, 1f, 1f, 0.3f);
                     GUI.Label(rr, $"{i + 1} {Short(k)}", st);
                 }
             }
@@ -141,7 +141,7 @@ namespace MafiaSandbox.UI
             }
         }
 
-        static string Short(WeaponKind k) => k == WeaponKind.Pistol ? "Pistol" : k == WeaponKind.Rifle ? "Rifle" : k == WeaponKind.Shotgun ? "Shotgun" : k == WeaponKind.Knife ? "Knife" : k == WeaponKind.Bat ? "Bat" : "Revolver";
+        static string Short(WeaponKind k) => k == WeaponKind.Pistol ? "Pistol" : k == WeaponKind.Rifle ? "Rifle" : k == WeaponKind.Shotgun ? "Shotg." : k == WeaponKind.Knife ? "Knife" : k == WeaponKind.Bat ? "Bat" : k == WeaponKind.Fists ? "Fists" : k == WeaponKind.Whip ? "Whip" : "Revol.";
 
         static void Prompt(float cx, float y, string text)
         {

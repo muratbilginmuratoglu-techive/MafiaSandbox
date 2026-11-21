@@ -27,6 +27,8 @@ namespace MafiaSandbox.Core
             clips["swing"] = Noise(0.18f, 0.5f, 0.02f, 0.14f, true);
             clips["stab"] = Noise(0.12f, 0.7f, 0.004f, 0.05f, false);
             clips["thud"] = Thud(0.2f, 90f);
+            clips["punch"] = Thud(0.12f, 150f);
+            clips["crack"] = Noise(0.06f, 1.0f, 0.0004f, 0.012f, false);
             clips["impact"] = Noise(0.08f, 0.6f, 0.002f, 0.03f, false);
             clips["ricochet"] = Tone(0.25f, 2400f, 0.5f);
             clips["bodyfall"] = Thud(0.35f, 55f);

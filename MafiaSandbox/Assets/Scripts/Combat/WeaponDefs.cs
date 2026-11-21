@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace MafiaSandbox.Combat
 {
-    public enum WeaponKind { Pistol, Revolver, Rifle, Shotgun, Knife, Bat }
+    public enum WeaponKind { Pistol, Revolver, Rifle, Shotgun, Knife, Bat, Fists, Whip }
 
     /// <summary>Weapon tuning, ported 1:1 from the HTML prototype (damage in "hits": a citizen has 3 hp).</summary>
     public class WeaponDef
@@ -35,8 +35,10 @@ namespace MafiaSandbox.Combat
             { WeaponKind.Shotgun,  new WeaponDef { kind = WeaponKind.Shotgun,  name = "Shotgun",       clipPrefix = "Shotgun", damage = 1, rof = 1.00f, auto = false, spreadDeg = 9.5f, pellets = 12, kick = 2.6f, aimFov = 50f, killRange = 14f, ejectsShells = false, noise = 40f } },
             { WeaponKind.Knife,    new WeaponDef { kind = WeaponKind.Knife,    name = "Knife",         clipPrefix = "Knife",   melee = true, damage = 2, rof = 0.45f, range = 1.5f, arcCos = 0.62f, hitAt = 0.30f, impulse = 2.5f, aimFov = 55f, noise = 6f } },
             { WeaponKind.Bat,      new WeaponDef { kind = WeaponKind.Bat,      name = "Baseball bat",  clipPrefix = "Bat",     melee = true, damage = 2, rof = 0.85f, range = 2.1f, arcCos = 0.45f, hitAt = 0.42f, impulse = 6.5f, headKill = true, aimFov = 55f, noise = 10f } },
+            { WeaponKind.Fists,    new WeaponDef { kind = WeaponKind.Fists,    name = "Fists",         clipPrefix = "Knife",   melee = true, damage = 1, rof = 0.38f, range = 1.35f, arcCos = 0.6f, hitAt = 0.18f, impulse = 1.6f, aimFov = 55f, noise = 4f } },
+            { WeaponKind.Whip,     new WeaponDef { kind = WeaponKind.Whip,     name = "Whip",          clipPrefix = "Bat",     melee = true, damage = 1, rof = 0.75f, range = 3.6f, arcCos = 0.8f, hitAt = 0.36f, impulse = 1.2f, aimFov = 55f, noise = 16f } },
         };
 
-        public static readonly WeaponKind[] Order = { WeaponKind.Pistol, WeaponKind.Rifle, WeaponKind.Shotgun, WeaponKind.Knife, WeaponKind.Bat, WeaponKind.Revolver }; // keys 1..6
+        public static readonly WeaponKind[] Order = { WeaponKind.Pistol, WeaponKind.Rifle, WeaponKind.Shotgun, WeaponKind.Knife, WeaponKind.Bat, WeaponKind.Revolver, WeaponKind.Fists, WeaponKind.Whip }; // keys 1..8
     }
 }
